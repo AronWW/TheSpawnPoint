@@ -41,12 +41,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     protected Principal determineUser(ServerHttpRequest request,
                                                       WebSocketHandler wsHandler,
                                                       Map<String, Object> attributes) {
-                        // If handshake interceptor already authenticated via cookie
                         String email = (String) attributes.get("email");
                         if (email != null) {
                             return () -> email;
                         }
-                        // Otherwise, return null — STOMP CONNECT interceptor will authenticate
                         return null;
                     }
                 });

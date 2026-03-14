@@ -2,12 +2,12 @@ package com.thespawnpoint.backend.service;
 
 import com.thespawnpoint.backend.dto.ProfileDTO;
 import com.thespawnpoint.backend.dto.UpdateProfileDTO;
-import com.thespawnpoint.backend.entity.user.*;
 import com.thespawnpoint.backend.entity.party.PartyMember;
 import com.thespawnpoint.backend.entity.party.PartyStatus;
+import com.thespawnpoint.backend.entity.user.*;
 import com.thespawnpoint.backend.exception.ApiException;
-import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.PartyMemberRepository;
+import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,14 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,12 +26,10 @@ public class ProfileService {
     private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final PartyMemberRepository partyMemberRepository;
-
-    @Value("${app.upload.dir:uploads/avatars}")
-    private String uploadDir;
+    private final CloudinaryImageService cloudinaryImageService;
 
     @Value("${app.upload.max-size:2097152}")
-    private long maxFileSize; // 2 MB default
+    private long maxFileSize;
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg", "image/png", "image/webp", "image/gif"
@@ -70,7 +62,7 @@ public class ProfileService {
         Profile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Profile not found"));
 
-        if (profile.getUser().getRole() == com.thespawnpoint.backend.entity.user.Role.ADMIN) {
+        if (profile.getUser().getRole() == Role.ADMIN) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Profile not found");
         }
 
@@ -93,16 +85,16 @@ public class ProfileService {
             }
         }
 
-        if (dto.getFullName() != null)   profile.setFullName(dto.getFullName());
-        if (dto.getBio() != null)        profile.setBio(dto.getBio());
-        if (dto.getBirthDate() != null)  profile.setBirthDate(dto.getBirthDate());
-        if (dto.getCountry() != null)    profile.setCountry(dto.getCountry());
-        if (dto.getDiscord() != null)    profile.setDiscord(dto.getDiscord().isBlank() ? null : dto.getDiscord().trim());
-        if (dto.getSteam() != null)      profile.setSteam(dto.getSteam().isBlank() ? null : dto.getSteam().trim());
-        if (dto.getTwitch() != null)     profile.setTwitch(dto.getTwitch().isBlank() ? null : dto.getTwitch().trim());
-        if (dto.getXbox() != null)       profile.setXbox(dto.getXbox().isBlank() ? null : dto.getXbox().trim());
+        if (dto.getFullName() != null) profile.setFullName(dto.getFullName());
+        if (dto.getBio() != null) profile.setBio(dto.getBio());
+        if (dto.getBirthDate() != null) profile.setBirthDate(dto.getBirthDate());
+        if (dto.getCountry() != null) profile.setCountry(dto.getCountry());
+        if (dto.getDiscord() != null) profile.setDiscord(dto.getDiscord().isBlank() ? null : dto.getDiscord().trim());
+        if (dto.getSteam() != null) profile.setSteam(dto.getSteam().isBlank() ? null : dto.getSteam().trim());
+        if (dto.getTwitch() != null) profile.setTwitch(dto.getTwitch().isBlank() ? null : dto.getTwitch().trim());
+        if (dto.getXbox() != null) profile.setXbox(dto.getXbox().isBlank() ? null : dto.getXbox().trim());
         if (dto.getPlaystation() != null) profile.setPlaystation(dto.getPlaystation().isBlank() ? null : dto.getPlaystation().trim());
-        if (dto.getNintendo() != null)   profile.setNintendo(dto.getNintendo().isBlank() ? null : dto.getNintendo().trim());
+        if (dto.getNintendo() != null) profile.setNintendo(dto.getNintendo().isBlank() ? null : dto.getNintendo().trim());
 
         if (dto.getPlatforms() != null) {
             validatePlatforms(dto.getPlatforms());
@@ -152,30 +144,27 @@ public class ProfileService {
         if (file.getSize() > maxFileSize) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "File size exceeds 2 MB limit");
         }
-        if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Only JPEG, PNG, WebP and GIF are allowed");
         }
 
         Profile profile = profileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Profile not found"));
 
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            Files.createDirectories(uploadPath);
-
-            String ext = getExtension(file.getOriginalFilename());
-            String filename = UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            profile.setAvatarUrl("/avatars/" + filename);
-            profileRepository.save(profile);
-
-            return toDTO(profile, user);
-        } catch (IOException e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to save avatar");
+        if (profile.getAvatarPublicId() != null && !profile.getAvatarPublicId().isBlank()) {
+            cloudinaryImageService.deleteAvatar(profile.getAvatarPublicId());
         }
+
+        CloudinaryImageService.UploadResult uploadResult =
+                cloudinaryImageService.uploadAvatar(file, user.getId());
+
+        profile.setAvatarUrl(uploadResult.secureUrl());
+        profile.setAvatarPublicId(uploadResult.publicId());
+        profileRepository.save(profile);
+
+        return toDTO(profile, user);
     }
 
     @Transactional
@@ -188,7 +177,12 @@ public class ProfileService {
         Profile profile = profileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Profile not found"));
 
+        if (profile.getAvatarPublicId() != null && !profile.getAvatarPublicId().isBlank()) {
+            cloudinaryImageService.deleteAvatar(profile.getAvatarPublicId());
+        }
+
         profile.setAvatarUrl(DEFAULT_AVATARS.get(index - 1));
+        profile.setAvatarPublicId(null);
         profileRepository.save(profile);
 
         return toDTO(profile, user);
@@ -248,7 +242,7 @@ public class ProfileService {
         return "ONLINE";
     }
 
-    private void validateLanguages(java.util.List<String> languages) {
+    private void validateLanguages(List<String> languages) {
         for (String lang : languages) {
             try {
                 Language.valueOf(lang.toUpperCase());
@@ -277,11 +271,5 @@ public class ProfileService {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Invalid " + fieldName + ": " + value);
         }
-    }
-
-    private String getExtension(String filename) {
-        if (filename == null) return ".jpg";
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : ".jpg";
     }
 }
