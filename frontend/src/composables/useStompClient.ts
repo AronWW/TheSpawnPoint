@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 import { Client, type IMessage } from '@stomp/stompjs'
-
-const WS_URL = 'ws://localhost:8080/ws'
+import { WS_URL } from '../config'
 
 let client: Client | null = null
 const connected = ref(false)
@@ -9,7 +8,10 @@ const connected = ref(false)
 const activeSubs = new Map<string, { id: string; unsub: () => void }>()
 
 let nextCbId = 0
-interface CbEntry { cbId: number; callback: (msg: IMessage) => void }
+interface CbEntry {
+  cbId: number
+  callback: (msg: IMessage) => void
+}
 const pendingCallbacks = new Map<string, CbEntry[]>()
 
 function makeDispatcher(destination: string): (msg: IMessage) => void {
@@ -17,7 +19,11 @@ function makeDispatcher(destination: string): (msg: IMessage) => void {
     const entries = pendingCallbacks.get(destination)
     if (entries) {
       for (const entry of entries) {
-        try { entry.callback(msg) } catch {  }
+        try {
+          entry.callback(msg)
+        } catch {
+          //
+        }
       }
     }
   }
@@ -26,8 +32,12 @@ function makeDispatcher(destination: string): (msg: IMessage) => void {
 function subscribeOnServer(destination: string) {
   if (!client || !client.connected) return
   if (activeSubs.has(destination)) return
+
   const sub = client.subscribe(destination, makeDispatcher(destination))
-  activeSubs.set(destination, { id: sub.id, unsub: () => sub.unsubscribe() })
+  activeSubs.set(destination, {
+    id: sub.id,
+    unsub: () => sub.unsubscribe(),
+  })
 }
 
 function unsubscribeOnServer(destination: string) {
@@ -69,6 +79,7 @@ function getOrCreateClient(): Client {
       },
     })
   }
+
   return client
 }
 
