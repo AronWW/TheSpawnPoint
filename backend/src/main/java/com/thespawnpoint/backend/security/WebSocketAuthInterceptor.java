@@ -1,5 +1,7 @@
 package com.thespawnpoint.backend.security;
 
+import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +14,8 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 
+import org.springframework.http.HttpStatus;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -19,6 +23,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
+
+    private static final String BANNED_ERROR_CODE = "BANNED";
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
@@ -38,6 +44,9 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 if ("access".equals(type)) {
                     String email = jwtUtil.extractEmail(token);
                     userRepository.findByEmail(email).ifPresent(user -> {
+                        if (user.isBanned()) {
+                            throw new ApiException(HttpStatus.FORBIDDEN, "Користувач заблокований", BANNED_ERROR_CODE);
+                        }
                         if (user.isEmailVerified()) {
                             UsernamePasswordAuthenticationToken auth =
                                     new UsernamePasswordAuthenticationToken(
@@ -52,10 +61,23 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 log.warn("WebSocket CONNECT rejected: invalid or missing token and no handshake auth");
             } else {
                 log.debug("WebSocket CONNECT: no STOMP token, using handshake auth for user {}", accessor.getUser().getName());
+                enforceNotBanned(accessor.getUser().getName());
+            }
+        } else if (StompCommand.SEND.equals(accessor.getCommand()) || StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            if (accessor.getUser() != null) {
+                enforceNotBanned(accessor.getUser().getName());
             }
         }
 
         return message;
+    }
+
+    private void enforceNotBanned(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (user.isBanned()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Користувач заблокований", BANNED_ERROR_CODE);
+        }
     }
 
     private String extractToken(StompHeaderAccessor accessor) {

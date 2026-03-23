@@ -152,9 +152,9 @@ export function useGlobalWebSocket() {
   }
 
   const stopWatcher = watch(
-    () => auth.isLoggedIn,
-    (loggedIn) => {
-      if (loggedIn) {
+    () => ({ loggedIn: auth.isLoggedIn, banned: auth.user?.banned === true }),
+    ({ loggedIn, banned }) => {
+      if (loggedIn && !banned) {
         connectAndSubscribe()
       } else {
         disconnectAndCleanup()

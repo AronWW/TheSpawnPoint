@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import TheNavbar from './components/TheNavbar.vue'
 import TheFooter from './components/TheFooter.vue'
@@ -15,8 +15,19 @@ const route = useRoute()
 const showLayout = computed(() => !route.meta.hideNavbar)
 const isBanned = computed(() => auth.user?.banned === true)
 
+async function handleBannedEvent(event: Event) {
+  const detail = (event as CustomEvent<{ banReason?: string | null }>).detail
+  auth.markBanned(detail?.banReason ?? auth.user?.banReason ?? null)
+  await auth.refreshUser()
+}
+
 onMounted(() => {
   auth.init()
+  window.addEventListener('auth:banned', handleBannedEvent)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('auth:banned', handleBannedEvent)
 })
 
 useGlobalWebSocket()

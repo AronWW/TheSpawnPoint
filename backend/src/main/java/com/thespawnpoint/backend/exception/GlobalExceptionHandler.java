@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -17,9 +18,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, String>> handle(ApiException ex) {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        if (ex.getErrorCode() != null && !ex.getErrorCode().isBlank()) {
+            body.put("errorCode", ex.getErrorCode());
+        }
         return ResponseEntity
                 .status(ex.getStatus())
-                .body(Map.of("message", ex.getMessage()));
+                .body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

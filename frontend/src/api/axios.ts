@@ -13,8 +13,15 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const original = error.config
+        const status = error.response?.status
+        const errorCode = error.response?.data?.errorCode
 
-        if (error.response?.status === 401 && !original._retry) {
+        if (status === 403 && errorCode === 'BANNED') {
+            window.dispatchEvent(new CustomEvent('auth:banned', { detail: error.response?.data }))
+            return Promise.reject(error)
+        }
+
+        if (status === 401 && !original._retry) {
             original._retry = true
 
             try {

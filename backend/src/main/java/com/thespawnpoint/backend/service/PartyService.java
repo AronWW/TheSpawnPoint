@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -402,6 +403,47 @@ public class PartyService {
             int count = partyMemberRepository.countByPartyRequestId(p.getId());
             return toListDTO(p, count);
         });
+    }
+
+    @Transactional
+    public void removeUserFromActivePartiesDueToBan(Long userId) {
+        List<PartyMember> memberships = partyMemberRepository.findActivePartiesByUserId(userId);
+        Set<Long> processedPartyIds = new HashSet<>();
+
+        for (PartyMember membership : memberships) {
+            PartyRequest party = membership.getPartyRequest();
+            Long partyId = party.getId();
+            if (!processedPartyIds.add(partyId)) {
+                continue;
+            }
+
+            if (!partyMemberRepository.existsByPartyRequestIdAndUserId(partyId, userId)) {
+                continue;
+            }
+
+            partyMemberRepository.deleteByPartyRequestIdAndUserId(partyId, userId);
+            List<PartyMember> remaining = partyMemberRepository.findByPartyRequestIdOrderByJoinedAtAsc(partyId);
+
+            if (remaining.isEmpty()) {
+                party.setStatus(PartyStatus.CANCELLED);
+                party.setIsOpen(false);
+                partyRequestRepository.save(party);
+                broadcastPartyUpdate(partyId);
+                continue;
+            }
+
+            if (party.getCreator().getId().equals(userId)) {
+                party.setCreator(remaining.get(0).getUser());
+            }
+
+            if (party.getStatus() == PartyStatus.FULL && remaining.size() < party.getMaxMembers()) {
+                party.setStatus(PartyStatus.OPEN);
+                party.setIsOpen(true);
+            }
+
+            partyRequestRepository.save(party);
+            broadcastPartyUpdate(partyId);
+        }
     }
 
     @Scheduled(fixedRate = 300_000)

@@ -25,6 +25,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function refreshUser() {
+    await fetchMe()
+  }
+
+  function markBanned(reason?: string | null) {
+    if (!user.value) return
+    user.value = {
+      ...user.value,
+      banned: true,
+      banReason: reason ?? user.value.banReason ?? null,
+    }
+  }
+
   function init() {
     if (!_initPromise) {
       _initPromise = fetchMe()
@@ -75,7 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user, loading, isLoggedIn, displayName, initialized,
     fetchMe, init, login, register, verifyEmail, resendVerification,
-    forgotPassword, resetPassword, logout,
+    forgotPassword, resetPassword, logout, refreshUser, markBanned,
   }
 })
 

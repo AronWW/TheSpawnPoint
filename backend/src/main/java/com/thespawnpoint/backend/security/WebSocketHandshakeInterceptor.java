@@ -39,7 +39,7 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
                         && "access".equals(jwtUtil.extractType(token))) {
                     String email = jwtUtil.extractEmail(token);
                     userRepository.findByEmail(email).ifPresent(user -> {
-                        if (user.isEmailVerified()) {
+                        if (user.isEmailVerified() && !user.isBanned()) {
                             attributes.put("email", email);
                             log.debug("WebSocket handshake authorized: {}", email);
                         }
@@ -48,7 +48,6 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
             }
         }
 
-        // Always allow handshake — STOMP-level auth interceptor will authenticate on CONNECT
         if (!attributes.containsKey("email")) {
             log.debug("WebSocket handshake: no cookie auth, will rely on STOMP CONNECT auth");
         }

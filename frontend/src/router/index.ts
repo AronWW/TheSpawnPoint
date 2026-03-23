@@ -70,6 +70,10 @@ router.beforeEach(async (to) => {
     return { name: 'home' }
   }
 
+  if (auth.user?.banned && to.name !== 'home') {
+    return { name: 'home' }
+  }
+
   if (auth.user?.role === 'ADMIN' && ADMIN_BLOCKED_ROUTES.has(to.name as string)) {
     return { name: 'admin-dashboard' }
   }

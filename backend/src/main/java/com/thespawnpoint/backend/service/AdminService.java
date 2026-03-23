@@ -32,6 +32,7 @@ public class AdminService {
     private final UserReportRepository userReportRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final UnbanRequestRepository unbanRequestRepository;
+    private final PartyService partyService;
 
     public AdminDashboardDTO getDashboard() {
         return AdminDashboardDTO.builder()
@@ -78,6 +79,8 @@ public class AdminService {
         user.setBanReason(reason);
         user.setBannedAt(Instant.now());
         userRepository.save(user);
+
+        partyService.removeUserFromActivePartiesDueToBan(user.getId());
 
 
         return toAdminUserDTO(user);
