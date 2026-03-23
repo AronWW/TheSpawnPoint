@@ -8,7 +8,7 @@ import { useFriendStore } from '../stores/friends'
 import { usePartyStore } from '../stores/parties'
 import { useGameStore } from '../stores/games'
 import { notificationIcon, timeAgo } from '../utils/helpers'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,9 +27,9 @@ const mobileMenuOpen = ref(false)
 
 const avatarSrc = computed(() => {
   const url = auth.user?.avatarUrl
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 })
 
 const profileLink = computed(() =>

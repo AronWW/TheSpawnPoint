@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile, Game, UserStats, ProfileComment } from '../types'
 import { skillLabel, gameEmoji, timeAgo } from '../utils/helpers'
@@ -120,9 +120,9 @@ const SOCIALS: SocialConfig[] = [
 ]
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 function formatHours(hours: number): string {

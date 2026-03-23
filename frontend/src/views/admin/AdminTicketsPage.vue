@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useAdminStore } from '../../stores/admin'
-import { API_BASE_URL } from '../../config'
+import { PUBLIC_BASE_URL } from '../../config'
 
 const admin = useAdminStore()
 const page = ref(0)
@@ -45,7 +45,7 @@ async function closeTicket() {
 function resolveAvatar(url: string | null): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 function getPageData() {

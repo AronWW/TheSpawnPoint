@@ -20,6 +20,7 @@ public class BanAccessFilter extends OncePerRequestFilter {
     private static final String BANNED_ERROR_CODE = "BANNED";
     private static final String AUTH_PREFIX = "/api/auth";
     private static final String UNBAN_PREFIX = "/api/unban-requests";
+    private static final String AVATAR_PREFIX = "/avatars/";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -73,6 +74,10 @@ public class BanAccessFilter extends OncePerRequestFilter {
         }
 
         if (path.equals(AUTH_PREFIX + "/logout") && HttpMethod.POST.matches(request.getMethod())) {
+            return true;
+        }
+
+        if (path.startsWith(AVATAR_PREFIX) && HttpMethod.GET.matches(request.getMethod())) {
             return true;
         }
 

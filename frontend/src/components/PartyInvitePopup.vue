@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePartyStore } from '../stores/parties'
 import { useNotificationStore } from '../stores/notifications'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 
 const router = useRouter()
 const partyStore = usePartyStore()
@@ -12,9 +12,9 @@ const notifStore = useNotificationStore()
 const invite = computed(() => partyStore.pendingInvite)
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 async function accept() {

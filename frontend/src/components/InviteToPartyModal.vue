@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useFriendStore } from '../stores/friends'
 import { usePartyStore } from '../stores/parties'
 import api from '../api/axios'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 
 const props = defineProps<{
   visible: boolean
@@ -27,9 +27,9 @@ const errorMsg = ref('')
 const successMsg = ref('')
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 const pendingInviteUserIds = computed(() =>

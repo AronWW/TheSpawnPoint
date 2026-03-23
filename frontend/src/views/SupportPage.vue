@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useSupportStore } from '../stores/support'
 import { useAuthStore } from '../stores/auth'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 
 const support = useSupportStore()
 const auth = useAuthStore()
@@ -48,7 +48,7 @@ async function createTicket() {
 function resolveAvatar(url: string | null): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 const STATUS_LABELS: Record<string, string> = {

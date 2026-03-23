@@ -9,7 +9,7 @@ import InviteToPartyModal from '../components/InviteToPartyModal.vue'
 import PartyMiniChat from '../components/PartyMiniChat.vue'
 import type { Party } from '../types'
 import { skillLabel, timeAgo, gameEmoji } from '../utils/helpers'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 
 const route = useRoute()
 const router = useRouter()
@@ -45,9 +45,9 @@ function unsubscribeFromParty() {
 }
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 const isCreator = computed(() =>

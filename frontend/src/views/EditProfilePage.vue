@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile } from '../types'
 import { ALL_COUNTRIES } from '../utils/countries'
@@ -124,9 +124,9 @@ const ALL_LANGUAGES = [
 
 const resolvedAvatar = computed(() => {
   const url = currentAvatarUrl.value
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 })
 
 const displayNameError = computed(() => {
@@ -324,7 +324,7 @@ function toggleLanguage(code: string) {
 }
 
 function resolveDefaultAvatar(url: string) {
-  return url.startsWith('http') ? url : API_BASE_URL + url
+  return url.startsWith('http') ? url : PUBLIC_BASE_URL + url
 }
 </script>
 
@@ -616,7 +616,6 @@ function resolveDefaultAvatar(url: string) {
   background: var(--black);
 }
 
-/* ── HEADER AREA ── */
 .edit-container {
   max-width: 860px;
   margin: 0 auto;
@@ -648,7 +647,6 @@ function resolveDefaultAvatar(url: string) {
   gap: 16px;
 }
 
-/* ── PANELS — cinematic style matching .va-panel ── */
 .edit-section {
   background: var(--panel);
   border: 2px solid var(--border);
@@ -694,7 +692,6 @@ function resolveDefaultAvatar(url: string) {
   position: relative;
 }
 
-/* ── AVATAR ── */
 .avatar-current {
   display: flex;
   align-items: center;
@@ -794,7 +791,6 @@ function resolveDefaultAvatar(url: string) {
   cursor: not-allowed;
 }
 
-/* ── BANNER PICKER ── */
 .banner-hint {
   font-size: 12px;
   color: var(--gray);

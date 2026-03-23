@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
 import { timeAgo } from '../utils/helpers'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 
 const router = useRouter()
@@ -17,9 +17,9 @@ type Tab = 'friends' | 'incoming' | 'outgoing' | 'search'
 const activeTab = ref<Tab>('friends')
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 onMounted(async () => {

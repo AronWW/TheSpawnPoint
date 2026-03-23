@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useStompClient } from '../composables/useStompClient'
-import { API_BASE_URL } from '../config'
+import { PUBLIC_BASE_URL } from '../config'
 import type { ChatMessage } from '../types'
 
 const props = defineProps<{
@@ -41,9 +41,9 @@ const typingName = computed(() => chatStore.typingDisplayName(props.chatId))
 const participantsCount = computed(() => activeMiniChat.value?.participants?.length ?? 0)
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return API_BASE_URL + '/avatars/default/avatar-1.png'
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
   if (url.startsWith('http')) return url
-  return API_BASE_URL + url
+  return PUBLIC_BASE_URL + url
 }
 
 function formatTime(iso: string) {
