@@ -6,6 +6,7 @@ import { usePartyStore } from '../stores/parties'
 import { useChatStore } from '../stores/chat'
 import { useStompClient } from '../composables/useStompClient'
 import InviteToPartyModal from '../components/InviteToPartyModal.vue'
+import PartyMiniChat from '../components/PartyMiniChat.vue'
 import type { Party } from '../types'
 import { skillLabel, timeAgo, gameEmoji } from '../utils/helpers'
 import { API_BASE_URL } from '../config'
@@ -353,6 +354,15 @@ watch(() => route.params.id, () => {
           {{ actionError }}
         </div>
 
+        <div v-if="party.chatId" class="detail-section communication-section ink-panel">
+          <PartyMiniChat
+              :chat-id="party.chatId"
+              :title="party.title || party.gameName"
+              :is-member="isMember"
+              :is-logged-in="auth.isLoggedIn"
+          />
+        </div>
+
         <div class="detail-actions ink-panel">
           <div class="actions-row actions-primary">
             <button
@@ -409,7 +419,7 @@ watch(() => route.params.id, () => {
                 class="action-btn ghost"
                 @click="goToChat"
             >
-              <span class="action-icon">💬</span> ЧАТ
+              <span class="action-icon">💬</span> ПОВНИЙ ЧАТ
             </button>
 
             <button
@@ -441,7 +451,7 @@ watch(() => route.params.id, () => {
 
           <div v-if="!isActive && isMember && party.chatId" class="actions-row">
             <button class="action-btn ghost" @click="goToChat">
-              <span class="action-icon">💬</span> ПЕРЕГЛЯНУТИ ЧАТ
+              <span class="action-icon">💬</span> ПОВНИЙ ЧАТ
             </button>
           </div>
         </div>
@@ -650,6 +660,10 @@ watch(() => route.params.id, () => {
 
 .detail-section {
   padding: 24px 28px;
+}
+
+.communication-section {
+  overflow: hidden;
 }
 
 .section-label {
