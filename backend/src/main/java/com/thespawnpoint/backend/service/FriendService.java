@@ -3,6 +3,8 @@ package com.thespawnpoint.backend.service;
 import com.thespawnpoint.backend.dto.FriendDTO;
 import com.thespawnpoint.backend.dto.FriendRequestDTO;
 import com.thespawnpoint.backend.entity.social.*;
+import com.thespawnpoint.backend.entity.user.Profile;
+import com.thespawnpoint.backend.entity.user.Role;
 import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.*;
@@ -12,11 +14,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class FriendService {
+
+    private static final int MAX_FRIENDS = 50;
 
     private final FriendshipRepository friendshipRepository;
     private final InviteRepository inviteRepository;
@@ -65,6 +71,11 @@ public class FriendService {
     @Transactional
     public void acceptFriendRequest(User currentUser, Long inviteId) {
         Invite invite = getValidFriendInvite(inviteId, currentUser);
+
+        long currentFriends = friendshipRepository.countByUserId(currentUser.getId());
+        if (currentFriends >= MAX_FRIENDS) {
+            throw new ApiException(HttpStatus.CONFLICT, "Ви досягли ліміту друзів (50). Видаліть когось зі списку, щоб прийняти нову заявку.");
+        }
 
         invite.setStatus(InviteStatus.ACCEPTED);
         invite.setRespondedAt(Instant.now());
@@ -126,13 +137,20 @@ public class FriendService {
     }
 
     public List<FriendDTO> getFriends(User currentUser) {
-        return friendshipRepository.findAllByUserId(currentUser.getId()).stream()
-                .map(f -> {
-                    User friend = f.getUser1().getId().equals(currentUser.getId())
-                            ? f.getUser2() : f.getUser1();
-                    return toFriendDTO(friend, f.getFriendsSince());
-                })
-                .toList();
+        List<Friendship> friendships = friendshipRepository.findAllByUserId(currentUser.getId());
+        return toFriendDTOs(currentUser.getId(), friendships);
+    }
+
+    public List<FriendDTO> getFriendsByUserId(User currentUser, Long targetUserId) {
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (target.getRole() == Role.ADMIN) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        List<Friendship> friendships = friendshipRepository.findAllByUserId(targetUserId);
+        return toFriendDTOs(targetUserId, friendships);
     }
 
     public List<FriendRequestDTO> getIncomingRequests(User currentUser) {
@@ -170,10 +188,29 @@ public class FriendService {
         return invite;
     }
 
-    private FriendDTO toFriendDTO(User user, Instant friendsSince) {
-        String avatarUrl = profileRepository.findByUserId(user.getId())
-                .map(p -> p.getAvatarUrl())
-                .orElse(null);
+    private List<FriendDTO> toFriendDTOs(Long profileOwnerUserId, List<Friendship> friendships) {
+        List<User> friends = friendships.stream()
+                .map(f -> f.getUser1().getId().equals(profileOwnerUserId) ? f.getUser2() : f.getUser1())
+                .toList();
+
+        Map<Long, String> avatarByUserId = profileRepository.findAllByUserIdIn(
+                        friends.stream().map(User::getId).toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        p -> p.getUser().getId(),
+                        Profile::getAvatarUrl,
+                        (a, b) -> a
+                ));
+
+        return friendships.stream()
+                .map(f -> {
+                    User friend = f.getUser1().getId().equals(profileOwnerUserId) ? f.getUser2() : f.getUser1();
+                    return toFriendDTO(friend, f.getFriendsSince(), avatarByUserId.get(friend.getId()));
+                })
+                .toList();
+    }
+
+    private FriendDTO toFriendDTO(User user, Instant friendsSince, String avatarUrl) {
 
         return FriendDTO.builder()
                 .userId(user.getId())

@@ -24,6 +24,15 @@ export const useFriendStore = defineStore('friends', () => {
     }
   }
 
+  async function fetchFriendsByUserId(userId: number): Promise<Friend[]> {
+    try {
+      const { data } = await api.get<Friend[]>(`/friends/user/${userId}`)
+      return data
+    } catch {
+      return []
+    }
+  }
+
   async function fetchIncomingRequests() {
     try {
       const { data } = await api.get<FriendRequest[]>('/friends/requests/incoming')
@@ -83,6 +92,7 @@ export const useFriendStore = defineStore('friends', () => {
     friendCount,
     pendingCount,
     fetchFriends,
+    fetchFriendsByUserId,
     fetchIncomingRequests,
     fetchOutgoingRequests,
     sendRequest,

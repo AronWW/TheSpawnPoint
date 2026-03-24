@@ -23,6 +23,13 @@ public class FriendController {
         return ResponseEntity.ok(friendService.getFriends(currentUser));
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<FriendDTO>> getUserFriends(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(friendService.getFriendsByUserId(currentUser, userId));
+    }
+
     @GetMapping("/requests/incoming")
     public ResponseEntity<List<FriendRequestDTO>> getIncomingRequests(
             @AuthenticationPrincipal User currentUser) {

@@ -1,5 +1,8 @@
+  background: var(--yellow);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
@@ -15,6 +18,8 @@ const chatStore = useChatStore()
 
 type Tab = 'friends' | 'incoming' | 'outgoing' | 'search'
 const activeTab = ref<Tab>('friends')
+const FRIEND_LIMIT = 50
+const friendsLimitText = computed(() => `${friendStore.friendCount}/${FRIEND_LIMIT}`)
 
 function resolveAvatar(url: string | null): string {
   if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
@@ -46,6 +51,15 @@ function statusLabel(status: string): string {
 function statusClass(status: string): string {
   return status?.toLowerCase() ?? 'offline'
 }
+
+const sortedFriends = computed(() => {
+  const rank = (status: string) => (status === 'ONLINE' ? 0 : 1)
+  return [...friendStore.friends].sort((a, b) => {
+    const byStatus = rank(a.status) - rank(b.status)
+    if (byStatus !== 0) return byStatus
+    return a.displayName.localeCompare(b.displayName)
+  })
+})
 
 interface SearchResult {
   id: number
@@ -112,6 +126,7 @@ async function openDm(email: string) {
     <div class="friends-container">
       <div class="section-head">
         <div class="section-title">ДРУЗІ</div>
+        <div class="friends-limit">{{ friendsLimitText }}</div>
       </div>
 
       <div class="friends-tabs">
@@ -157,8 +172,8 @@ async function openDm(email: string) {
           <h3>Друзів поки немає</h3>
           <p>Знайди гравців у лобі та надішли запит у друзі!</p>
         </div>
-        <div v-else class="friend-cards">
-          <div v-for="friend in friendStore.friends" :key="friend.userId" class="friend-card ink-panel">
+        <div v-else class="friend-cards friends-cards-grid">
+          <div v-for="friend in sortedFriends" :key="friend.userId" class="friend-card friend-card-grid ink-panel">
             <router-link :to="'/profile/' + friend.userId" class="friend-avatar-link">
               <img :src="resolveAvatar(friend.avatarUrl)" :alt="friend.displayName" class="friend-avatar" />
               <span class="status-dot" :class="statusClass(friend.status)"></span>
@@ -282,14 +297,34 @@ async function openDm(email: string) {
 }
 
 .friends-container {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 40px 32px;
+  padding: 40px 64px 80px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.friends-limit {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: var(--gray-light);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 4px 10px;
 }
 
 
 .friends-tabs {
   display: flex;
+  gap: 6px;
   gap: 4px;
   margin-bottom: 24px;
   border-bottom: 2px solid var(--border);
@@ -297,12 +332,18 @@ async function openDm(email: string) {
 }
 
 .friends-tab {
+  font-family: var(--font-display);
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gray-light);
+  padding: 9px 16px;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  margin-bottom: -2px;
+  transition: all 0.15s;
   padding: 10px 20px;
   background: none;
   border: none;
@@ -315,8 +356,10 @@ async function openDm(email: string) {
 }
 .friends-tab:hover {
   color: var(--yellow);
+  background: var(--yellow-glow);
 }
 .friends-tab.active {
+  color: var(--black);
   color: var(--yellow);
   border-bottom-color: var(--yellow);
 }
@@ -337,6 +380,33 @@ async function openDm(email: string) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.friends-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.friend-card-grid {
+  align-items: flex-start;
+  min-height: 100%;
+}
+
+.friend-card-grid .friend-actions {
+  margin-left: auto;
+}
+
+@media (max-width: 1080px) {
+  .friends-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .friends-cards-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .friend-card {

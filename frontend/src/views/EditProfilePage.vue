@@ -6,6 +6,7 @@ import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile } from '../types'
 import { ALL_COUNTRIES } from '../utils/countries'
+import { validateAndNormalizeSocial, type SocialField } from '../utils/socialValidation'
 import { useToast } from '../composables/useToast'
 
 const router = useRouter()
@@ -138,6 +139,19 @@ const displayNameError = computed(() => {
   return ''
 })
 
+const SOCIAL_FIELDS: SocialField[] = ['discord', 'steam', 'twitch', 'xbox', 'playstation', 'nintendo']
+
+const socialErrors = computed<Record<SocialField, string>>(() => ({
+  discord: validateAndNormalizeSocial('discord', form.value.discord).error,
+  steam: validateAndNormalizeSocial('steam', form.value.steam).error,
+  twitch: validateAndNormalizeSocial('twitch', form.value.twitch).error,
+  xbox: validateAndNormalizeSocial('xbox', form.value.xbox).error,
+  playstation: validateAndNormalizeSocial('playstation', form.value.playstation).error,
+  nintendo: validateAndNormalizeSocial('nintendo', form.value.nintendo).error,
+}))
+
+const hasSocialErrors = computed(() => SOCIAL_FIELDS.some((field) => !!socialErrors.value[field]))
+
 const filteredLanguages = computed(() => {
   const q = langSearch.value.toLowerCase()
   return ALL_LANGUAGES.filter(
@@ -236,11 +250,23 @@ onMounted(async () => {
 })
 
 async function saveProfile() {
-  if (displayNameError.value) return
+  if (displayNameError.value || hasSocialErrors.value) {
+    error.value = 'Перевір поля соцмереж: знайдено невалідні значення.'
+    return
+  }
   saving.value = true
   error.value = ''
   success.value = ''
   try {
+    const normalizedSocials = {
+      discord: validateAndNormalizeSocial('discord', form.value.discord).normalized,
+      steam: validateAndNormalizeSocial('steam', form.value.steam).normalized,
+      twitch: validateAndNormalizeSocial('twitch', form.value.twitch).normalized,
+      xbox: validateAndNormalizeSocial('xbox', form.value.xbox).normalized,
+      playstation: validateAndNormalizeSocial('playstation', form.value.playstation).normalized,
+      nintendo: validateAndNormalizeSocial('nintendo', form.value.nintendo).normalized,
+    }
+
     const body = {
       displayName:  form.value.displayName.trim() || null,
       fullName:     form.value.fullName || null,
@@ -252,12 +278,13 @@ async function saveProfile() {
       languages:    form.value.languages,
       country:      form.value.country || null,
       region:       form.value.region || null,
-      discord:      form.value.discord || null,
-      steam:        form.value.steam || null,
-      twitch:       form.value.twitch || null,
-      xbox:         form.value.xbox || null,
-      playstation:  form.value.playstation || null,
-      nintendo:     form.value.nintendo || null,
+      // Send normalized values; empty string still clears the field on backend.
+      discord:      normalizedSocials.discord,
+      steam:        normalizedSocials.steam,
+      twitch:       normalizedSocials.twitch,
+      xbox:         normalizedSocials.xbox,
+      playstation:  normalizedSocials.playstation,
+      nintendo:     normalizedSocials.nintendo,
       bannerUrl:    form.value.bannerUrl,
     }
     const { data } = await api.put<Profile>('/profile/me', body)
@@ -561,34 +588,40 @@ function resolveDefaultAvatar(url: string) {
           <div class="form-row">
             <div class="form-group">
               <label class="form-label"><span class="social-icon">🎮</span> Discord</label>
-              <input v-model="form.discord" type="text" class="form-input" maxlength="100" placeholder="username або user#1234" />
+              <input v-model="form.discord" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.discord }" maxlength="100" placeholder="username або user#1234" />
+              <div v-if="socialErrors.discord" class="field-error">{{ socialErrors.discord }}</div>
               <div class="field-hint">Нік — інші зможуть скопіювати</div>
             </div>
             <div class="form-group">
               <label class="form-label"><span class="social-icon">📺</span> Twitch</label>
-              <input v-model="form.twitch" type="text" class="form-input" maxlength="200" placeholder="https://twitch.tv/yourname" />
+              <input v-model="form.twitch" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.twitch }" maxlength="200" placeholder="https://twitch.tv/yourname" />
+              <div v-if="socialErrors.twitch" class="field-error">{{ socialErrors.twitch }}</div>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label"><span class="social-icon">🕹️</span> Steam</label>
-            <input v-model="form.steam" type="text" class="form-input" maxlength="200" placeholder="https://steamcommunity.com/id/yourname" />
+            <input v-model="form.steam" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.steam }" maxlength="200" placeholder="https://steamcommunity.com/id/yourname" />
+            <div v-if="socialErrors.steam" class="field-error">{{ socialErrors.steam }}</div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label"><span class="social-icon">🟢</span> Xbox Gamertag</label>
-              <input v-model="form.xbox" type="text" class="form-input" maxlength="200" placeholder="YourGamertag" />
+              <input v-model="form.xbox" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.xbox }" maxlength="200" placeholder="YourGamertag" />
+              <div v-if="socialErrors.xbox" class="field-error">{{ socialErrors.xbox }}</div>
             </div>
             <div class="form-group">
               <label class="form-label"><span class="social-icon">🔵</span> PlayStation ID</label>
-              <input v-model="form.playstation" type="text" class="form-input" maxlength="200" placeholder="YourPSN_ID" />
+              <input v-model="form.playstation" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.playstation }" maxlength="200" placeholder="YourPSN_ID" />
+              <div v-if="socialErrors.playstation" class="field-error">{{ socialErrors.playstation }}</div>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label"><span class="social-icon">🔴</span> Nintendo Friend Code</label>
-            <input v-model="form.nintendo" type="text" class="form-input" maxlength="200" placeholder="SW-XXXX-XXXX-XXXX" />
+            <input v-model="form.nintendo" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.nintendo }" maxlength="200" placeholder="SW-XXXX-XXXX-XXXX" />
+            <div v-if="socialErrors.nintendo" class="field-error">{{ socialErrors.nintendo }}</div>
             <div class="field-hint">Код друга — інші зможуть скопіювати</div>
           </div>
         </div>
@@ -598,7 +631,7 @@ function resolveDefaultAvatar(url: string) {
           <div v-if="success" class="field-success">{{ success }}</div>
           <div class="edit-actions-row">
             <router-link v-if="auth.user" :to="`/profile/${auth.user.id}`" class="cancel-btn">СКАСУВАТИ</router-link>
-            <button class="save-btn" :disabled="saving || !!displayNameError" @click="saveProfile">
+            <button class="save-btn" :disabled="saving || !!displayNameError || hasSocialErrors" @click="saveProfile">
               {{ saving ? 'ЗБЕРЕЖЕННЯ...' : 'ЗБЕРЕГТИ' }}
             </button>
           </div>
@@ -636,7 +669,7 @@ function resolveDefaultAvatar(url: string) {
   position: absolute;
   bottom: 16px;
   left: 0;
-  width: 80px;
+  width: 650px;
   height: 2px;
   background: linear-gradient(90deg, var(--yellow), transparent);
 }

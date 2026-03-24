@@ -6,9 +6,10 @@ import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
-import type { Profile, Game, UserStats, ProfileComment } from '../types'
+import type { Profile, Game, UserStats, ProfileComment, Friend } from '../types'
 import { skillLabel, gameEmoji, timeAgo } from '../utils/helpers'
 import { ALL_COUNTRIES } from '../utils/countries'
+import ProfileFriendsModal from '../components/ProfileFriendsModal.vue'
 import ReportUserModal from '../components/ReportUserModal.vue'
 
 const route = useRoute()
@@ -32,6 +33,8 @@ const loading = ref(false)
 const error = ref('')
 const addingFriend = ref(false)
 const showReport = ref(false)
+const showFriendsModal = ref(false)
+const profileFriends = ref<Friend[]>([])
 const showGamesCount = ref(6)
 
 const bannerStyle = computed(() => {
@@ -72,6 +75,42 @@ interface SocialConfig {
   copyable?: boolean
 }
 
+function parseSteamValue(raw: string): { type: 'id' | 'profiles'; value: string } | null {
+  const value = raw.trim()
+  if (!value) return null
+
+  const steamPathMatch = value.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/(id|profiles)\/([^/?#]+)\/?/i)
+  if (steamPathMatch) {
+    const typeRaw = steamPathMatch[1]
+    const parsedRaw = steamPathMatch[2]
+    if (!typeRaw || !parsedRaw) return null
+
+    const type = typeRaw.toLowerCase() as 'id' | 'profiles'
+    const parsedValue = decodeURIComponent(parsedRaw).trim()
+    return parsedValue ? { type, value: parsedValue } : null
+  }
+
+  if (/^\d{15,20}$/.test(value)) {
+    return { type: 'profiles', value }
+  }
+
+  return { type: 'id', value }
+}
+
+function buildSteamUrl(raw: string): string {
+  const parsed = parseSteamValue(raw)
+  if (!parsed) return ''
+
+  const encodedValue = encodeURIComponent(parsed.value)
+  return `https://steamcommunity.com/${parsed.type}/${encodedValue}`
+}
+
+function displaySteamValue(raw: string): string {
+  const parsed = parseSteamValue(raw)
+  if (!parsed) return ''
+  return parsed.type === 'profiles' ? `${parsed.value}` : parsed.value
+}
+
 const SOCIALS: SocialConfig[] = [
   {
     key: 'discord',
@@ -85,29 +124,62 @@ const SOCIALS: SocialConfig[] = [
     key: 'steam',
     label: 'Steam',
     color: '#1b2838',
-    buildUrl: (v) => v.startsWith('http') ? v : `https://steamcommunity.com/id/${v}`,
-    displayVal: (v) => v.replace(/https?:\/\/(www\.)?steamcommunity\.com\/(id\/|profiles\/)?/, '').replace(/\/$/, ''),
+    buildUrl: (v) => buildSteamUrl(v),
+    displayVal: (v) => displaySteamValue(v),
   },
   {
     key: 'twitch',
     label: 'Twitch',
     color: '#9146FF',
-    buildUrl: (v) => v.startsWith('http') ? v : `https://twitch.tv/${v}`,
+    buildUrl: (v) => {
+      const raw = v.trim()
+      const match = raw.match(/^(?:https?:\/\/)?(?:www\.)?twitch\.tv\/([A-Za-z0-9_]{4,25})\/?$/i)
+      if (match?.[1]) return `https://twitch.tv/${match[1]}`
+      if (/^[A-Za-z0-9_]{4,25}$/.test(raw)) return `https://twitch.tv/${raw}`
+      return ''
+    },
     displayVal: (v) => v.replace(/https?:\/\/(www\.)?twitch\.tv\//, '').replace(/\/$/, ''),
   },
   {
     key: 'xbox',
     label: 'Xbox',
     color: '#107C10',
-    buildUrl: (v) => `https://account.xbox.com/en-us/profile?gamertag=${encodeURIComponent(v)}`,
-    displayVal: (v) => v,
+    buildUrl: (v) => {
+      const raw = v.trim()
+      const urlMatch = raw.match(/^https?:\/\/account\.xbox\.com(?:\/[A-Za-z]{2}-[A-Za-z]{2})?\/profile\?gamertag=([^\s&#?]+)/i)
+      if (urlMatch?.[1]) return `https://account.xbox.com/en-us/profile?gamertag=${urlMatch[1]}`
+      return `https://account.xbox.com/en-us/profile?gamertag=${encodeURIComponent(raw)}`
+    },
+    displayVal: (v) => {
+      const raw = v.trim()
+      const urlMatch = raw.match(/^https?:\/\/account\.xbox\.com(?:\/[A-Za-z]{2}-[A-Za-z]{2})?\/profile\?gamertag=([^\s&#?]+)/i)
+      return urlMatch?.[1] ? decodeURIComponent(urlMatch[1]) : raw
+    },
   },
   {
     key: 'playstation',
     label: 'PlayStation',
     color: '#003791',
-    buildUrl: (v) => `https://psnprofiles.com/${encodeURIComponent(v)}`,
-    displayVal: (v) => v,
+    buildUrl: (v) => {
+      const raw = v.trim()
+      const psnProfiles = raw.match(/^https?:\/\/(?:www\.)?psnprofiles\.com\/([^/?#]+)\/?/i)
+      if (psnProfiles?.[1]) return `https://psnprofiles.com/${encodeURIComponent(decodeURIComponent(psnProfiles[1]))}`
+
+      const myPsn = raw.match(/^https?:\/\/my\.playstation\.com\/profile\/([^/?#]+)\/?/i)
+      if (myPsn?.[1]) return `https://psnprofiles.com/${encodeURIComponent(decodeURIComponent(myPsn[1]))}`
+
+      return `https://psnprofiles.com/${encodeURIComponent(raw)}`
+    },
+    displayVal: (v) => {
+      const raw = v.trim()
+      const psnProfiles = raw.match(/^https?:\/\/(?:www\.)?psnprofiles\.com\/([^/?#]+)\/?/i)
+      if (psnProfiles?.[1]) return decodeURIComponent(psnProfiles[1])
+
+      const myPsn = raw.match(/^https?:\/\/my\.playstation\.com\/profile\/([^/?#]+)\/?/i)
+      if (myPsn?.[1]) return decodeURIComponent(myPsn[1])
+
+      return raw
+    },
   },
   {
     key: 'nintendo',
@@ -153,7 +225,10 @@ const hasPendingRequest = computed(() =>
         : false
 )
 const activeSocials = computed(() =>
-    SOCIALS.filter(s => profile.value && profile.value[s.key])
+    SOCIALS.filter((s) => {
+      const val = profile.value?.[s.key]
+      return typeof val === 'string' && val.trim().length > 0
+    })
 )
 computed(() =>
         profile.value && (
@@ -162,11 +237,11 @@ computed(() =>
         )
 );
 const onlineFriendsCount = computed(() =>
-    friendStore.friends.filter(f => f.status === 'ONLINE').length
+    profileFriends.value.filter(f => f.status === 'ONLINE').length
 )
 
 const displayedFriends = computed(() =>
-    [...friendStore.friends]
+    [...profileFriends.value]
         .sort((a, b) => {
           if (a.status === 'ONLINE' && b.status !== 'ONLINE') return -1
           if (a.status !== 'ONLINE' && b.status === 'ONLINE') return 1
@@ -272,12 +347,16 @@ function loadMoreComments() {
 
 async function fetchProfile(userId: string | string[]) {
   const id = Array.isArray(userId) ? userId[0] : userId
+  const numericId = Number(id)
   loading.value = true
   error.value = ''
   showGamesCount.value = 6
   try {
     const { data } = await api.get<Profile>(`/profile/${id}`)
     profile.value = data
+    profileFriends.value = Number.isFinite(numericId)
+      ? await friendStore.fetchFriendsByUserId(numericId)
+      : []
     fetchComments(true)
     try {
       const [gamesRes, statsRes] = await Promise.all([
@@ -293,6 +372,7 @@ async function fetchProfile(userId: string | string[]) {
   } catch {
     error.value = 'Не вдалося завантажити профіль'
     profile.value = null
+    profileFriends.value = []
     favoriteGames.value = []
     userStats.value = null
   } finally {
@@ -318,7 +398,16 @@ function goToGame(gameId: number) {
 }
 
 function goToFriendProfile(userId: number) {
+  showFriendsModal.value = false
   router.push(`/profile/${userId}`)
+}
+
+function openFriendsSection() {
+  if (isOwnProfile.value) {
+    router.push('/friends')
+    return
+  }
+  showFriendsModal.value = true
 }
 
 onMounted(async () => {
@@ -555,17 +644,18 @@ watch(() => route.params.userId, (newId) => {
 
         <div class="va-sidebar">
 
-          <div v-if="isOwnProfile && friendStore.friends.length" class="va-side-panel">
+          <div v-if="profileFriends.length" class="va-side-panel va-side-panel--clickable" @click="openFriendsSection">
             <div class="va-side-title">
-              ДРУЗІ
-              <span v-if="onlineFriendsCount" class="va-online-badge">{{ onlineFriendsCount }} онлайн</span>
+              <span>ДРУЗІ</span>
+              <span class="va-side-count">{{ profileFriends.length }}</span>
             </div>
+            <div v-if="onlineFriendsCount" class="va-side-subtitle">{{ onlineFriendsCount }} онлайн</div>
             <div class="va-friends">
               <div
                 v-for="friend in displayedFriends"
                 :key="friend.userId"
                 class="va-friend"
-                @click="goToFriendProfile(friend.userId)"
+                @click.stop="goToFriendProfile(friend.userId)"
               >
                 <div class="va-friend-ava-wrap">
                   <img :src="resolveAvatar(friend.avatarUrl)" :alt="friend.displayName" class="va-friend-ava-img" />
@@ -580,9 +670,6 @@ watch(() => route.params.userId, (newId) => {
                   </div>
                 </div>
               </div>
-            </div>
-            <div v-if="friendStore.friends.length > 5" class="va-side-more">
-              <router-link to="/friends" class="fav-add-link">Усі друзі →</router-link>
             </div>
           </div>
 
@@ -625,6 +712,14 @@ watch(() => route.params.userId, (newId) => {
 
         </div>
       </div>
+
+      <ProfileFriendsModal
+        v-if="showFriendsModal && !isOwnProfile"
+        :title="`Друзі ${profile.displayName}`"
+        :friends="profileFriends"
+        @close="showFriendsModal = false"
+        @open-profile="goToFriendProfile"
+      />
     </div>
   </div>
 </template>
@@ -1231,6 +1326,9 @@ watch(() => route.params.userId, (newId) => {
   padding: 22px 22px;
   transition: border-color 0.2s;
 }
+.va-side-panel--clickable {
+  cursor: pointer;
+}
 .va-side-panel:hover {
   border-color: rgba(245,197,24,0.25);
 }
@@ -1246,15 +1344,17 @@ watch(() => route.params.userId, (newId) => {
   align-items: center;
   justify-content: space-between;
 }
-.va-online-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  background: var(--green-dim);
-  border: 1px solid rgba(46,204,113,0.35);
-  color: var(--green);
-  font-family: var(--font-body);
-  font-weight: 600;
+.va-side-count {
+  font-size: 15px;
+  color: var(--white);
   letter-spacing: 1px;
+}
+.va-side-subtitle {
+  margin-top: -4px;
+  margin-bottom: 10px;
+  color: var(--green);
+  font-size: 11px;
+  letter-spacing: 0.8px;
 }
 
 .va-friends {
@@ -1268,7 +1368,6 @@ watch(() => route.params.userId, (newId) => {
   gap: 9px;
   padding: 7px 9px;
   border: 1px solid transparent;
-  cursor: pointer;
   transition: all 0.15s;
 }
 .va-friend:hover {
@@ -1324,10 +1423,6 @@ watch(() => route.params.userId, (newId) => {
 .va-friend-st.on {
   color: var(--green);
 }
-.va-side-more {
-  margin-top: 10px;
-  text-align: center;
-}
 
 .va-bio-text {
   font-size: 13px;
@@ -1351,6 +1446,7 @@ watch(() => route.params.userId, (newId) => {
   border: 1px solid var(--border);
   color: var(--gray-light);
 }
+
 .lang-chip {
   display: flex;
   align-items: center;
@@ -1371,13 +1467,13 @@ watch(() => route.params.userId, (newId) => {
 .side-social-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 .side-social-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 10px;
+  padding: 10px 12px;
   background: var(--dark);
   border: 1px solid var(--border);
   text-decoration: none;
@@ -1388,7 +1484,7 @@ watch(() => route.params.userId, (newId) => {
 }
 .side-social-item:hover {
   border-color: var(--badge-color, var(--yellow-dim));
-  background: rgba(245, 197, 24, 0.03);
+  background: rgba(245, 197, 24, 0.06);
 }
 .side-social-accent {
   position: absolute;
@@ -1405,27 +1501,30 @@ watch(() => route.params.userId, (newId) => {
 }
 .side-social-label {
   font-family: var(--font-display);
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: var(--badge-color, var(--yellow));
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  color: color-mix(in srgb, var(--badge-color, var(--yellow)) 68%, #ffffff);
   text-transform: uppercase;
-  min-width: 55px;
+  min-width: 74px;
   flex-shrink: 0;
+  font-weight: 700;
 }
 .side-social-val {
-  font-size: 12px;
-  color: var(--gray-light);
+  font-size: 14px;
+  color: var(--white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 .side-social-item:hover .side-social-val {
-  color: var(--white);
+  color: color-mix(in srgb, var(--white) 92%, var(--badge-color, var(--yellow)));
 }
 .side-social-arrow {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--gray);
   flex-shrink: 0;
   transition: color 0.15s;
