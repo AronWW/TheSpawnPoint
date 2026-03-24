@@ -16,7 +16,6 @@ const activeStatuses = new Set<Party['status']>(['OPEN', 'FULL', 'IN_GAME'])
 const isCurrentPartyVoice = computed(() => voice.isInPartyVoice(props.party.id))
 const canJoinVoice = computed(() => props.isLoggedIn && props.isMember && activeStatuses.has(props.party.status))
 
-const panelTitle = computed(() => props.party.title?.trim() || props.party.gameName)
 const statusLabel = computed(() => {
   if (voice.connectionState === 'connected') return 'Підключено'
   if (voice.connectionState === 'reconnecting') return 'Перепідключення'
@@ -46,10 +45,9 @@ async function handleStartAudio() {
   <div class="party-voice-panel ink-panel">
     <div class="voice-panel-head">
       <div>
-        <div class="voice-kicker">VOICE CHANNEL</div>
-        <h3 class="voice-title">{{ panelTitle }}</h3>
+        <h3 class="voice-title">Голосовий чат</h3>
         <p class="voice-meta">
-          Голосовий канал для учасників цього лобі.
+          Тільки для учасників цього лобі.
           <span v-if="isCurrentPartyVoice">• {{ voice.participantCount }} в каналі</span>
         </p>
       </div>
@@ -125,19 +123,16 @@ async function handleStartAudio() {
         <VoiceParticipantsList :participants="voice.participants" />
       </div>
 
-      <div v-else class="voice-idle-state">
-        Щойно ти підключишся, голосовий чат залишатиметься активним навіть під час переходу між сторінками.
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .party-voice-panel {
-  padding: 24px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .voice-panel-head {
@@ -145,50 +140,55 @@ async function handleStartAudio() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-}
-
-.voice-kicker {
-  font-size: 11px;
-  letter-spacing: 1.8px;
-  color: var(--yellow);
-  margin-bottom: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .voice-title {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--font-display), sans-serif;
+  font-size: 26px;
+  letter-spacing: 1.1px;
+  line-height: 1;
   color: var(--white);
-  letter-spacing: 1px;
 }
 
 .voice-meta {
-  margin-top: 8px;
+  margin-top: 10px;
   margin-bottom: 0;
-  color: var(--gray);
-  font-size: 13px;
+  color: var(--gray-light);
+  font-size: 14px;
   line-height: 1.5;
 }
 
 .voice-connection-state {
   padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  letter-spacing: 1px;
+  border-radius: 2px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 12px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--gray);
+  border: 2px solid var(--border);
+  color: var(--gray-light);
+  background: var(--dark);
   white-space: nowrap;
 }
 
 .voice-connection-state.connected {
   color: var(--yellow);
-  border-color: rgba(255, 214, 10, 0.3);
-  background: rgba(255, 214, 10, 0.08);
+  border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.08);
 }
 
 .voice-connection-state.reconnecting,
 .voice-connection-state.connecting {
   color: var(--white);
+  border-color: var(--border-glow);
+}
+
+.voice-connection-state.error {
+  color: #ffb4b4;
+  border-color: rgba(255, 107, 107, 0.45);
 }
 
 .voice-panel-body {
@@ -200,26 +200,29 @@ async function handleStartAudio() {
 .voice-actions-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .voice-action-btn,
 .voice-inline-btn {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  min-height: 42px;
+  border: 2px solid var(--border);
+  background: var(--dark);
   color: var(--white);
-  border-radius: 12px;
-  padding: 12px 16px;
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.9px;
-  transition: 0.15s ease;
+  border-radius: 2px;
+  padding: 10px 16px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 13px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .voice-action-btn:hover,
 .voice-inline-btn:hover {
-  border-color: rgba(255, 214, 10, 0.25);
+  border-color: var(--yellow-dim);
   color: var(--yellow);
+  transform: translateY(-1px);
 }
 
 .voice-action-btn.primary {
@@ -230,26 +233,33 @@ async function handleStartAudio() {
 
 .voice-action-btn.primary:hover {
   color: var(--black);
-  transform: translateY(-1px);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-dim);
 }
 
 .voice-action-btn.danger {
-  color: #ff8e8e;
+  color: #ff9b9b;
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.voice-action-btn.danger:hover {
+  color: #ffc2c2;
+  border-color: rgba(255, 107, 107, 0.8);
 }
 
 .voice-action-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
 
 .voice-locked-state,
-.voice-idle-state,
 .voice-notice {
-  border-radius: 16px;
+  border-radius: 2px;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid var(--border);
+  background: var(--panel-light);
 }
 
 .voice-locked-state {
@@ -259,27 +269,30 @@ async function handleStartAudio() {
 }
 
 .voice-locked-icon {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  background: rgba(255, 214, 10, 0.08);
-  font-size: 20px;
+  border: 2px solid var(--yellow-dim);
+  border-radius: 2px;
+  background: rgba(245, 197, 24, 0.08);
+  font-size: 18px;
 }
 
 .voice-locked-state h4 {
   margin: 0 0 6px;
   color: var(--white);
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 1px;
+  font-size: 18px;
 }
 
 .voice-locked-state p,
-.voice-idle-state,
 .voice-notice {
   margin: 0;
-  color: var(--gray);
-  font-size: 13px;
+  color: var(--gray-light);
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -288,28 +301,35 @@ async function handleStartAudio() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.06);
 }
 
 .voice-notice.error {
-  border-color: rgba(255, 107, 107, 0.24);
-  color: #ffaeae;
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.1);
+  color: #ffb6b6;
 }
 
 .voice-participants-section {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .voice-section-label {
-  font-size: 12px;
-  letter-spacing: 1.1px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 13px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
   color: var(--yellow);
 }
 
 @media (max-width: 720px) {
   .party-voice-panel {
-    padding: 20px;
+    padding: 18px;
   }
 
   .voice-panel-head,
@@ -329,6 +349,10 @@ async function handleStartAudio() {
   .voice-action-btn,
   .voice-inline-btn {
     width: 100%;
+  }
+
+  .voice-title {
+    font-size: 22px;
   }
 }
 </style>

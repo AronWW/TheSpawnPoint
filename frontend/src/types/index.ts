@@ -387,6 +387,7 @@ export interface VoiceParticipant {
   identity: string
   userId: number | null
   name: string
+  avatarUrl: string | null
   isLocal: boolean
   isSpeaking: boolean
   isMicrophoneEnabled: boolean

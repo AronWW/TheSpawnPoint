@@ -40,6 +40,7 @@ export const useVoiceStore = defineStore('voice', () => {
   const error = ref('')
 
   const attachedAudioElements = new Map<string, HTMLAudioElement>()
+  const participantAvatarByUserId = new Map<number, string | null>()
   let audioContainer: HTMLDivElement | null = null
   let stopAuthWatcher: WatchStopHandle | null = null
 
@@ -85,7 +86,7 @@ export const useVoiceStore = defineStore('voice', () => {
     return !!room.value && currentPartyId.value === (partyId ?? null)
   }
 
-  async function joinPartyVoice(party: Pick<Party, 'id' | 'title' | 'gameName'>) {
+  async function joinPartyVoice(party: Pick<Party, 'id' | 'title' | 'gameName' | 'members'>) {
     if (!auth.user) {
       throw new Error('Потрібно увійти, щоб підключитися до голосового чату')
     }
@@ -113,6 +114,7 @@ export const useVoiceStore = defineStore('voice', () => {
     currentPartyId.value = party.id
     currentPartyTitle.value = party.title?.trim() || party.gameName
     isExpanded.value = true
+    syncPartyAvatars(party)
 
     let nextRoom: LiveKitRoom | null = null
 
@@ -201,6 +203,7 @@ export const useVoiceStore = defineStore('voice', () => {
     if (!party || currentPartyId.value !== party.id) return
 
     currentPartyTitle.value = party.title?.trim() || party.gameName
+    syncPartyAvatars(party)
 
     const currentUserId = auth.user?.id
     const stillMember = !!party.members?.some((member) => member.userId === currentUserId)
@@ -233,6 +236,7 @@ export const useVoiceStore = defineStore('voice', () => {
     isExpanded.value = false
     error.value = ''
     connectionState.value = 'disconnected'
+    participantAvatarByUserId.clear()
   }
 
   function bindRoomEvents(targetRoom: LiveKitRoom) {
@@ -326,15 +330,38 @@ export const useVoiceStore = defineStore('voice', () => {
   }
 
   function mapParticipant(participant: Participant): VoiceParticipant {
+    const userId = parseUserIdFromIdentity(participant.identity)
     return {
       identity: participant.identity,
-      userId: parseUserIdFromIdentity(participant.identity),
+      userId,
       name: participant.name?.trim() || participant.identity,
+      avatarUrl: resolveParticipantAvatar(userId, participant.isLocal),
       isLocal: participant.isLocal,
       isSpeaking: participant.isSpeaking,
       isMicrophoneEnabled: participant.isMicrophoneEnabled,
       audioLevel: participant.audioLevel,
     }
+  }
+
+  function syncPartyAvatars(party: Pick<Party, 'members'> | null) {
+    participantAvatarByUserId.clear()
+
+    if (auth.user?.id != null) {
+      participantAvatarByUserId.set(auth.user.id, auth.user.avatarUrl ?? null)
+    }
+
+    for (const member of party?.members ?? []) {
+      participantAvatarByUserId.set(member.userId, member.avatarUrl ?? null)
+    }
+  }
+
+  function resolveParticipantAvatar(userId: number | null, isLocal: boolean) {
+    if (isLocal) {
+      return auth.user?.avatarUrl ?? (userId ? participantAvatarByUserId.get(userId) ?? null : null)
+    }
+
+    if (!userId) return null
+    return participantAvatarByUserId.get(userId) ?? null
   }
 
   function parseUserIdFromIdentity(identity: string): number | null {

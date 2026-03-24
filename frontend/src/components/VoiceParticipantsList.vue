@@ -1,10 +1,25 @@
 <script setup lang="ts">
 import type { VoiceParticipant } from '../types'
+import { PUBLIC_BASE_URL } from '../config'
+
+const DEFAULT_AVATAR_URL = `${PUBLIC_BASE_URL}/avatars/default/avatar-1.png`
 
 defineProps<{
   participants: VoiceParticipant[]
   compact?: boolean
 }>()
+
+function resolveAvatar(url: string | null) {
+  if (!url) return DEFAULT_AVATAR_URL
+  if (url.startsWith('http')) return url
+  return `${PUBLIC_BASE_URL}${url}`
+}
+
+function handleAvatarError(event: Event) {
+  const target = event.target as HTMLImageElement | null
+  if (!target || target.src === DEFAULT_AVATAR_URL) return
+  target.src = DEFAULT_AVATAR_URL
+}
 </script>
 
 <template>
@@ -25,7 +40,12 @@ defineProps<{
     >
       <div class="voice-participant-main">
         <div class="voice-participant-avatar">
-          {{ participant.name.slice(0, 1).toUpperCase() }}
+          <img
+            :src="resolveAvatar(participant.avatarUrl)"
+            :alt="participant.name"
+            class="voice-participant-avatar-img"
+            @error="handleAvatarError"
+          />
         </div>
 
         <div class="voice-participant-meta">
@@ -105,14 +125,19 @@ defineProps<{
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 214, 10, 0.14);
   border: 1px solid rgba(255, 214, 10, 0.18);
-  color: var(--yellow);
-  font-family: var(--font-display);
-  font-size: 16px;
+}
+
+.voice-participant-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .voice-participant-meta {

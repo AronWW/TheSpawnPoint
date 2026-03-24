@@ -241,6 +241,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  padding-inline: 15px;
+  padding-top: 10px;
 }
 
 .mini-chat-head {
