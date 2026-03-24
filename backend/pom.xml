@@ -129,6 +129,12 @@
 			<artifactId>spring-boot-starter-websocket-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>io.livekit</groupId>
+			<artifactId>livekit-server</artifactId>
+			<version>0.12.1</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

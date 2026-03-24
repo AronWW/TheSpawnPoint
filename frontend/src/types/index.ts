@@ -366,3 +366,29 @@ export interface UnbanRequest {
   reviewedAt: string | null
 }
 
+
+
+export interface VoiceTokenResponse {
+  serverUrl: string
+  participantToken: string
+  roomName: string
+  participantIdentity: string
+  participantName: string
+}
+
+export type VoiceConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'error'
+
+export interface VoiceParticipant {
+  identity: string
+  userId: number | null
+  name: string
+  isLocal: boolean
+  isSpeaking: boolean
+  isMicrophoneEnabled: boolean
+  audioLevel: number
+}

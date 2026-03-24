@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { usePartyStore } from '../stores/parties'
 import { useChatStore } from '../stores/chat'
+import { useVoiceStore } from '../stores/voice'
 import { useStompClient } from '../composables/useStompClient'
 import InviteToPartyModal from '../components/InviteToPartyModal.vue'
 import PartyMiniChat from '../components/PartyMiniChat.vue'
+import PartyVoicePanel from '../components/PartyVoicePanel.vue'
 import type { Party } from '../types'
 import { skillLabel, timeAgo, gameEmoji } from '../utils/helpers'
 import { PUBLIC_BASE_URL } from '../config'
@@ -16,6 +18,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const partyStore = usePartyStore()
 const chatStore = useChatStore()
+const voiceStore = useVoiceStore()
 const stomp = useStompClient()
 
 const party = ref<Party | null>(null)
@@ -33,7 +36,9 @@ function subscribeToPartyUpdates(partyId: number) {
     try {
       const updated: Party = JSON.parse(frame.body)
       party.value = updated
-    } catch { }
+      void voiceStore.syncPartyState(updated)
+    } catch {
+    }
   })
 }
 
@@ -51,7 +56,7 @@ function resolveAvatar(url: string | null): string {
 }
 
 const isCreator = computed(() =>
-    auth.user && party.value && auth.user.id === party.value.creatorId
+  auth.user && party.value && auth.user.id === party.value.creatorId
 )
 
 const isMember = computed(() => {
@@ -65,30 +70,30 @@ const isActive = computed(() => {
 })
 
 const canJoin = computed(() =>
-    auth.isLoggedIn &&
-    party.value?.status === 'OPEN' &&
-    !isMember.value &&
-    party.value.currentMembers < party.value.maxMembers
+  auth.isLoggedIn &&
+  party.value?.status === 'OPEN' &&
+  !isMember.value &&
+  party.value.currentMembers < party.value.maxMembers
 )
 
 const isFull = computed(() =>
-    party.value ? party.value.currentMembers >= party.value.maxMembers : false
+  party.value ? party.value.currentMembers >= party.value.maxMembers : false
 )
 
 const canInvite = computed(() =>
-    isMember.value && party.value?.status === 'OPEN' && !isFull.value
+  isMember.value && party.value?.status === 'OPEN' && !isFull.value
 )
 
 const canStart = computed(() =>
-    isCreator.value && (party.value?.status === 'OPEN' || party.value?.status === 'FULL')
+  isCreator.value && (party.value?.status === 'OPEN' || party.value?.status === 'FULL')
 )
 
 const canComplete = computed(() =>
-    isCreator.value && party.value?.status === 'IN_GAME'
+  isCreator.value && party.value?.status === 'IN_GAME'
 )
 
 const partyMemberIds = computed(() =>
-    party.value?.members?.map((m) => m.userId) ?? []
+  party.value?.members?.map((m) => m.userId) ?? []
 )
 
 const statusLabel = computed(() => {
@@ -115,6 +120,10 @@ const statusClass = computed(() => {
   return map[party.value.status] ?? ''
 })
 
+const shouldShowExpandedVoicePanel = computed(() => {
+  return !!party.value && voiceStore.isInPartyVoice(party.value.id) && voiceStore.isExpanded
+})
+
 async function loadParty() {
   const id = route.params.id as string
   loading.value = true
@@ -122,6 +131,7 @@ async function loadParty() {
   try {
     party.value = await partyStore.fetchParty(Number(id))
     subscribeToPartyUpdates(Number(id))
+    await voiceStore.syncPartyState(party.value)
   } catch {
     error.value = 'Не вдалося завантажити лобі'
     party.value = null
@@ -148,6 +158,9 @@ async function handleLeave() {
   actionLoading.value = true
   actionError.value = ''
   try {
+    if (voiceStore.isInPartyVoice(party.value.id)) {
+      await voiceStore.leaveVoice({ silent: true })
+    }
     await partyStore.leaveParty(party.value.id)
     chatStore.fetchChats()
     router.push('/search-parties')
@@ -178,6 +191,7 @@ async function handleStartGame() {
   actionError.value = ''
   try {
     party.value = await partyStore.startGame(party.value.id)
+    await voiceStore.syncPartyState(party.value)
   } catch (e: any) {
     actionError.value = e.message || 'Помилка'
   } finally {
@@ -191,6 +205,7 @@ async function handleComplete() {
   actionError.value = ''
   try {
     party.value = await partyStore.completeParty(party.value.id)
+    await voiceStore.syncPartyState(party.value)
   } catch (e: any) {
     actionError.value = e.message || 'Помилка'
   } finally {
@@ -204,6 +219,7 @@ async function handleKick(userId: number) {
   actionError.value = ''
   try {
     party.value = await partyStore.kickMember(party.value.id, userId)
+    await voiceStore.syncPartyState(party.value)
   } catch (e: any) {
     actionError.value = e.message || 'Помилка'
   } finally {
@@ -251,6 +267,15 @@ watch(() => route.params.id, () => {
   unsubscribeFromParty()
   loadParty()
 })
+
+watch(
+  () => party.value,
+  (nextParty) => {
+    if (!nextParty) return
+    void voiceStore.syncPartyState(nextParty)
+  },
+  { deep: true }
+)
 </script>
 
 <template>
@@ -314,6 +339,14 @@ watch(() => route.params.id, () => {
           </div>
         </div>
 
+        <PartyVoicePanel
+          v-if="party"
+          :party="party"
+          :is-member="isMember"
+          :is-logged-in="auth.isLoggedIn"
+          class="detail-section"
+        />
+
         <div class="detail-section ink-panel">
           <h2 class="section-label">
             ГРАВЦІ
@@ -333,11 +366,11 @@ watch(() => route.params.id, () => {
                   </div>
                 </router-link>
                 <button
-                    v-if="isCreator && isActive && !party.members?.[i - 1]?.isCreator"
-                    class="kick-btn"
-                    :disabled="actionLoading"
-                    @click="handleKick(party.members?.[i - 1]?.userId ?? 0)"
-                    title="Кікнути гравця"
+                  v-if="isCreator && isActive && !party.members?.[i - 1]?.isCreator"
+                  class="kick-btn"
+                  :disabled="actionLoading"
+                  @click="handleKick(party.members?.[i - 1]?.userId ?? 0)"
+                  title="Кікнути гравця"
                 >✕</button>
               </template>
               <template v-else>
@@ -356,20 +389,20 @@ watch(() => route.params.id, () => {
 
         <div v-if="party.chatId" class="detail-section communication-section ink-panel">
           <PartyMiniChat
-              :chat-id="party.chatId"
-              :title="party.title || party.gameName"
-              :is-member="isMember"
-              :is-logged-in="auth.isLoggedIn"
+            :chat-id="party.chatId"
+            :title="party.title || party.gameName"
+            :is-member="isMember"
+            :is-logged-in="auth.isLoggedIn"
           />
         </div>
 
         <div class="detail-actions ink-panel">
           <div class="actions-row actions-primary">
             <button
-                v-if="canJoin"
-                class="action-btn primary"
-                :disabled="actionLoading"
-                @click="handleJoin"
+              v-if="canJoin"
+              class="action-btn primary"
+              :disabled="actionLoading"
+              @click="handleJoin"
             >
               <span class="action-icon">⚡</span>
               {{ actionLoading ? 'ПРИЄДНАННЯ...' : 'ПРИЄДНАТИСЯ' }}
@@ -393,20 +426,20 @@ watch(() => route.params.id, () => {
             </router-link>
 
             <button
-                v-if="canStart"
-                class="action-btn start"
-                :disabled="actionLoading"
-                @click="handleStartGame"
+              v-if="canStart"
+              class="action-btn start"
+              :disabled="actionLoading"
+              @click="handleStartGame"
             >
               <span class="action-icon">▶</span>
               {{ actionLoading ? '...' : 'ПОЧАТИ ГРУ' }}
             </button>
 
             <button
-                v-if="canComplete"
-                class="action-btn complete"
-                :disabled="actionLoading"
-                @click="handleComplete"
+              v-if="canComplete"
+              class="action-btn complete"
+              :disabled="actionLoading"
+              @click="handleComplete"
             >
               <span class="action-icon">✓</span>
               {{ actionLoading ? '...' : 'ЗАВЕРШИТИ ГРУ' }}
@@ -415,35 +448,43 @@ watch(() => route.params.id, () => {
 
           <div v-if="isMember && isActive" class="actions-row actions-secondary">
             <button
-                v-if="party.chatId"
-                class="action-btn ghost"
-                @click="goToChat"
+              v-if="party.chatId"
+              class="action-btn ghost"
+              @click="goToChat"
             >
               <span class="action-icon">💬</span> ПОВНИЙ ЧАТ
             </button>
 
             <button
-                v-if="canInvite"
-                class="action-btn ghost"
-                @click="showInviteModal = true"
+              v-if="shouldShowExpandedVoicePanel"
+              class="action-btn ghost"
+              @click="voiceStore.collapseWidget()"
+            >
+              <span class="action-icon">🎧</span> ЗГОРНУТИ ГОЛОС
+            </button>
+
+            <button
+              v-if="canInvite"
+              class="action-btn ghost"
+              @click="showInviteModal = true"
             >
               <span class="action-icon">✉️</span> ЗАПРОСИТИ
             </button>
 
             <button
-                v-if="isCreator"
-                class="action-btn danger-ghost"
-                :disabled="actionLoading"
-                @click="handleClose"
+              v-if="isCreator"
+              class="action-btn danger-ghost"
+              :disabled="actionLoading"
+              @click="handleClose"
             >
               {{ actionLoading ? '...' : 'ЗАКРИТИ' }}
             </button>
 
             <button
-                v-if="!isCreator"
-                class="action-btn danger-ghost"
-                :disabled="actionLoading"
-                @click="handleLeave"
+              v-if="!isCreator"
+              class="action-btn danger-ghost"
+              :disabled="actionLoading"
+              @click="handleLeave"
             >
               {{ actionLoading ? '...' : 'ПОКИНУТИ' }}
             </button>
@@ -457,11 +498,11 @@ watch(() => route.params.id, () => {
         </div>
 
         <InviteToPartyModal
-            v-if="party"
-            :visible="showInviteModal"
-            :party-id="party.id"
-            :party-members="partyMemberIds"
-            @close="showInviteModal = false"
+          v-if="party"
+          :visible="showInviteModal"
+          :party-id="party.id"
+          :party-members="partyMemberIds"
+          @close="showInviteModal = false"
         />
       </div>
     </div>
@@ -518,18 +559,18 @@ watch(() => route.params.id, () => {
   height: 94px;
   object-fit: cover;
   border: 2px solid var(--border);
-  flex-shrink: 0;
+  image-rendering: pixelated;
 }
+
 .cover-placeholder {
   width: 70px;
   height: 94px;
-  background: var(--panel-light);
+  background: var(--panel-bg);
   border: 2px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  flex-shrink: 0;
+  font-size: 32px;
 }
 
 .detail-header-info {
@@ -539,248 +580,205 @@ watch(() => route.params.id, () => {
 .detail-game-name {
   font-family: var(--font-display);
   font-size: 32px;
-  letter-spacing: 2px;
-  color: var(--yellow);
-  line-height: 1;
-  margin-bottom: 8px;
+  color: var(--white);
+  margin: 0 0 8px;
 }
 
 .detail-host {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--gray);
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .host-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--gray-light);
-  transition: color 0.15s;
-}
-.host-link:hover {
+  gap: 8px;
   color: var(--yellow);
+  text-decoration: none;
 }
 
 .host-avatar {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid var(--yellow-dim);
+  border: 2px solid var(--yellow);
 }
 
 .detail-time {
-  font-size: 11px;
+  margin-top: 8px;
   color: var(--gray);
-}
-
-.detail-status {
-  flex-shrink: 0;
+  font-size: 13px;
 }
 
 .status-badge {
+  display: inline-block;
+  padding: 8px 14px;
   font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 2px;
-  padding: 5px 14px;
-  border: 2px solid;
+  font-size: 12px;
+  letter-spacing: 1px;
+  border: 2px solid var(--border);
+  background: var(--panel-bg);
 }
 .status-badge.open {
-  border-color: #27ae60;
-  color: #2ecc71;
-  background: rgba(39, 174, 96, 0.1);
+  color: var(--yellow);
 }
 .status-badge.full {
-  border-color: rgba(245, 197, 24, 0.5);
-  color: var(--yellow);
-  background: rgba(245, 197, 24, 0.1);
+  color: #ff9257;
 }
 .status-badge.in-game {
-  border-color: rgba(52, 152, 219, 0.5);
-  color: #3498db;
-  background: rgba(52, 152, 219, 0.1);
+  color: #7fffb0;
 }
 .status-badge.completed {
-  border-color: rgba(149, 165, 166, 0.5);
-  color: #95a5a6;
-  background: rgba(149, 165, 166, 0.1);
+  color: #8ee2ff;
 }
 .status-badge.closed {
-  border-color: var(--red-dim);
-  color: var(--red);
-  background: rgba(192, 57, 43, 0.1);
+  color: #ff8f8f;
 }
 
-.detail-description {
-  margin-bottom: 16px;
-}
-.detail-description p {
-  color: var(--gray-light);
-  font-size: 15px;
-  line-height: 1.6;
-  font-style: italic;
-  white-space: pre-wrap;
-}
-
-.detail-title {
-  margin-bottom: 8px;
-}
 .detail-title h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
   font-family: var(--font-display);
-  font-size: 20px;
-  letter-spacing: 1px;
   color: var(--white);
 }
 
-.tag-custom {
-  background: rgba(245, 197, 24, 0.06);
-  border-color: var(--yellow-dim);
-  color: var(--yellow-dim);
+.detail-description p {
+  margin: 0;
+  color: var(--white);
+  line-height: 1.65;
 }
 
 .detail-tags {
+  margin-top: 18px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  gap: 10px;
+}
+
+.platform-tag,
+.tag,
+.skill-badge {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  letter-spacing: 0.6px;
+}
+
+.platform-tag {
+  color: var(--yellow);
 }
 
 .tag {
-  font-size: 11px;
-  letter-spacing: 1px;
-  padding: 3px 10px;
-  background: var(--panel-light);
-  border: 1px solid var(--border);
   color: var(--gray-light);
 }
 
-.detail-section {
-  padding: 24px 28px;
+.tag-region {
+  color: #8ee2ff;
 }
 
-.communication-section {
-  overflow: hidden;
+.tag-custom {
+  color: #ffa9de;
+}
+
+.skill-badge.beginner {
+  color: #8fd8ff;
+}
+.skill-badge.intermediate {
+  color: #ffe07c;
+}
+.skill-badge.pro {
+  color: #ff8a8a;
+}
+
+.detail-section {
+  padding: 24px;
 }
 
 .section-label {
-  font-family: var(--font-display);
-  font-size: 18px;
-  letter-spacing: 3px;
-  color: var(--yellow);
-  margin-bottom: 20px;
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--white);
+  margin: 0 0 18px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .member-count {
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--gray);
-  letter-spacing: 1px;
-}
-.member-count span {
+  font-size: 13px;
   color: var(--yellow);
-  font-weight: 700;
 }
 
 .slots-visual {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.member-slot {
-  border: 2px solid var(--border);
-  background: var(--panel-light);
-  padding: 12px 16px;
-  transition: border-color 0.15s;
-}
-.member-slot.filled {
-  border-color: rgba(245, 197, 24, 0.2);
-  background: rgba(245, 197, 24, 0.03);
-}
-
-.member-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: opacity 0.15s;
-}
-.member-card:hover {
-  opacity: 0.8;
-}
-
-.member-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--border);
-}
-.member-slot.filled .member-avatar {
-  border-color: var(--yellow-dim);
+  display: grid;
+  gap: 14px;
 }
 
 .member-slot {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.kick-btn {
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 1px solid var(--red-dim);
-  color: var(--red);
-  font-size: 12px;
-  cursor: pointer;
+.member-slot.filled {
+  border-style: solid;
+  border-color: var(--border);
+}
+
+.member-card {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
 }
-.kick-btn:hover:not(:disabled) {
-  background: var(--red);
-  color: #fff;
-  border-color: var(--red);
-}
-.kick-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+
+.member-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--yellow);
 }
 
 .member-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .member-name {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 14px;
   color: var(--white);
-  letter-spacing: 0.5px;
+  font-family: var(--font-display);
 }
 
 .creator-tag {
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 2px;
-  padding: 2px 8px;
-  background: rgba(245, 197, 24, 0.12);
-  border: 1px solid var(--yellow-dim);
+  font-size: 11px;
   color: var(--yellow);
+  letter-spacing: 1px;
+}
+
+.kick-btn {
+  background: transparent;
+  color: #ff8e8e;
+  border: 1px solid rgba(255, 142, 142, 0.5);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
 }
 
 .empty-slot-content {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -788,204 +786,110 @@ watch(() => route.params.id, () => {
 }
 
 .empty-slot-icon {
-  width: 36px;
-  height: 36px;
-  border: 2px dashed var(--border);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-size: 18px;
-  color: var(--gray);
-}
-
-.empty-slot-text {
-  font-size: 13px;
-  font-style: italic;
-  letter-spacing: 0.5px;
+  color: var(--yellow);
 }
 
 .action-error {
-  color: var(--red);
-  font-size: 13px;
-  letter-spacing: 1px;
-  text-align: center;
-  padding: 8px;
-  background: rgba(192, 57, 43, 0.08);
-  border: 1px solid var(--red-dim);
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  background: rgba(255, 107, 107, 0.08);
+  color: #ffb0b0;
 }
 
 .detail-actions {
-  padding: 20px 28px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  padding: 24px;
 }
 
 .actions-row {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+  gap: 12px;
 }
 
 .action-btn {
+  border: 2px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--white);
+  padding: 12px 18px;
   font-family: var(--font-display);
-  letter-spacing: 2px;
   font-size: 13px;
-  padding: 10px 24px;
-  border: 2px solid transparent;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  letter-spacing: 1px;
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  text-decoration: none;
+  transition: transform 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.action-icon {
-  font-size: 14px;
+.action-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--yellow);
 }
 
-/* Primary — yellow filled */
 .action-btn.primary {
   background: var(--yellow);
-  border-color: var(--yellow);
   color: var(--black);
 }
-.action-btn.primary:hover:not(:disabled) {
-  background: transparent;
-  color: var(--yellow);
-}
 
-/* Start Game — blue */
 .action-btn.start {
-  background: rgba(52, 152, 219, 0.15);
-  border-color: #3498db;
-  color: #3498db;
-}
-.action-btn.start:hover:not(:disabled) {
-  background: #3498db;
-  color: #fff;
+  color: #9df7be;
 }
 
-/* Complete — green */
 .action-btn.complete {
-  background: rgba(39, 174, 96, 0.15);
-  border-color: #27ae60;
-  color: #2ecc71;
-}
-.action-btn.complete:hover:not(:disabled) {
-  background: #27ae60;
-  color: #fff;
+  color: #8ee2ff;
 }
 
-/* Ghost — outlined yellow */
 .action-btn.ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--gray-light);
-}
-.action-btn.ghost:hover {
-  border-color: var(--yellow-dim);
   color: var(--yellow);
 }
 
-/* Danger ghost — outlined red */
 .action-btn.danger-ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--gray);
-}
-.action-btn.danger-ghost:hover:not(:disabled) {
-  border-color: var(--red-dim);
-  color: var(--red);
-}
-
-.action-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  color: #ff8e8e;
 }
 
 .status-info {
-  display: flex;
+  color: var(--gray);
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 2px;
-  color: var(--gray);
-  padding: 10px 20px;
-  border: 2px dashed var(--border);
-  text-transform: uppercase;
-}
-.status-info-icon {
-  font-size: 16px;
-}
-
-.tag-region {
-  background: rgba(52, 152, 219, 0.08);
-  border-color: rgba(52, 152, 219, 0.3);
-  color: #5dade2;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-state h3 {
-  font-family: var(--font-display);
-  font-size: 24px;
-  letter-spacing: 2px;
-  color: var(--yellow);
-  margin-bottom: 8px;
-}
-
-.empty-state p {
-  color: var(--gray);
   font-size: 14px;
 }
 
-.action-btn {
-  font-family: var(--font-display);
-  letter-spacing: 2px;
-  font-size: 15px;
-  padding: 10px 28px;
-  border: 2px solid var(--yellow);
-  background: var(--yellow);
-  color: var(--black);
-  text-transform: uppercase;
-  transition: background 0.15s;
-  display: inline-block;
-  margin-top: 16px;
-}
-.action-btn:hover {
-  background: var(--yellow-dim);
+.communication-section {
+  padding: 0;
+  overflow: hidden;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  .party-detail-container {
+    padding: 20px;
+  }
+
   .detail-header-top {
     flex-direction: column;
   }
-  .actions-row {
-    flex-direction: column;
+
+  .detail-game-name {
+    font-size: 26px;
   }
-  .action-btn,
-  .status-info {
-    width: 100%;
-    justify-content: center;
-    text-align: center;
+
+  .section-label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .member-slot {
+    align-items: flex-start;
+  }
+
+  .detail-actions,
+  .detail-section,
+  .detail-header {
+    padding: 20px;
   }
 }
 </style>

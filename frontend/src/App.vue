@@ -6,10 +6,13 @@ import TheFooter from './components/TheFooter.vue'
 import BannedModal from './components/BannedModal.vue'
 import PartyInvitePopup from './components/PartyInvitePopup.vue'
 import ToastContainer from './components/ToastContainer.vue'
+import FloatingVoiceWidget from './components/FloatingVoiceWidget.vue'
 import { useAuthStore } from './stores/auth'
+import { useVoiceStore } from './stores/voice'
 import { useGlobalWebSocket } from './composables/useGlobalWebSocket'
 
 const auth = useAuthStore()
+const voice = useVoiceStore()
 const route = useRoute()
 
 const showLayout = computed(() => !route.meta.hideNavbar)
@@ -23,10 +26,12 @@ async function handleBannedEvent(event: Event) {
 
 onMounted(() => {
   auth.init()
+  voice.init()
   window.addEventListener('auth:banned', handleBannedEvent)
 })
 
 onUnmounted(() => {
+  voice.dispose()
   window.removeEventListener('auth:banned', handleBannedEvent)
 })
 
@@ -40,4 +45,5 @@ useGlobalWebSocket()
   <TheFooter v-if="showLayout" />
   <PartyInvitePopup />
   <ToastContainer />
+  <FloatingVoiceWidget />
 </template>
