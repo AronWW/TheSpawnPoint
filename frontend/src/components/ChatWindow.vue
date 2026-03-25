@@ -189,6 +189,25 @@ function statusText(s: string) {
   return 'офлайн'
 }
 
+const contextMenuStyle = computed(() => {
+  const menuW = 210
+  const menuH = 200
+  let x = contextMenu.value.x
+  let y = contextMenu.value.y
+
+  if (x + menuW > window.innerWidth - 8) {
+    x = window.innerWidth - menuW - 8
+  }
+  if (x < 8) x = 8
+
+  if (y + menuH > window.innerHeight - 8) {
+    y = window.innerHeight - menuH - 8
+  }
+  if (y < 8) y = 8
+
+  return { top: y + 'px', left: x + 'px' }
+})
+
 function openContextMenu(event: MouseEvent, msg: ChatMessage) {
   if (msg.deleted || msg.system) return
   event.preventDefault()
@@ -459,7 +478,7 @@ watch(() => chatStore.editingMessage, (msg) => {
       <div
         v-if="contextMenu.show && contextMenu.msg"
         class="msg-context-menu"
-        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+        :style="contextMenuStyle"
         @click.stop
       >
         <button class="ctx-item" @click="onReply(contextMenu.msg!)">ВІДПОВІСТИ</button>

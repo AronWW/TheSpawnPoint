@@ -17,11 +17,20 @@ export function useGlobalWebSocket() {
   const stomp = useStompClient()
 
   let teardowns: (() => void)[] = []
+  let isSubscribed = false
 
   function connectAndSubscribe() {
     const email = auth.user?.email
-    if (!email) return
+    if (!email || isSubscribed) return
 
+    if (teardowns.length) {
+      for (const unsub of teardowns) {
+        try { unsub() } catch { }
+      }
+      teardowns = []
+    }
+
+    isSubscribed = true
     stomp.activate()
 
     teardowns.push(
@@ -74,7 +83,7 @@ export function useGlobalWebSocket() {
               }
             })
           }
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -83,7 +92,7 @@ export function useGlobalWebSocket() {
         try {
           const payload = JSON.parse(frame.body)
           notifStore.setUnreadCount(payload.count ?? 0)
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -96,7 +105,7 @@ export function useGlobalWebSocket() {
             friendStore.updateFriendStatus(userEmail, status, lastSeen || null)
             chatStore.updatePartnerStatus(userEmail, status, lastSeen || null)
           }
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -105,7 +114,7 @@ export function useGlobalWebSocket() {
         try {
           const msg: ChatMessage = JSON.parse(frame.body)
           chatStore.onIncomingMessage(msg)
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -116,7 +125,7 @@ export function useGlobalWebSocket() {
           if (payload.chatId && payload.senderEmail) {
             chatStore.onPartnerTyping(payload.chatId, payload.senderEmail)
           }
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -125,7 +134,7 @@ export function useGlobalWebSocket() {
         try {
           const payload = JSON.parse(frame.body)
           chatStore.onReadReceipt(payload)
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -134,7 +143,7 @@ export function useGlobalWebSocket() {
         try {
           const event: ChatEvent = JSON.parse(frame.body)
           chatStore.onChatEvent(event)
-        } catch {  }
+        } catch { }
       })
     )
 
@@ -145,17 +154,25 @@ export function useGlobalWebSocket() {
 
   function disconnectAndCleanup() {
     for (const unsub of teardowns) {
-      try { unsub() } catch {  }
+      try { unsub() } catch { }
     }
     teardowns = []
+    isSubscribed = false
     stomp.deactivate()
   }
 
   const stopWatcher = watch(
-    () => ({ loggedIn: auth.isLoggedIn, banned: auth.user?.banned === true }),
-    ({ loggedIn, banned }) => {
-      if (loggedIn && !banned) {
-        connectAndSubscribe()
+    [
+      () => auth.isLoggedIn,
+      () => auth.user?.banned === true,
+      () => auth.user?.email,
+    ],
+    ([loggedIn, banned, email], [prevLoggedIn, prevBanned, prevEmail]) => {
+      if (loggedIn && !banned && email) {
+        if (!isSubscribed || email !== prevEmail || !prevLoggedIn || prevBanned) {
+          disconnectAndCleanup()
+          connectAndSubscribe()
+        }
       } else {
         disconnectAndCleanup()
       }

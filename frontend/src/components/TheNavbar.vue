@@ -384,14 +384,35 @@ async function handleDeclineInvite(n: import('../types').Notification) {
     <Transition name="mobile-slide">
       <div v-if="mobileMenuOpen" class="mobile-nav">
         <div class="mobile-nav-links">
-          <router-link to="/" class="mobile-nav-link">Головна</router-link>
-          <router-link to="/games" class="mobile-nav-link">Ігри</router-link>
-          <router-link to="/search-parties" class="mobile-nav-link">Пошук лобі</router-link>
-          <router-link v-if="auth.isLoggedIn" to="/friends" class="mobile-nav-link">
+          <router-link to="/" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            Головна
+          </router-link>
+          <router-link to="/games" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+            </span>
+            Ігри
+          </router-link>
+          <router-link to="/search-parties" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            Пошук лобі
+          </router-link>
+          <router-link v-if="auth.isLoggedIn" to="/friends" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
             Друзі
             <span v-if="friendStore.pendingCount > 0" class="mobile-badge">{{ friendStore.pendingCount }}</span>
           </router-link>
-          <router-link to="/chat" class="mobile-nav-link">
+          <router-link to="/chat" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
             Чат
             <span v-if="auth.isLoggedIn && chatStore.totalUnread > 0" class="mobile-badge">{{ chatStore.totalUnread }}</span>
           </router-link>
@@ -401,11 +422,43 @@ async function handleDeclineInvite(n: import('../types').Notification) {
           <router-link to="/register" class="mobile-auth-btn filled">Реєстрація</router-link>
         </div>
         <div v-else class="mobile-nav-user">
-          <router-link :to="profileLink" class="mobile-nav-link">👤 Мій профіль</router-link>
-          <router-link to="/favorite-games" class="mobile-nav-link">❤️ Улюблені ігри</router-link>
-          <router-link to="/settings" class="mobile-nav-link">⚙️ Налаштування</router-link>
-          <router-link to="/support" class="mobile-nav-link">💬 Підтримка</router-link>
-          <button class="mobile-nav-link mobile-logout" @click="handleLogout">🚪 Вийти</button>
+          <router-link :to="profileLink" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            </span>
+            Мій профіль
+          </router-link>
+          <button v-if="partyStore.myParties.length > 0" class="mobile-nav-link" @click="goToMyParty(); mobileMenuOpen = false">
+            <span class="mobile-nav-icon mobile-nav-icon--party">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            Моє лобі
+            <span class="mobile-badge mobile-badge--live">Live</span>
+          </button>
+          <router-link to="/favorite-games" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </span>
+            Улюблені ігри
+          </router-link>
+          <router-link to="/settings" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </span>
+            Налаштування
+          </router-link>
+          <router-link to="/support" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            Підтримка
+          </router-link>
+          <button class="mobile-nav-link mobile-logout" @click="handleLogout">
+            <span class="mobile-nav-icon mobile-nav-icon--danger">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
+            Вийти
+          </button>
         </div>
       </div>
     </Transition>
@@ -748,27 +801,43 @@ async function handleDeclineInvite(n: import('../types').Notification) {
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(10, 10, 11, 0.97);
+  background: var(--panel);
   border-bottom: 2px solid var(--border);
+  border-top: 2px solid var(--yellow-dim);
   backdrop-filter: blur(12px);
-  padding: 16px 20px 20px;
+  padding: 0;
   display: none;
   flex-direction: column;
-  gap: 6px;
   z-index: 99;
   box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.mobile-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.mobile-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mobile-nav::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
 }
 
 .mobile-nav-links,
 .mobile-nav-user {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+  padding: 8px 12px;
 }
 .mobile-nav-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 12px 16px;
   font-family: var(--font-body);
   font-weight: 600;
@@ -777,7 +846,8 @@ async function handleDeclineInvite(n: import('../types').Notification) {
   text-transform: uppercase;
   color: var(--gray-light);
   text-decoration: none;
-  border: 1px solid transparent;
+  border: none;
+  border-left: 3px solid transparent;
   transition: all 0.15s;
   background: none;
   cursor: pointer;
@@ -787,8 +857,49 @@ async function handleDeclineInvite(n: import('../types').Notification) {
 .mobile-nav-link:hover,
 .mobile-nav-link.router-link-active {
   color: var(--yellow);
-  border-color: var(--border);
+  border-left-color: var(--yellow-dim);
   background: rgba(245, 197, 24, 0.04);
+}
+
+.mobile-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--dark);
+  color: var(--gray);
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.mobile-nav-link:hover .mobile-nav-icon {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
+}
+.mobile-nav-icon--danger {
+  border-color: var(--red-dim);
+  color: var(--red-dim);
+}
+.mobile-nav-link:hover .mobile-nav-icon--danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.mobile-nav-icon--party {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
+  background: rgba(245, 197, 24, 0.06);
+}
+.mobile-badge--live {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--black);
+  background: var(--yellow);
+  padding: 2px 6px;
+  border-radius: 0;
+  animation: pulse-yellow 2s ease-in-out infinite;
+  margin-left: auto;
 }
 .mobile-badge {
   background: var(--red);
@@ -803,9 +914,8 @@ async function handleDeclineInvite(n: import('../types').Notification) {
 .mobile-nav-auth {
   display: flex;
   gap: 10px;
-  padding: 12px 0 0;
+  padding: 12px 12px;
   border-top: 1px solid var(--border);
-  margin-top: 6px;
 }
 .mobile-auth-btn {
   flex: 1;
@@ -827,8 +937,6 @@ async function handleDeclineInvite(n: import('../types').Notification) {
 
 .mobile-nav-user {
   border-top: 1px solid var(--border);
-  margin-top: 6px;
-  padding-top: 8px;
 }
 .mobile-logout {
   color: var(--red);

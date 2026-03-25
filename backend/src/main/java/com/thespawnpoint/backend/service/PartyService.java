@@ -44,6 +44,7 @@ public class PartyService {
     private final GameRepository gameRepository;
     private final ProfileRepository profileRepository;
     private final ChatService chatService;
+    private final VoiceAccessService voiceAccessService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
@@ -228,6 +229,10 @@ public class PartyService {
                 chatService.removeParticipantById(party.getChat().getId(), userId);
             } catch (Exception ignored) {}
         }
+
+        try {
+            voiceAccessService.kickParticipant(partyId, userId);
+        } catch (Exception ignored) {}
 
         if (party.getStatus() == PartyStatus.FULL) {
             party.setStatus(PartyStatus.OPEN);
@@ -422,6 +427,17 @@ public class PartyService {
             }
 
             partyMemberRepository.deleteByPartyRequestIdAndUserId(partyId, userId);
+
+            if (party.getChat() != null) {
+                try {
+                    chatService.removeParticipantById(party.getChat().getId(), userId);
+                } catch (Exception ignored) {}
+            }
+
+            try {
+                voiceAccessService.kickParticipant(partyId, userId);
+            } catch (Exception ignored) {}
+
             List<PartyMember> remaining = partyMemberRepository.findByPartyRequestIdOrderByJoinedAtAsc(partyId);
 
             if (remaining.isEmpty()) {

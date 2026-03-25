@@ -15,6 +15,8 @@ import io.livekit.server.CanPublishSources;
 import io.livekit.server.CanSubscribe;
 import io.livekit.server.RoomJoin;
 import io.livekit.server.RoomName;
+import io.livekit.server.RoomServiceClient;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class VoiceAccessService {
 
@@ -31,15 +34,18 @@ public class VoiceAccessService {
     private final PartyRequestRepository partyRequestRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final LiveKitProperties liveKitProperties;
+    private final RoomServiceClient roomServiceClient;
 
     public VoiceAccessService(
             PartyRequestRepository partyRequestRepository,
             PartyMemberRepository partyMemberRepository,
-            LiveKitProperties liveKitProperties
+            LiveKitProperties liveKitProperties,
+            RoomServiceClient roomServiceClient
     ) {
         this.partyRequestRepository = partyRequestRepository;
         this.partyMemberRepository = partyMemberRepository;
         this.liveKitProperties = liveKitProperties;
+        this.roomServiceClient = roomServiceClient;
     }
 
     public VoiceTokenResponseDTO issuePartyVoiceToken(User currentUser, Long partyId) {
@@ -103,5 +109,16 @@ public class VoiceAccessService {
             return buildParticipantIdentity(currentUser);
         }
         return displayName;
+    }
+
+    public void kickParticipant(Long partyId, Long userId) {
+        String roomName = buildRoomName(partyId);
+        String identity = "user-" + userId;
+        try {
+            roomServiceClient.removeParticipant(roomName, identity).execute();
+            log.info("Kicked participant {} from voice room {}", identity, roomName);
+        } catch (Exception e) {
+            log.debug("Could not kick participant {} from voice room {}: {}", identity, roomName, e.getMessage());
+        }
     }
 }

@@ -59,8 +59,26 @@ public class AuthService {
     public void register(RegisterDTO dto) {
         String email = normalizeEmail(dto.getEmail());
 
-        if (userRepository.existsByEmail(email)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Email is already in use");
+        Optional<User> existingOpt = userRepository.findByEmail(email);
+
+        if (existingOpt.isPresent()) {
+            User existing = existingOpt.get();
+
+            if (existing.isEmailVerified()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email is already in use");
+            }
+
+            existing.setDisplayName(dto.getDisplayName());
+            existing.setPassword(passwordEncoder.encode(dto.getPassword()));
+            userRepository.save(existing);
+
+            profileRepository.findByUserId(existing.getId()).ifPresent(profile -> {
+                profile.setFullName(dto.getDisplayName());
+                profileRepository.save(profile);
+            });
+
+            sendVerificationCode(existing);
+            return;
         }
 
         User user = User.builder()
