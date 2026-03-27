@@ -164,6 +164,18 @@ export interface Profile {
   status: 'ONLINE' | 'IN_LOBBY' | 'IN_GAME' | 'OFFLINE'
   lastSeen: string | null
   createdAt: string
+  privacy?: PrivacySettings | null
+}
+
+export type VisibilityLevel = 'ALL' | 'FRIENDS' | 'NOBODY'
+
+export interface PrivacySettings {
+  friendsVisibility: string
+  statusVisibility: string
+  favoriteGamesVisibility: string
+  statsVisibility: string
+  socialsVisibility: string
+  commentsPolicy: string
 }
 
 export interface ProfileComment {
@@ -204,6 +216,7 @@ export interface ChatItem {
 
   partnerEmail: string | null
   partnerDisplayName: string | null
+  partnerAvatarUrl: string | null
   partnerStatus: string | null
   partnerLastSeen: string | null
 

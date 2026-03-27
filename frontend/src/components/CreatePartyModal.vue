@@ -4,15 +4,21 @@ import { useRouter } from 'vue-router'
 import { usePartyStore } from '../stores/parties'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
+import { useToast } from '../composables/useToast'
+import SuggestGameModal from './SuggestGameModal.vue'
 import type { CreatePartyRequest } from '../types'
 
-defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const router = useRouter()
 const partyStore = usePartyStore()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const toast = useToast()
+
+const showSuggest = ref(false)
+const blockedByParty = ref(false)
 
 const PLATFORMS = [
   { value: 'PC', label: 'PC' },
@@ -163,7 +169,21 @@ function selectGame(gameId: number) {
   gameSearch.value = gameStore.games.find(g => g.id === gameId)?.name ?? ''
 }
 
+watch(() => props.visible, async (val) => {
+  if (!val) { blockedByParty.value = false; return }
+  await partyStore.fetchMyParties()
+  if (partyStore.myParties.length > 0) {
+    blockedByParty.value = true
+    toast.show('Ви не можете створити нове лобі, перебуваючи в існуючому', 'error', 4000)
+    error.value = 'Ви вже перебуваєте в активному лобі. Покиньте поточне, щоб створити нове.'
+  }
+})
+
 async function submit() {
+  if (blockedByParty.value || partyStore.myParties.length > 0) {
+    error.value = 'Ви вже перебуваєте в активному лобі. Покиньте поточне, щоб створити нове.'
+    return
+  }
   if (!form.value.gameId) {
     error.value = 'Оберіть гру'
     return
@@ -218,7 +238,13 @@ function close() {
     <div v-if="visible" class="modal-overlay" @click.self="close">
       <div class="modal">
         <div class="modal-header">
-          <div class="modal-title">НОВЕ ЛОБІ</div>
+          <div class="modal-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>
+            </svg>
+            НОВЕ ЛОБІ
+          </div>
           <button class="modal-close" @click="close">✕</button>
         </div>
         <div class="modal-body">
@@ -230,7 +256,7 @@ function close() {
               <input
                 class="form-input"
                 v-model="gameSearch"
-                placeholder="🔍 Пошук гри..."
+                placeholder="Пошук гри..."
                 @focus="form.gameId = null"
               />
               <div v-if="!form.gameId && gameSearch.length > 0" class="game-dropdown">
@@ -243,11 +269,15 @@ function close() {
                   <img v-if="g.imageUrl" :src="g.imageUrl" class="game-option-img" />
                   <span>{{ g.name }}</span>
                 </div>
-                <div v-if="filteredGames.length === 0" class="game-option disabled">Нічого не знайдено</div>
+                <div v-if="filteredGames.length === 0" class="game-option-empty">
+                  <span>Гру не знайдено.</span>
+                  <button class="suggest-link" @click.stop="showSuggest = true">Запропонувати додати до каталогу</button>
+                </div>
               </div>
             </div>
             <div v-if="selectedGame" class="selected-game-badge">
-              ✅ {{ selectedGame.name }} (макс. {{ selectedGame.maxPartySize }} гравців)
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {{ selectedGame.name }} (макс. {{ selectedGame.maxPartySize }} гравців)
             </div>
           </div>
 
@@ -286,7 +316,7 @@ function close() {
             <input
               class="form-input"
               v-model="langSearch"
-              placeholder="🔍 Пошук мови..."
+              placeholder="Пошук мови..."
               style="margin-bottom: 6px"
             />
             <div class="toggle-group">
@@ -400,21 +430,33 @@ function close() {
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="close">СКАСУВАТИ</button>
-          <button class="btn-submit" @click="submit" :disabled="submitting">
-            {{ submitting ? 'СТВОРЕННЯ...' : '⚡ СТВОРИТИ ЛОБІ' }}
+          <button class="btn-submit" @click="submit" :disabled="submitting || blockedByParty">
+            {{ submitting ? 'СТВОРЕННЯ...' : 'СТВОРИТИ ЛОБІ' }}
           </button>
         </div>
       </div>
     </div>
   </Transition>
+
+  <SuggestGameModal v-if="showSuggest" @close="showSuggest = false" @submitted="showSuggest = false" />
 </template>
 
 <style scoped>
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .modal-error {
   color: var(--red);
   font-size: 13px;
   margin-bottom: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  background: rgba(192, 57, 43, 0.06);
+  line-height: 1.5;
 }
 
 .game-search-wrapper {
@@ -459,6 +501,9 @@ function close() {
 }
 
 .selected-game-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--yellow);
   margin-top: 6px;
@@ -622,5 +667,31 @@ function close() {
   font-size: 0.85rem;
   color: var(--gray);
   padding: 10px 0;
+}
+
+.game-option-empty {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.suggest-link {
+  background: none;
+  border: none;
+  color: var(--yellow);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.suggest-link:hover {
+  color: var(--yellow-dim);
 }
 </style>

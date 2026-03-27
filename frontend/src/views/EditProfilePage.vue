@@ -363,7 +363,9 @@ function resolveDefaultAvatar(url: string) {
       <div v-if="loading" class="empty-state"><p>Завантаження...</p></div>
 
       <div v-else-if="error && !profile" class="empty-state">
-        <div class="empty-icon">😕</div>
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--gray)"><circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/></svg>
+        </div>
         <h3>{{ error }}</h3>
       </div>
 
@@ -543,7 +545,10 @@ function resolveDefaultAvatar(url: string) {
                 @click="form.languages = []"
                 type="button"
                 title="Очистити всі"
-              >🗑 Очистити</button>
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Очистити
+              </button>
             </div>
 
             <div v-if="selectedLanguageNames.length" class="selected-langs">
@@ -561,7 +566,7 @@ function resolveDefaultAvatar(url: string) {
               <input
                   v-model="langSearch"
                   class="form-input lang-search"
-                  placeholder="🔍 Пошук мови..."
+                  placeholder="Пошук мови..."
               />
             </div>
 
@@ -587,39 +592,39 @@ function resolveDefaultAvatar(url: string) {
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label"><span class="social-icon">🎮</span> Discord</label>
+              <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Discord</label>
               <input v-model="form.discord" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.discord }" maxlength="100" placeholder="username або user#1234" />
               <div v-if="socialErrors.discord" class="field-error">{{ socialErrors.discord }}</div>
               <div class="field-hint">Нік — інші зможуть скопіювати</div>
             </div>
             <div class="form-group">
-              <label class="form-label"><span class="social-icon">📺</span> Twitch</label>
+              <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Twitch</label>
               <input v-model="form.twitch" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.twitch }" maxlength="200" placeholder="https://twitch.tv/yourname" />
               <div v-if="socialErrors.twitch" class="field-error">{{ socialErrors.twitch }}</div>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label"><span class="social-icon">🕹️</span> Steam</label>
+            <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg></span> Steam</label>
             <input v-model="form.steam" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.steam }" maxlength="200" placeholder="https://steamcommunity.com/id/yourname" />
             <div v-if="socialErrors.steam" class="field-error">{{ socialErrors.steam }}</div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label"><span class="social-icon">🟢</span> Xbox Gamertag</label>
+              <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg></span> Xbox Gamertag</label>
               <input v-model="form.xbox" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.xbox }" maxlength="200" placeholder="YourGamertag" />
               <div v-if="socialErrors.xbox" class="field-error">{{ socialErrors.xbox }}</div>
             </div>
             <div class="form-group">
-              <label class="form-label"><span class="social-icon">🔵</span> PlayStation ID</label>
+              <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span> PlayStation ID</label>
               <input v-model="form.playstation" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.playstation }" maxlength="200" placeholder="YourPSN_ID" />
               <div v-if="socialErrors.playstation" class="field-error">{{ socialErrors.playstation }}</div>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label"><span class="social-icon">🔴</span> Nintendo Friend Code</label>
+            <label class="form-label"><span class="social-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="12" y1="4" x2="12" y2="20"/><circle cx="7" cy="12" r="2"/></svg></span> Nintendo Friend Code</label>
             <input v-model="form.nintendo" type="text" class="form-input" :class="{ 'input-error': !!socialErrors.nintendo }" maxlength="200" placeholder="SW-XXXX-XXXX-XXXX" />
             <div v-if="socialErrors.nintendo" class="field-error">{{ socialErrors.nintendo }}</div>
             <div class="field-hint">Код друга — інші зможуть скопіювати</div>
@@ -904,7 +909,6 @@ function resolveDefaultAvatar(url: string) {
   color: var(--yellow);
 }
 
-/* ── FORM CONTROLS ── */
 .form-group {
   margin-bottom: 18px;
 }
@@ -944,7 +948,9 @@ function resolveDefaultAvatar(url: string) {
   border-color: rgba(192,57,43,0.4);
 }
 .social-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--gray-light);
 }
 .form-input {
   width: 100%;
@@ -965,6 +971,9 @@ function resolveDefaultAvatar(url: string) {
 }
 .form-input::placeholder {
   color: var(--gray);
+}
+input[type="date"].form-input {
+  color-scheme: dark;
 }
 .form-input.input-error {
   border-color: var(--red);
@@ -999,7 +1008,6 @@ select.form-input option {
   text-align: right;
 }
 
-/* ── CHIPS ── */
 .chip-group {
   display: flex;
   flex-wrap: wrap;
@@ -1044,7 +1052,6 @@ select.form-input option {
   opacity: 1;
 }
 
-/* ── LANGUAGES ── */
 .selected-langs {
   display: flex;
   flex-wrap: wrap;
@@ -1121,7 +1128,6 @@ select.form-input option {
   font-size: 12px;
 }
 
-/* ── ACTIONS BAR — styled like ProfilePage hero bar ── */
 .edit-actions {
   background: var(--panel);
   border: 2px solid var(--border);
@@ -1211,7 +1217,6 @@ select.form-input option {
   font-size: 13px;
 }
 
-/* ── EMPTY STATE ── */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -1231,7 +1236,6 @@ select.form-input option {
   color: var(--yellow);
 }
 
-/* ── COUNTRY AUTOCOMPLETE ── */
 .country-autocomplete {
   position: relative;
 }
@@ -1326,7 +1330,6 @@ select.form-input option {
   font-size: 12px;
 }
 
-/* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   .edit-container {
     padding: 0 16px 40px;

@@ -4,10 +4,12 @@ import com.thespawnpoint.backend.dto.*;
 import com.thespawnpoint.backend.entity.auth.EmailVerificationToken;
 import com.thespawnpoint.backend.entity.auth.PasswordResetToken;
 import com.thespawnpoint.backend.entity.user.Profile;
+import com.thespawnpoint.backend.entity.user.PrivacySettings;
 import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.EmailVerificationTokenRepository;
 import com.thespawnpoint.backend.repository.PasswordResetTokenRepository;
+import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
 import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
 import com.thespawnpoint.backend.security.JwtUtil;
@@ -40,6 +42,7 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ProfileRepository profileRepository;
+    private final PrivacySettingsRepository privacySettingsRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
@@ -97,6 +100,11 @@ public class AuthService {
 
         profileRepository.save(profile);
 
+        PrivacySettings privacySettings = PrivacySettings.builder()
+                .user(user)
+                .build();
+        privacySettingsRepository.save(privacySettings);
+
         sendVerificationCode(user);
     }
 
@@ -118,7 +126,7 @@ public class AuthService {
 
         emailVerificationTokenRepository.save(token);
 
-        emailService.sendVerificationCode(user.getEmail(), code);
+        emailService.sendVerificationCode(user.getEmail(), code, user.getDisplayName());
     }
 
     // ПОВТОРНЕ НАДСИЛАННЯ КОДУ
@@ -273,7 +281,7 @@ public class AuthService {
                     .build();
 
             passwordResetTokenRepository.save(resetToken);
-            emailService.sendPasswordResetLink(user.getEmail(), token);
+            emailService.sendPasswordResetLink(user.getEmail(), token, user.getDisplayName());
         });
 
         return Map.of("message", "If the email exists, the letter has been sent.");
@@ -299,6 +307,23 @@ public class AuthService {
 
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
+
+        return Map.of("message", "Password successfully changed");
+    }
+
+    // CHANGE PASSWORD
+
+    public Map<String, String> changePassword(User user, ChangePasswordDTO dto) {
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        if (passwordEncoder.matches(dto.getNewPassword(), user.getPassword())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "New password must be different from current");
+        }
+
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
 
         return Map.of("message", "Password successfully changed");
     }

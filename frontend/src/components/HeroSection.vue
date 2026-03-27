@@ -68,7 +68,10 @@ function goToParty() {
 
     <div class="hero-inner">
       <div>
-        <div class="hero-kicker">🎮 Gaming Community Platform</div>
+        <div class="hero-kicker">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+          Gaming Community Platform
+        </div>
         <h1 class="hero-title">
           <span class="shadow-word">ЗНАЙДИ</span>
           <span class="accent">СВІЙ СКВАД</span>
@@ -78,7 +81,7 @@ function goToParty() {
           організовуй лобі, грай на своєму рівні.
         </p>
         <div class="hero-cta-row">
-          <button class="btn-primary" @click="$emit('open-create-modal')">⚡ СТВОРИТИ ЛОБІ</button>
+          <button class="btn-primary" @click="$emit('open-create-modal')">СТВОРИТИ ЛОБІ</button>
           <router-link to="/search-parties" class="btn-secondary">ПЕРЕГЛЯНУТИ ЛОБІ</router-link>
         </div>
         <div class="hero-stats">
@@ -95,7 +98,10 @@ function goToParty() {
 
       <div v-if="heroParty" class="hero-card" @click="isMyParty ? goToParty() : undefined" :style="isMyParty ? 'cursor:pointer' : ''">
         <div class="party-card-accent"></div>
-        <div v-if="isMyParty" class="hero-card-label my-party-label">⚔ МОЄ ЛОБІ</div>
+        <div v-if="isMyParty" class="hero-card-label my-party-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/></svg>
+          МОЄ ЛОБІ
+        </div>
         <div class="hero-card-header">
           <img
             v-if="heroParty.gameImageUrl"
@@ -103,7 +109,9 @@ function goToParty() {
             :alt="heroParty.gameName"
             class="game-thumb"
           />
-          <div v-else class="game-thumb-placeholder">🎮</div>
+          <div v-else class="game-thumb-placeholder">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+          </div>
           <div>
             <div class="card-game-name">{{ heroParty.gameName }}</div>
             <div class="card-meta">
@@ -143,8 +151,13 @@ function goToParty() {
             >
               {{ p }}
             </span>
-            <span v-if="heroParty.status === 'OPEN'" class="tag green">🟢 Відкрите</span>
-            <span v-else-if="heroParty.status === 'IN_GAME'" class="tag blue">🎮 В грі</span>
+            <span v-if="heroParty.status === 'OPEN'" class="tag green">
+              <span class="tag-dot tag-dot--green"></span> Відкрите
+            </span>
+            <span v-else-if="heroParty.status === 'IN_GAME'" class="tag blue">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+              В грі
+            </span>
             <span v-for="lang in (heroParty.languages || [])" :key="lang" class="tag">
               {{ lang }}
             </span>
@@ -175,10 +188,36 @@ function goToParty() {
   padding: 8px 24px;
   text-align: center;
   border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .my-party-label {
   background: rgba(245, 197, 24, 0.08);
   color: var(--yellow);
+}
+
+.tag-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tag-dot--green { background: #27ae60; }
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.game-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray);
 }
 </style>
 

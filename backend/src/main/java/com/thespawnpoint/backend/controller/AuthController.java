@@ -93,4 +93,10 @@ public class AuthController {
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordDTO dto) {
         return ResponseEntity.ok(authService.resetPassword(dto));
     }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(@AuthenticationPrincipal User user,
+                                            @Valid @RequestBody ChangePasswordDTO dto) {
+        return ResponseEntity.ok(authService.changePassword(user, dto));
+    }
 }

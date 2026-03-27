@@ -3,7 +3,9 @@ package com.thespawnpoint.backend.service;
 import com.thespawnpoint.backend.dto.*;
 import com.thespawnpoint.backend.entity.chat.*;
 import com.thespawnpoint.backend.entity.party.PartyRequest;
+import com.thespawnpoint.backend.entity.user.PrivacySettings;
 import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,8 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final PartyRequestRepository partyRequestRepository;
+    private final FriendshipRepository friendshipRepository;
+    private final PrivacySettingsRepository privacySettingsRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationContext applicationContext;
 
@@ -742,13 +746,35 @@ public class ChatService {
                 .findFirst()
                 .orElse(currentUser);
 
+        String avatarUrl = profileRepository.findByUserId(partner.getId())
+                .map(p -> p.getAvatarUrl())
+                .orElse(null);
+
+        String partnerStatus = partner.getStatus().name();
+        String partnerLastSeen = partner.getLastSeen() != null ? partner.getLastSeen().toString() : null;
+
+        PrivacySettings privacySettings = privacySettingsRepository.findByUserId(partner.getId()).orElse(null);
+        if (privacySettings != null && privacySettings.getStatusVisibility() != VisibilityLevel.ALL) {
+            if (privacySettings.getStatusVisibility() == VisibilityLevel.NOBODY) {
+                partnerStatus = "OFFLINE";
+                partnerLastSeen = null;
+            } else if (privacySettings.getStatusVisibility() == VisibilityLevel.FRIENDS) {
+                boolean areFriends = friendshipRepository.areFriends(currentUser.getId(), partner.getId());
+                if (!areFriends) {
+                    partnerStatus = "OFFLINE";
+                    partnerLastSeen = null;
+                }
+            }
+        }
+
         return ChatDTO.builder()
                 .id(chat.getId())
                 .group(false)
                 .partnerEmail(partner.getEmail())
                 .partnerDisplayName(partner.getDisplayName())
-                .partnerStatus(partner.getStatus().name())
-                .partnerLastSeen(partner.getLastSeen() != null ? partner.getLastSeen().toString() : null)
+                .partnerAvatarUrl(avatarUrl)
+                .partnerStatus(partnerStatus)
+                .partnerLastSeen(partnerLastSeen)
                 .lastMessage(lastMessage)
                 .lastMessageAt(lastMessageAt)
                 .unreadCount(unread)

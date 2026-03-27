@@ -4,8 +4,10 @@ import com.thespawnpoint.backend.dto.FriendDTO;
 import com.thespawnpoint.backend.dto.FriendRequestDTO;
 import com.thespawnpoint.backend.entity.social.*;
 import com.thespawnpoint.backend.entity.user.Profile;
+import com.thespawnpoint.backend.entity.user.PrivacySettings;
 import com.thespawnpoint.backend.entity.user.Role;
 import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class FriendService {
     private final InviteRepository inviteRepository;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
+    private final PrivacySettingsRepository privacySettingsRepository;
     private final NotificationService notificationService;
 
     @Transactional
@@ -211,14 +214,25 @@ public class FriendService {
     }
 
     private FriendDTO toFriendDTO(User user, Instant friendsSince, String avatarUrl) {
+        String status = user.getStatus().name();
+        String lastSeen = user.getLastSeen() != null ? user.getLastSeen().toString() : null;
+
+        privacySettingsRepository.findByUserId(user.getId()).ifPresent(ps -> {
+
+        });
+        PrivacySettings ps = privacySettingsRepository.findByUserId(user.getId()).orElse(null);
+        if (ps != null && ps.getStatusVisibility() == VisibilityLevel.NOBODY) {
+            status = "OFFLINE";
+            lastSeen = null;
+        }
 
         return FriendDTO.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .avatarUrl(avatarUrl)
-                .status(user.getStatus().name())
-                .lastSeen(user.getLastSeen() != null ? user.getLastSeen().toString() : null)
+                .status(status)
+                .lastSeen(lastSeen)
                 .friendsSince(friendsSince)
                 .build();
     }

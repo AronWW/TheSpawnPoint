@@ -13,8 +13,9 @@ const ADMIN_BLOCKED_ROUTES = new Set([
   'chat',
   'favorite-games',
   'my-suggestions',
-  'support',
   'settings',
+  'customization',
+  'support',
   'profile',
 ])
 
@@ -33,7 +34,8 @@ const router = createRouter({
     { path: '/favorite-games', name: 'favorite-games', component: () => import('../views/FavoriteGamesPage.vue'), meta: { requiresAuth: true } },
     { path: '/friends', name: 'friends', component: () => import('../views/FriendsPage.vue'), meta: { requiresAuth: true } },
     { path: '/profile/:userId', name: 'profile', component: () => import('../views/ProfilePage.vue'), props: true },
-    { path: '/settings', name: 'settings', component: () => import('../views/EditProfilePage.vue'), meta: { requiresAuth: true } },
+    { path: '/customization', name: 'customization', component: () => import('../views/EditProfilePage.vue'), meta: { requiresAuth: true } },
+    { path: '/settings', name: 'settings', component: () => import('../views/SettingsPage.vue'), meta: { requiresAuth: true } },
     { path: '/party/:id', name: 'party-detail', component: () => import('../views/PartyDetailPage.vue') },
     { path: '/support', name: 'support', component: () => import('../views/SupportPage.vue'), meta: { requiresAuth: true } },
     { path: '/my-suggestions', name: 'my-suggestions', component: () => import('../views/MySuggestionsPage.vue'), meta: { requiresAuth: true } },

@@ -2,9 +2,13 @@ package com.thespawnpoint.backend.service;
 
 import com.thespawnpoint.backend.dto.ProfileCommentDTO;
 import com.thespawnpoint.backend.entity.user.Profile;
+import com.thespawnpoint.backend.entity.user.PrivacySettings;
 import com.thespawnpoint.backend.entity.user.ProfileComment;
 import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.exception.ApiException;
+import com.thespawnpoint.backend.repository.FriendshipRepository;
+import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
 import com.thespawnpoint.backend.repository.ProfileCommentRepository;
 import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
@@ -22,6 +26,8 @@ public class ProfileCommentService {
     private final ProfileCommentRepository commentRepository;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
+    private final PrivacySettingsRepository privacySettingsRepository;
+    private final FriendshipRepository friendshipRepository;
 
     public Page<ProfileCommentDTO> getComments(Long profileUserId, int page, int size) {
         return commentRepository
@@ -40,6 +46,20 @@ public class ProfileCommentService {
 
         User profileOwner = userRepository.findById(profileUserId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (!author.getId().equals(profileUserId)) {
+            privacySettingsRepository.findByUserId(profileUserId).ifPresent(ps -> {
+                boolean isFriend = friendshipRepository.areFriends(author.getId(), profileUserId);
+                boolean allowed = switch (ps.getCommentsPolicy()) {
+                    case ALL -> true;
+                    case FRIENDS -> isFriend;
+                    case NOBODY -> false;
+                };
+                if (!allowed) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Comments are disabled for this profile");
+                }
+            });
+        }
 
         ProfileComment comment = ProfileComment.builder()
                 .profileUser(profileOwner)

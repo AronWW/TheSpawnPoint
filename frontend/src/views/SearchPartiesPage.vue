@@ -75,13 +75,15 @@ watch(
       </div>
 
       <div class="filters-bar">
-        <span class="filter-label">Фільтри:</span>
 
-        <input
-            class="filter-search"
-            v-model="partyStore.search"
-            placeholder="🔍 Пошук по грі або опису..."
-        />
+        <div class="filter-search-wrap">
+          <svg class="filter-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+              class="filter-search"
+              v-model="partyStore.search"
+              placeholder="Пошук по грі або опису..."
+          />
+        </div>
 
         <select class="filter-select" v-model="partyStore.filterGameId">
           <option :value="null">Всі ігри</option>
@@ -109,12 +111,16 @@ watch(
       </div>
 
       <div v-if="partyStore.searchLoading" class="empty-state">
-        <div class="empty-state-icon">⏳</div>
+        <div class="empty-state-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <div class="empty-state-title">ЗАВАНТАЖЕННЯ...</div>
       </div>
 
       <div v-else-if="partyStore.searchParties.length === 0" class="empty-state">
-        <div class="empty-state-icon">🎮</div>
+        <div class="empty-state-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+        </div>
         <div class="empty-state-title">ЛОБІ НЕ ЗНАЙДЕНО</div>
         <div class="empty-state-sub">Спробуй змінити фільтри або створи власне лобі</div>
       </div>
@@ -176,6 +182,71 @@ watch(
   padding: 40px 64px 80px;
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  color: var(--gray);
+}
+
+.empty-state-title {
+  font-family: var(--font-display), sans-serif;
+  font-size: 26px;
+  letter-spacing: 3px;
+  color: var(--yellow);
+  margin-bottom: 10px;
+}
+
+.empty-state-sub {
+  color: var(--gray);
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.filter-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+}
+
+.filter-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.filter-search {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.filter-search:focus {
+  border-color: var(--yellow-dim);
+}
+.filter-search::placeholder {
+  color: var(--gray);
+}
+
 .pagination {
   display: flex;
   align-items: center;
@@ -187,7 +258,7 @@ watch(
 }
 
 .page-btn {
-  font-family: var(--font-display);
+  font-family: var(--font-display), sans-serif;
   font-size: 14px;
   letter-spacing: 2px;
   padding: 8px 16px;

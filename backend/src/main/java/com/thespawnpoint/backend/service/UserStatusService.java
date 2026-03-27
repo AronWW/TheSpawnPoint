@@ -1,6 +1,8 @@
 package com.thespawnpoint.backend.service;
 
 import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.entity.user.VisibilityLevel;
+import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import java.util.Map;
 public class UserStatusService {
 
     private final UserRepository userRepository;
+    private final PrivacySettingsRepository privacySettingsRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
@@ -24,7 +27,7 @@ public class UserStatusService {
         userRepository.findByEmail(email).ifPresent(user -> {
             user.setStatus(User.Status.ONLINE);
             userRepository.save(user);
-            broadcastStatus(user.getEmail(), User.Status.ONLINE, null);
+            broadcastStatus(user, User.Status.ONLINE, null);
             log.debug("User online: {}", email);
         });
     }
@@ -36,16 +39,21 @@ public class UserStatusService {
             user.setStatus(User.Status.OFFLINE);
             user.setLastSeen(now);
             userRepository.save(user);
-            broadcastStatus(user.getEmail(), User.Status.OFFLINE, now.toString());
+            broadcastStatus(user, User.Status.OFFLINE, now.toString());
             log.debug("User offline: {}", email);
         });
     }
 
-    private void broadcastStatus(String email, User.Status status, String lastSeen) {
+    private void broadcastStatus(User user, User.Status status, String lastSeen) {
+        String statusVisibility = privacySettingsRepository.findByUserId(user.getId())
+                .map(ps -> ps.getStatusVisibility().name())
+                .orElse(VisibilityLevel.ALL.name());
+
         Object payload = Map.of(
-                "email", email,
+                "email", user.getEmail(),
                 "status", status.name(),
-                "lastSeen", lastSeen != null ? lastSeen : ""
+                "lastSeen", lastSeen != null ? lastSeen : "",
+                "statusVisibility", statusVisibility
         );
         messagingTemplate.convertAndSend("/topic/status", payload);
     }

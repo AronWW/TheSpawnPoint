@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { timeAgo } from '../utils/helpers'
+import { API_BASE_URL } from '../config'
 import type { ChatItem } from '../types'
 
 const chatStore = useChatStore()
@@ -11,6 +12,20 @@ const emit = defineEmits<{
 }>()
 
 const props = defineProps<{ search: string }>()
+
+const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+
+function resolveAvatar(url: string | null): string {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return PUBLIC_BASE_URL + url
+}
+
+function chatAvatarUrl(chat: ChatItem): string | null {
+  if (chat.isGroup) return null
+  if (!chat.partnerAvatarUrl) return null
+  return resolveAvatar(chat.partnerAvatarUrl)
+}
 
 const ctxMenu = ref<{ show: boolean; x: number; y: number; chat: ChatItem | null }>({
   show: false, x: 0, y: 0, chat: null
@@ -39,12 +54,12 @@ function chatAvatarLetter(chat: ChatItem): string {
   return chatDisplayName(chat).charAt(0).toUpperCase()
 }
 
-function statusDot(chat: ChatItem): string {
-  if (chat.isGroup) return '👥'
+function statusDotClass(chat: ChatItem): string {
+  if (chat.isGroup) return 'is-group'
   const status = chat.partnerStatus
-  if (status === 'ONLINE') return '🟢'
-  if (status === 'AWAY') return '🟡'
-  return '⚫'
+  if (status === 'ONLINE') return 'online'
+  if (status === 'AWAY') return 'away'
+  return 'offline'
 }
 
 function isActive(chat: ChatItem) {
@@ -127,8 +142,11 @@ function onWindowClick() {
         @contextmenu="openCtxMenu($event, chat)"
       >
         <div class="chat-sidebar-avatar">
-          <span class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
-          <span class="chat-status-dot">{{ statusDot(chat) }}</span>
+          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+          <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+          <span class="chat-status-dot" :class="statusDotClass(chat)">
+            <svg v-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
         </div>
         <div class="chat-sidebar-info">
           <div class="chat-sidebar-name">
@@ -161,8 +179,11 @@ function onWindowClick() {
         @contextmenu="openCtxMenu($event, chat)"
       >
         <div class="chat-sidebar-avatar">
-          <span class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
-          <span class="chat-status-dot">{{ statusDot(chat) }}</span>
+          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+          <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+          <span class="chat-status-dot" :class="statusDotClass(chat)">
+            <svg v-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
         </div>
         <div class="chat-sidebar-info">
           <div class="chat-sidebar-name">
@@ -185,7 +206,7 @@ function onWindowClick() {
 
       <div v-if="filteredArchivedChats.length > 0" class="chat-archive-toggle" @click="chatStore.showArchived = !chatStore.showArchived">
         <span>АРХІВ ({{ filteredArchivedChats.length }})</span>
-        <span>{{ chatStore.showArchived ? '▲' : '▼' }}</span>
+        <svg :style="{ transform: chatStore.showArchived ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
 
       <template v-if="chatStore.showArchived">
@@ -198,7 +219,8 @@ function onWindowClick() {
           @contextmenu="openCtxMenu($event, chat)"
         >
           <div class="chat-sidebar-avatar">
-            <span class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+            <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+            <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
           </div>
           <div class="chat-sidebar-info">
             <div class="chat-sidebar-name">
@@ -396,6 +418,19 @@ function onWindowClick() {
   box-shadow: 0 2px 10px rgba(245,197,24,0.1);
 }
 
+.chat-avatar-img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: all 0.2s;
+}
+.chat-sidebar-item:hover .chat-avatar-img {
+  border-color: var(--yellow-dim);
+  box-shadow: 0 2px 10px rgba(245,197,24,0.1);
+}
+
 .chat-avatar-letter.group {
   background: linear-gradient(135deg, rgba(41, 128, 185, 0.2), rgba(41, 128, 185, 0.08));
   border-color: rgba(41, 128, 185, 0.4);
@@ -410,8 +445,22 @@ function onWindowClick() {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  font-size: 10px;
-  line-height: 1;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+  background: var(--gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-status-dot.online  { background: #27ae60; }
+.chat-status-dot.away    { background: var(--yellow-dim); }
+.chat-status-dot.offline { background: var(--gray); }
+.chat-status-dot.is-group {
+  background: rgba(41, 128, 185, 0.35);
+  border-color: rgba(41, 128, 185, 0.5);
+  color: #5dade2;
 }
 
 .chat-sidebar-info {

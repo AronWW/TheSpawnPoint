@@ -77,6 +77,11 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const { data } = await api.put('/auth/change-password', { currentPassword, newPassword })
+    return data
+  }
+
   async function logout() {
     try {
       await api.post('/auth/logout')
@@ -88,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user, loading, isLoggedIn, displayName, initialized,
     fetchMe, init, login, register, verifyEmail, resendVerification,
-    forgotPassword, resetPassword, logout, refreshUser, markBanned,
+    forgotPassword, resetPassword, changePassword, logout, refreshUser, markBanned,
   }
 })
 

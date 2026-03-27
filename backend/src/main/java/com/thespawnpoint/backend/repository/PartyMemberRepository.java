@@ -75,6 +75,13 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             """)
     long countCompletedPartiesCreatedByUserId(@Param("userId") Long userId);
 
+    @Query("""
+            SELECT COUNT(DISTINCT pm.partyRequest.id) FROM PartyMember pm
+            WHERE pm.user.id = :userId
+              AND pm.partyRequest.creator.id <> :userId
+            """)
+    long countAllPartiesJoinedByUserId(@Param("userId") Long userId);
+
     @Query(value = """
             SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (pr.completed_at - pr.started_at))), 0)
             FROM party_members pm

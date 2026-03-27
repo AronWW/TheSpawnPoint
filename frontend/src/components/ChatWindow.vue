@@ -5,12 +5,21 @@ import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { useStompClient } from '../composables/useStompClient'
 import { CHAT_EMOJIS } from '../utils/emojis'
-import type { ChatMessage } from '../types'
+import { API_BASE_URL } from '../config'
+import type { ChatMessage, PinnedMessageInfo } from '../types'
 
 const router = useRouter()
 const chatStore = useChatStore()
 const auth = useAuthStore()
 const stomp = useStompClient()
+
+const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+
+function resolveAvatar(url: string | null): string {
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
+  if (url.startsWith('http')) return url
+  return PUBLIC_BASE_URL + url
+}
 
 const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -44,9 +53,59 @@ const emojiPickerStyle = computed(() => {
 const isGroup = computed(() => chatStore.activeChat?.isGroup ?? false)
 const activeChatId = computed(() => chatStore.activeChat?.id ?? 0)
 
-const latestPin = computed(() => {
+const currentPinIndex = ref(-1)
+const showPinnedList = ref(false)
+
+const hasPinnedMessages = computed(() => chatStore.pinnedMessages.length > 0)
+const pinnedCount = computed(() => chatStore.pinnedMessages.length)
+
+const currentPin = computed(() => {
   const pins = chatStore.pinnedMessages
-  return pins.length > 0 ? pins[pins.length - 1] : null
+  if (pins.length === 0) return null
+  if (currentPinIndex.value < 0 || currentPinIndex.value >= pins.length) {
+    return pins[pins.length - 1]
+  }
+  return pins[currentPinIndex.value]
+})
+
+const pinnedListFiltered = computed(() => {
+  const pins = chatStore.pinnedMessages
+  if (!currentPin.value) return pins
+  return pins.filter(p => p.messageId !== currentPin.value!.messageId)
+})
+
+function onPinnedStripClick() {
+  if (!currentPin.value) return
+  scrollToMessage(currentPin.value.messageId)
+  if (chatStore.pinnedMessages.length > 1) {
+    const pins = chatStore.pinnedMessages
+    const curIdx = currentPinIndex.value < 0 || currentPinIndex.value >= pins.length
+      ? pins.length - 1
+      : currentPinIndex.value
+    currentPinIndex.value = curIdx - 1 < 0 ? pins.length - 1 : curIdx - 1
+  }
+}
+
+function togglePinnedList() {
+  showPinnedList.value = !showPinnedList.value
+}
+
+function onPinnedListItemClick(pin: PinnedMessageInfo) {
+  scrollToMessage(pin.messageId)
+  const idx = chatStore.pinnedMessages.findIndex(p => p.messageId === pin.messageId)
+  if (idx >= 0) {
+    currentPinIndex.value = idx === 0 ? chatStore.pinnedMessages.length - 1 : idx - 1
+  }
+  showPinnedList.value = false
+}
+
+watch(() => chatStore.activeChat?.id, () => {
+  currentPinIndex.value = -1
+  showPinnedList.value = false
+})
+
+watch(() => chatStore.pinnedMessages.length, () => {
+  currentPinIndex.value = -1
 })
 
 const chatTitle = computed(() => {
@@ -155,6 +214,12 @@ function getSenderUserId(email: string | null): number | null {
   if (!email || !chatStore.activeChat?.participants) return null
   const p = chatStore.activeChat.participants.find(p => p.email === email)
   return p?.userId ?? null
+}
+
+function getSenderAvatarUrl(email: string | null): string {
+  if (!email || !chatStore.activeChat?.participants) return resolveAvatar(null)
+  const p = chatStore.activeChat.participants.find(p => p.email === email)
+  return resolveAvatar(p?.avatarUrl ?? null)
 }
 
 function navigateToProfile(email: string | null) {
@@ -312,6 +377,7 @@ function scrollToMessage(msgId: number) {
 function onWindowClick() {
   closeContextMenu()
   emojiPickerMsg.value = null
+  showPinnedList.value = false
 }
 
 watch(() => chatStore.editingMessage, (msg) => {
@@ -324,7 +390,8 @@ watch(() => chatStore.editingMessage, (msg) => {
 
     <div class="chat-window-header">
       <div class="cw-avatar" :class="{ group: isGroup }">
-        <span class="cw-letter">{{ chatTitle.charAt(0).toUpperCase() }}</span>
+        <img v-if="!isGroup && chatStore.activeChat?.partnerAvatarUrl" :src="resolveAvatar(chatStore.activeChat.partnerAvatarUrl)" alt="" class="cw-avatar-img" />
+        <span v-else class="cw-letter">{{ chatTitle.charAt(0).toUpperCase() }}</span>
       </div>
       <div class="cw-header-info">
         <div class="cw-name">{{ chatTitle }}</div>
@@ -364,13 +431,42 @@ watch(() => chatStore.editingMessage, (msg) => {
       <div v-if="chatStore.searchLoading" class="cw-search-loading">Пошук...</div>
     </div>
 
-    <div
-      v-if="latestPin"
-      class="cw-pinned-strip"
-      @click="scrollToMessage(latestPin.messageId)"
-    >
-      <span class="pinned-label">ЗАКРІПЛЕНО</span>
-      <span class="pinned-text">{{ latestPin.content }}</span>
+    <div v-if="hasPinnedMessages" class="cw-pinned-section">
+      <div class="cw-pinned-strip" @click="onPinnedStripClick">
+        <span class="pinned-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+        </span>
+        <div class="pinned-body">
+          <span class="pinned-sender">{{ currentPin?.senderName }}</span>
+          <span class="pinned-text">{{ currentPin?.content }}</span>
+        </div>
+        <span v-if="pinnedCount > 1" class="pinned-counter">
+          {{ pinnedCount }} закріплено
+        </span>
+        <button class="pinned-expand-btn" @click.stop="togglePinnedList" :title="showPinnedList ? 'Згорнути' : 'Всі закріплені'">
+          <svg :style="{ transform: showPinnedList ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div v-if="showPinnedList" class="cw-pinned-list">
+        <div
+          v-for="pin in pinnedListFiltered"
+          :key="pin.id"
+          class="cw-pinned-list-item"
+          @click="onPinnedListItemClick(pin)"
+        >
+          <span class="pinned-list-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+          </span>
+          <div class="pinned-list-body">
+            <span class="pinned-list-sender">{{ pin.senderName }}</span>
+            <span class="pinned-list-text">{{ pin.content.length > 80 ? pin.content.slice(0, 80) + '…' : pin.content }}</span>
+          </div>
+          <button class="pinned-list-unpin" @click.stop="chatStore.unpinMessageAction(activeChatId, pin.messageId)" title="Відкріпити">✕</button>
+        </div>
+        <div v-if="pinnedListFiltered.length === 0" class="cw-pinned-list-empty">
+          Немає інших закріплених повідомлень
+        </div>
+      </div>
     </div>
 
     <div class="chat-messages" ref="messagesContainer" @scroll="onScroll">
@@ -389,17 +485,26 @@ watch(() => chatStore.editingMessage, (msg) => {
         <div
           v-else
           class="chat-msg"
-          :class="{ own: isOwnMessage(msg.senderEmail), deleted: msg.deleted }"
+          :class="{ own: isOwnMessage(msg.senderEmail), deleted: msg.deleted, 'has-avatar': isGroup && !isOwnMessage(msg.senderEmail) && !msg.deleted }"
           :data-msg-id="msg.id"
           @contextmenu="openContextMenu($event, msg)"
         >
+          <img
+            v-if="isGroup && !isOwnMessage(msg.senderEmail) && !msg.deleted"
+            :src="getSenderAvatarUrl(msg.senderEmail)"
+            alt=""
+            class="chat-msg-avatar"
+            @click.stop="navigateToProfile(msg.senderEmail)"
+          />
           <div class="chat-msg-bubble">
             <button
               v-if="!msg.deleted"
               class="msg-hover-react"
               @click.stop="openEmojiPicker(msg)"
               title="Реакція"
-            >😊</button>
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/></svg>
+            </button>
 
             <div v-if="msg.replyToId && !msg.deleted" class="chat-msg-reply" @click="scrollToMessage(msg.replyToId!)">
               <span class="reply-sender">{{ msg.replyToSenderName }}</span>
@@ -469,7 +574,9 @@ watch(() => chatStore.editingMessage, (msg) => {
       </div>
 
       <div v-if="chatStore.messages.length === 0 && !chatStore.loadingMessages" class="chat-empty">
-        <div class="chat-empty-icon">💬</div>
+        <div class="chat-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
         <div>Напишіть перше повідомлення!</div>
       </div>
     </div>
@@ -527,8 +634,11 @@ watch(() => chatStore.editingMessage, (msg) => {
 
   <div class="chat-window chat-placeholder" v-else>
     <div class="chat-placeholder-inner">
-      <div class="chat-placeholder-icon">💬</div>
-      <div class="chat-placeholder-text">Оберіть чат щоб почати спілкування</div>
+      <div class="chat-placeholder-icon">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="chat-placeholder-title">ОБЕРІТЬ ЧАТ</div>
+      <div class="chat-placeholder-text">щоб почати спілкування</div>
     </div>
   </div>
 </template>
@@ -744,12 +854,29 @@ watch(() => chatStore.editingMessage, (msg) => {
   animation: chatPulse 1.5s ease-in-out infinite;
 }
 
+.cw-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cw-avatar:hover .cw-avatar-img {
+  border-color: var(--yellow-dim);
+  box-shadow: 0 2px 12px rgba(245,197,24,0.15);
+}
+
+.cw-pinned-section {
+  border-bottom: 2px solid var(--border);
+  position: relative;
+}
+
 .cw-pinned-strip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 24px;
-  border-bottom: 2px solid var(--border);
+  gap: 10px;
+  padding: 8px 20px;
   border-left: 4px solid var(--yellow-dim);
   background: linear-gradient(90deg, rgba(245,197,24,0.04), var(--panel));
   cursor: pointer;
@@ -757,45 +884,167 @@ watch(() => chatStore.editingMessage, (msg) => {
   overflow: hidden;
   position: relative;
 }
-.cw-pinned-strip::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, var(--yellow-dim), transparent);
-  opacity: 0.3;
-}
 .cw-pinned-strip:hover {
   background: linear-gradient(90deg, rgba(245,197,24,0.07), var(--panel-light));
   border-left-color: var(--yellow);
 }
-.pinned-label {
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--black);
+.pinned-icon {
   flex-shrink: 0;
-  padding: 3px 10px;
-  background: var(--yellow);
-  position: relative;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, rgba(245,197,24,0.15), rgba(245,197,24,0.05));
+  border: 1px solid rgba(245,197,24,0.25);
+  color: var(--yellow);
+  transition: all 0.2s;
 }
-.pinned-label::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
-  pointer-events: none;
+.cw-pinned-strip:hover .pinned-icon {
+  background: linear-gradient(135deg, rgba(245,197,24,0.25), rgba(245,197,24,0.1));
+  border-color: rgba(245,197,24,0.4);
+  box-shadow: 0 0 8px rgba(245,197,24,0.15);
+}
+.pinned-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pinned-sender {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5dade2;
+  letter-spacing: 0.3px;
 }
 .pinned-text {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--gray-light);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.3px;
+}
+.pinned-counter {
+  font-size: 10px;
+  color: var(--yellow-dim);
+  flex-shrink: 0;
+  letter-spacing: 1px;
+  font-family: var(--font-display);
+  padding: 2px 8px;
+  border: 1px solid rgba(245,197,24,0.15);
+  background: rgba(245,197,24,0.04);
+}
+.cw-pinned-strip:hover .pinned-counter {
+  border-color: rgba(245,197,24,0.3);
+  color: var(--yellow);
+}
+.pinned-expand-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  cursor: pointer;
+  padding: 3px 6px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.pinned-expand-btn:hover {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
+}
+
+.cw-pinned-list {
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  max-height: 240px;
+  overflow-y: auto;
+  animation: pinnedListIn 0.15s ease-out;
+}
+@keyframes pinnedListIn {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 240px; }
+}
+.cw-pinned-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cw-pinned-list-item:hover {
+  background: var(--panel-light);
+  border-left-color: var(--yellow-dim);
+}
+.cw-pinned-list-item:last-child {
+  border-bottom: none;
+}
+.pinned-list-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, rgba(245,197,24,0.1), rgba(245,197,24,0.03));
+  border: 1px solid rgba(245,197,24,0.2);
+  color: var(--yellow-dim);
+  transition: all 0.15s;
+}
+.cw-pinned-list-item:hover .pinned-list-icon {
+  color: var(--yellow);
+  border-color: rgba(245,197,24,0.35);
+  background: linear-gradient(135deg, rgba(245,197,24,0.18), rgba(245,197,24,0.06));
+}
+.pinned-list-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pinned-list-sender {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5dade2;
+  letter-spacing: 0.3px;
+}
+.pinned-list-text {
+  font-size: 12px;
+  color: var(--gray-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinned-list-unpin {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.pinned-list-unpin:hover {
+  color: var(--red);
+  border-color: var(--red-dim);
+}
+
+.cw-pinned-list-empty {
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--gray);
+  letter-spacing: 0.5px;
+  font-style: italic;
 }
 
 .msg-context-menu {
@@ -1016,8 +1265,7 @@ watch(() => chatStore.editingMessage, (msg) => {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 2px 6px;
-  font-size: 13px;
+  padding: 4px 8px;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -1026,6 +1274,9 @@ watch(() => chatStore.editingMessage, (msg) => {
   line-height: 1;
   color: var(--gray-light);
   box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .chat-msg-bubble:hover .msg-hover-react {
   opacity: 1;
@@ -1155,5 +1406,79 @@ watch(() => chatStore.editingMessage, (msg) => {
   }
 }
 
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 14px;
+  color: var(--gray);
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+.chat-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray);
+  opacity: 0.5;
+}
+
+.chat-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.chat-placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yellow);
+  filter: drop-shadow(0 0 18px rgba(245, 197, 24, 0.45));
+}
+.chat-placeholder-title {
+  font-family: var(--font-display), sans-serif;
+  font-size: 18px;
+  letter-spacing: 4px;
+  color: var(--white);
+}
+.chat-placeholder-text {
+  font-family: var(--font-body), sans-serif;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--gray);
+  text-align: center;
+}
+
 .chat-msg { position: relative; }
+
+.chat-msg.has-avatar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.chat-msg.has-avatar .chat-msg-bubble {
+  max-width: calc(70% - 42px);
+}
+.chat-msg-avatar {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+}
+.chat-msg-avatar:hover {
+  border-color: var(--yellow-dim);
+  box-shadow: 0 0 8px rgba(245,197,24,0.15);
+}
 </style>

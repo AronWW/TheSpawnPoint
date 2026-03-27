@@ -348,6 +348,7 @@ public class PartyService {
     public UserStatsDTO getUserStats(Long userId) {
         long completed = partyMemberRepository.countCompletedPartiesByUserId(userId);
         long created = partyMemberRepository.countCompletedPartiesCreatedByUserId(userId);
+        long joined = partyMemberRepository.countAllPartiesJoinedByUserId(userId);
         long playTimeSeconds = partyMemberRepository.sumPlayTimeSecondsByUserId(userId);
         double hoursPlayed = Math.round(playTimeSeconds / 36.0) / 100.0;
 
@@ -367,7 +368,7 @@ public class PartyService {
         return UserStatsDTO.builder()
                 .completedGames(completed)
                 .partiesCreated(created)
-                .partiesJoined(completed - created)
+                .partiesJoined(joined)
                 .hoursPlayed(hoursPlayed)
                 .favoriteGameName(favGameName)
                 .favoriteGameImageUrl(favGameImageUrl)

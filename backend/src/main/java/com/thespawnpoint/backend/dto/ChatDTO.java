@@ -25,6 +25,7 @@ public class ChatDTO {
 
     private String partnerEmail;
     private String partnerDisplayName;
+    private String partnerAvatarUrl;
     private String partnerStatus;
     private String partnerLastSeen;
 

@@ -3,7 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
-import { gameEmoji, genreColor } from '../utils/helpers'
+import { genreColor } from '../utils/helpers'
 import api from '../api/axios'
 import type { Game, Page } from '../types'
 import SuggestGameModal from '../components/SuggestGameModal.vue'
@@ -90,34 +90,36 @@ onMounted(async () => {
   <div class="games-page">
     <div class="games-container">
       <div class="section-head">
-        <div class="section-title-row">
-          <div class="section-title">
-            ВСІ ІГРИ
-            <span class="section-count">{{ totalElements }} ігор</span>
-          </div>
-          <router-link v-if="auth.isLoggedIn" to="/favorite-games" class="fav-page-btn">
-            ❤ УЛЮБЛЕНІ
-            <span v-if="gameStore.favoriteGames.length" class="fav-count">{{ gameStore.favoriteGames.length }}</span>
-          </router-link>
+        <div class="section-title">
+          ВСІ ІГРИ
+          <span class="section-count">{{ totalElements }} ігор</span>
         </div>
+        <router-link v-if="auth.isLoggedIn" to="/favorite-games" class="fav-page-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          УЛЮБЛЕНІ
+          <span v-if="gameStore.favoriteGames.length" class="fav-count">{{ gameStore.favoriteGames.length }}</span>
+        </router-link>
       </div>
 
       <div class="games-filters">
-        <input
-          v-model="search"
-          class="filter-search"
-          placeholder="🔍 Пошук гри..."
-        />
+        <div class="filter-search-wrap">
+          <svg class="filter-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            v-model="search"
+            class="filter-search"
+            placeholder="Пошук гри..."
+          />
+        </div>
         <select v-model="selectedGenre" class="filter-select">
           <option value="">Всі жанри</option>
-          <option v-for="genre in genres" :key="genre" :value="genre">
-            {{ genre }}
-          </option>
+          <option v-for="genre in genres" :key="genre" :value="genre">{{ genre }}</option>
         </select>
       </div>
 
       <div v-if="loading" class="empty-state">
-        <div class="empty-icon">⏳</div>
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <h3>ЗАВАНТАЖЕННЯ...</h3>
       </div>
 
@@ -137,35 +139,28 @@ onMounted(async () => {
               @click.stop="handleToggleFavorite(game.id)"
             >
               <svg viewBox="0 0 24 24" class="heart-svg">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
-                  2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09
-                  C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
-                  c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
             </button>
 
             <div class="g-card-left">
-              <img
-                v-if="game.imageUrl"
-                :src="game.imageUrl"
-                :alt="game.name"
-                class="g-cover"
-              />
-              <div v-else class="g-cover-ph">{{ gameEmoji(game.genre) }}</div>
+              <img v-if="game.imageUrl" :src="game.imageUrl" :alt="game.name" class="g-cover" />
+              <div v-else class="g-cover-ph">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+              </div>
             </div>
 
             <div class="g-card-right">
               <div class="g-name">{{ game.name }}</div>
-
               <div class="g-meta-row">
-                <span v-if="game.genre" class="g-genre" :class="genreColor(game.genre)">
-                  {{ game.genre }}
-                </span>
+                <span v-if="game.genre" class="g-genre" :class="genreColor(game.genre)">{{ game.genre }}</span>
                 <span v-if="game.releaseYear" class="g-year">{{ game.releaseYear }}</span>
               </div>
-
               <div class="g-bottom">
-                <span class="g-party-size">👥 до {{ game.maxPartySize }} гравців</span>
+                <span class="g-party-size">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  до {{ game.maxPartySize }} гравців
+                </span>
                 <span class="g-find-btn">ЗНАЙТИ ЛОБІ →</span>
               </div>
             </div>
@@ -173,29 +168,17 @@ onMounted(async () => {
         </div>
 
         <div v-if="totalPages > 1" class="pagination">
-          <button
-            class="page-btn"
-            :disabled="page === 0"
-            @click="goToPage(page - 1)"
-          >← НАЗАД</button>
-
+          <button class="page-btn" :disabled="page === 0" @click="goToPage(page - 1)">← НАЗАД</button>
           <template v-for="p in totalPages" :key="p">
-            <button
-              class="page-btn"
-              :class="{ active: page === p - 1 }"
-              @click="goToPage(p - 1)"
-            >{{ p }}</button>
+            <button class="page-btn" :class="{ active: page === p - 1 }" @click="goToPage(p - 1)">{{ p }}</button>
           </template>
-
-          <button
-            class="page-btn"
-            :disabled="page >= totalPages - 1"
-            @click="goToPage(page + 1)"
-          >ДАЛІ →</button>
+          <button class="page-btn" :disabled="page >= totalPages - 1" @click="goToPage(page + 1)">ДАЛІ →</button>
         </div>
 
         <div v-if="!games.length" class="empty-state">
-          <div class="empty-icon">🎮</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+          </div>
           <h3>ІГОР НЕ ЗНАЙДЕНО</h3>
           <p>Спробуй змінити фільтри або пошуковий запит</p>
         </div>
@@ -224,34 +207,30 @@ onMounted(async () => {
   padding: 40px 64px 80px;
 }
 
-.section-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 8px;
+.section-head {
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
 }
 
 .fav-page-btn {
   font-family: var(--font-display), sans-serif;
-  font-size: 14px;
-  letter-spacing: 2px;
-  padding: 8px 20px;
+  font-size: 16px;
+  letter-spacing: 3px;
+  padding: 12px 28px;
   background: transparent;
-  border: 2px solid var(--yellow-dim);
+  border: 2px solid var(--yellow);
   color: var(--yellow);
-  cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 .fav-page-btn:hover {
   background: var(--yellow);
   color: var(--black);
-  border-color: var(--yellow);
 }
 .fav-count {
   font-family: var(--font-body), sans-serif;
@@ -267,6 +246,41 @@ onMounted(async () => {
   background: var(--black);
   color: var(--yellow);
 }
+
+.games-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.filter-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+}
+.filter-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray);
+  pointer-events: none;
+}
+.filter-search {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.filter-search:focus { border-color: var(--yellow-dim); }
+.filter-search::placeholder { color: var(--gray); }
+
 
 .suggest-game-footer {
   text-align: center;
@@ -286,9 +300,7 @@ onMounted(async () => {
   transition: color 0.15s;
   padding: 0;
 }
-.suggest-game-link:hover {
-  color: var(--yellow);
-}
+.suggest-game-link:hover { color: var(--yellow); }
 
 .heart-btn {
   position: absolute;
@@ -310,14 +322,11 @@ onMounted(async () => {
   opacity: 0;
 }
 .g-card:hover .heart-btn,
-.heart-btn.filled {
-  opacity: 1;
-}
+.heart-btn.filled { opacity: 1; }
 .heart-btn:hover {
   transform: scale(1.15);
   background: rgba(10, 10, 11, 0.9);
 }
-
 .heart-svg {
   width: 20px;
   height: 20px;
@@ -326,29 +335,14 @@ onMounted(async () => {
   stroke-width: 2;
   transition: fill 0.25s, stroke 0.25s;
 }
-.heart-btn.filled .heart-svg {
-  fill: var(--yellow);
-  stroke: var(--yellow);
-}
-.heart-btn:not(.filled):hover .heart-svg {
-  stroke: var(--yellow-dim);
-}
-
-.heart-btn.animating {
-  animation: heart-pulse 0.4s ease;
-}
+.heart-btn.filled .heart-svg { fill: var(--yellow); stroke: var(--yellow); }
+.heart-btn:not(.filled):hover .heart-svg { stroke: var(--yellow-dim); }
+.heart-btn.animating { animation: heart-pulse 0.4s ease; }
 @keyframes heart-pulse {
   0%   { transform: scale(1); }
   30%  { transform: scale(1.35); }
   60%  { transform: scale(0.95); }
   100% { transform: scale(1); }
-}
-
-.games-filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
-  flex-wrap: wrap;
 }
 
 .games-grid {
@@ -381,9 +375,7 @@ onMounted(async () => {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
-.g-card:hover::after {
-  transform: scaleY(1);
-}
+.g-card:hover::after { transform: scaleY(1); }
 
 .g-card-left {
   width: 120px;
@@ -391,7 +383,6 @@ onMounted(async () => {
   overflow: hidden;
   background: var(--dark);
 }
-
 .g-cover {
   width: 100%;
   height: 100%;
@@ -399,10 +390,7 @@ onMounted(async () => {
   transition: transform 0.3s;
   display: block;
 }
-.g-card:hover .g-cover {
-  transform: scale(1.08);
-}
-
+.g-card:hover .g-cover { transform: scale(1.08); }
 .g-cover-ph {
   width: 100%;
   height: 100%;
@@ -410,8 +398,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
   background: var(--panel-light);
+  color: var(--gray);
 }
 
 .g-card-right {
@@ -422,7 +410,6 @@ onMounted(async () => {
   gap: 8px;
   min-width: 0;
 }
-
 .g-name {
   font-family: var(--font-display), sans-serif;
   font-size: 22px;
@@ -433,16 +420,13 @@ onMounted(async () => {
   text-overflow: ellipsis;
   transition: color 0.15s;
 }
-.g-card:hover .g-name {
-  color: var(--yellow);
-}
+.g-card:hover .g-name { color: var(--yellow); }
 
 .g-meta-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
 .g-genre {
   font-size: 10px;
   font-weight: 700;
@@ -453,26 +437,10 @@ onMounted(async () => {
   color: var(--gray-light);
   background: rgba(255, 255, 255, 0.03);
 }
-.g-genre.blue {
-  border-color: #3498db44;
-  color: #5dade2;
-  background: rgba(52, 152, 219, 0.08);
-}
-.g-genre.purple {
-  border-color: #9b59b644;
-  color: #bb8fce;
-  background: rgba(155, 89, 182, 0.08);
-}
-.g-genre.red {
-  border-color: #c0392b44;
-  color: #e57373;
-  background: rgba(192, 57, 43, 0.08);
-}
-.g-genre.green {
-  border-color: #27ae6044;
-  color: #58d68d;
-  background: rgba(39, 174, 96, 0.08);
-}
+.g-genre.blue   { border-color: #3498db44; color: #5dade2; background: rgba(52,152,219,0.08); }
+.g-genre.purple { border-color: #9b59b644; color: #bb8fce; background: rgba(155,89,182,0.08); }
+.g-genre.red    { border-color: #c0392b44; color: #e57373; background: rgba(192,57,43,0.08); }
+.g-genre.green  { border-color: #27ae6044; color: #58d68d; background: rgba(39,174,96,0.08); }
 
 .g-year {
   font-size: 12px;
@@ -487,13 +455,14 @@ onMounted(async () => {
   margin-top: auto;
   padding-top: 6px;
 }
-
 .g-party-size {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   color: var(--gray);
   letter-spacing: 0.5px;
 }
-
 .g-find-btn {
   font-family: var(--font-display), sans-serif;
   font-size: 11px;
@@ -502,10 +471,7 @@ onMounted(async () => {
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
 }
-.g-card:hover .g-find-btn {
-  opacity: 1;
-  color: var(--yellow);
-}
+.g-card:hover .g-find-btn { opacity: 1; color: var(--yellow); }
 
 .empty-state {
   display: flex;
@@ -516,8 +482,11 @@ onMounted(async () => {
   text-align: center;
 }
 .empty-icon {
-  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16px;
+  color: var(--gray);
 }
 .empty-state h3 {
   font-family: var(--font-display), sans-serif;
@@ -526,10 +495,7 @@ onMounted(async () => {
   color: var(--yellow);
   margin-bottom: 8px;
 }
-.empty-state p {
-  color: var(--gray);
-  font-size: 15px;
-}
+.empty-state p { color: var(--gray); font-size: 15px; }
 
 .pagination {
   display: flex;
@@ -540,7 +506,6 @@ onMounted(async () => {
   padding-top: 28px;
   border-top: 2px solid var(--border);
 }
-
 .page-btn {
   font-family: var(--font-display), sans-serif;
   font-size: 14px;
@@ -552,45 +517,17 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.15s;
 }
-.page-btn:hover:not(:disabled) {
-  border-color: var(--yellow-dim);
-  color: var(--yellow);
-  background: var(--yellow-glow);
-}
-.page-btn.active {
-  border-color: var(--yellow);
-  color: var(--black);
-  background: var(--yellow);
-}
-.page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+.page-btn:hover:not(:disabled) { border-color: var(--yellow-dim); color: var(--yellow); background: var(--yellow-glow); }
+.page-btn.active { border-color: var(--yellow); color: var(--black); background: var(--yellow); }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 @media (max-width: 900px) {
-  .games-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  }
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
 @media (max-width: 600px) {
-  .games-grid {
-    grid-template-columns: 1fr;
-  }
-  .games-container {
-    padding: 24px 20px 60px;
-  }
-  .section-title-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .fav-page-btn {
-    width: 100%;
-    justify-content: center;
-    font-size: 12px;
-    padding: 8px 12px;
-  }
-  .heart-btn {
-    opacity: 1;
-  }
+  .games-grid { grid-template-columns: 1fr; }
+  .games-container { padding: 24px 20px 60px; }
+  .fav-page-btn { width: 100%; justify-content: center; font-size: 13px; padding: 10px 16px; }
+  .heart-btn { opacity: 1; }
 }
 </style>

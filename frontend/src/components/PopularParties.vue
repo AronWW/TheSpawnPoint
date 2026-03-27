@@ -41,7 +41,9 @@ function selectParty(party: Party) {
             :alt="party.gameName"
             class="pp-cover-img"
           />
-          <div v-else class="pp-cover-ph">🎮</div>
+          <div v-else class="pp-cover-ph">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+          </div>
           <div class="pp-cover-fade"></div>
           <div class="pp-cover-info">
             <span class="pp-game-name">{{ party.gameName }}</span>
@@ -173,8 +175,8 @@ function selectParty(party: Party) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
   background: var(--panel-light);
+  color: var(--gray);
 }
 
 .pp-cover-fade {

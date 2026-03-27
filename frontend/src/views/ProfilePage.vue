@@ -199,10 +199,14 @@ function resolveAvatar(url: string | null): string {
 
 function formatHours(hours: number): string {
   if (hours < 1) {
-    const mins = Math.round(hours * 60)
-    return mins + ' хв'
+    return String(Math.round(hours * 60))
   }
-  return hours.toFixed(1) + 'h'
+  return hours.toFixed(1)
+}
+
+function formatPlaytimeLabel(hours: number): string {
+  if (hours < 1) return 'Хвилин у грі'
+  return 'Годин у грі'
 }
 
 const copied = ref<string | null>(null)
@@ -215,6 +219,31 @@ async function copyToClipboard(val: string, key: string) {
 const isOwnProfile = computed(() =>
     auth.user && profile.value && auth.user.id === profile.value.userId
 )
+
+const canSeeFriends = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.friendsVisibility !== 'HIDDEN'
+})
+const canSeeStatus = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.statusVisibility !== 'HIDDEN'
+})
+const canSeeStats = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.statsVisibility !== 'HIDDEN'
+})
+const canSeeFavoriteGames = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.favoriteGamesVisibility !== 'HIDDEN'
+})
+const canSeeSocials = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.socialsVisibility !== 'HIDDEN'
+})
+const canComment = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.commentsPolicy !== 'HIDDEN'
+})
 const isFriend = computed(() =>
     profile.value ? friendStore.friends.some(f => f.userId === profile.value!.userId) : false
 )
@@ -443,23 +472,23 @@ watch(() => route.params.userId, (newId) => {
     <div v-else-if="profile" class="va-page">
 
       <div class="cinematic-banner" :class="{ 'has-banner': profile.bannerUrl }" :style="bannerStyle">
-        <router-link v-if="isOwnProfile" :to="{ path: '/settings', query: { section: 'banner' } }" class="banner-edit-btn">✎ ЗМІНИТИ БАНЕР</router-link>
+        <router-link v-if="isOwnProfile" :to="{ path: '/customization', query: { section: 'banner' } }" class="banner-edit-btn">✎ ЗМІНИТИ БАНЕР</router-link>
       </div>
 
       <div class="va-hero">
         <div class="va-ava-wrap">
           <img :src="resolveAvatar(profile.avatarUrl)" :alt="profile.displayName" class="va-ava-img" />
-          <div class="online-dot" :class="statusClass"></div>
+          <div class="online-dot" :class="canSeeStatus ? statusClass : 'dot-offline'"></div>
         </div>
         <div class="va-info">
           <div class="va-name">{{ profile.displayName }}</div>
           <div class="va-status-row">
-            <span class="va-status-text" :class="statusClass">{{ statusText }}</span>
+            <span v-if="canSeeStatus" class="va-status-text" :class="statusClass">{{ statusText }}</span>
+            <span v-else class="va-status-text dot-offline">○ Офлайн</span>
             <span v-if="memberSince" class="va-member-since">{{ memberSince }}</span>
           </div>
           <div v-if="profile.fullName || profile.country || profile.region" class="va-details">
             <div v-if="profile.fullName" class="va-detail-item">
-              <span class="va-detail-icon">👤</span>
               <span class="va-detail-val">{{ profile.fullName }}</span>
             </div>
             <div v-if="profile.country" class="va-detail-item">
@@ -478,16 +507,42 @@ watch(() => route.params.userId, (newId) => {
         </div>
         <div class="va-actions">
           <template v-if="isOwnProfile">
-            <router-link to="/settings" class="va-btn p">✎ РЕДАГУВАТИ</router-link>
+            <router-link to="/customization" class="va-btn p">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              РЕДАГУВАТИ
+            </router-link>
+            <router-link to="/settings" class="va-btn s">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              НАЛАШТУВАННЯ
+            </router-link>
           </template>
           <template v-else-if="auth.isLoggedIn">
-            <button class="va-btn p" @click="openDm">💬 НАПИСАТИ</button>
-            <button v-if="isFriend" class="va-btn s" disabled>✓ ДРУЗІ</button>
-            <button v-else-if="hasPendingRequest" class="va-btn s" disabled>⏳ ЗАПИТ НАДІСЛАНО</button>
-            <button v-else class="va-btn s" :disabled="addingFriend" @click="sendFriendRequest">+ ДОДАТИ В ДРУЗІ</button>
-            <button class="va-flag-btn" title="Поскаржитись" @click="showReport = true">🚩 скарга</button>
+            <button class="va-btn p" @click="openDm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              НАПИСАТИ
+            </button>
+            <button v-if="isFriend" class="va-btn s" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              ДРУЗІ
+            </button>
+            <button v-else-if="hasPendingRequest" class="va-btn s" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              ЗАПИТ НАДІСЛАНО
+            </button>
+            <button v-else class="va-btn s" :disabled="addingFriend" @click="sendFriendRequest">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              ДОДАТИ В ДРУЗІ
+            </button>
           </template>
         </div>
+        <button
+          v-if="!isOwnProfile && auth.isLoggedIn"
+          class="va-report-corner"
+          title="Поскаржитись"
+          @click="showReport = true"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </button>
       </div>
 
       <ReportUserModal
@@ -500,7 +555,7 @@ watch(() => route.params.userId, (newId) => {
       <div class="va-body">
         <div class="va-main">
 
-          <div v-if="userStats && (userStats.completedGames || userStats.hoursPlayed)" class="va-panel">
+          <div v-if="canSeeStats && userStats && (userStats.completedGames || userStats.hoursPlayed)" class="va-panel">
             <div class="va-panel-title">ІГРОВА СТАТИСТИКА</div>
             <div class="va-stats-grid">
               <div class="va-stat">
@@ -517,7 +572,7 @@ watch(() => route.params.userId, (newId) => {
               </div>
               <div class="va-stat blue">
                 <div class="va-stat-val">{{ formatHours(userStats.hoursPlayed) }}</div>
-                <div class="va-stat-lbl">Годин у грі</div>
+                <div class="va-stat-lbl">{{ formatPlaytimeLabel(userStats.hoursPlayed) }}</div>
               </div>
             </div>
             <div
@@ -533,7 +588,9 @@ watch(() => route.params.userId, (newId) => {
                 :alt="userStats.favoriteGameName"
                 class="va-fav-img"
               />
-              <div v-else class="va-fav-img">⭐</div>
+              <div v-else class="va-fav-img" style="display:flex;align-items:center;justify-content:center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--yellow)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </div>
               <div class="va-fav-info">
                 <div class="va-fav-label">Улюблена гра</div>
                 <div class="va-fav-name">{{ userStats.favoriteGameName }}</div>
@@ -542,7 +599,7 @@ watch(() => route.params.userId, (newId) => {
           </div>
 
 
-          <div v-if="favoriteGames.length" class="va-panel">
+          <div v-if="canSeeFavoriteGames && favoriteGames.length" class="va-panel">
             <div class="va-panel-title">ОБРАНІ ІГРИ</div>
             <div class="va-games">
               <div
@@ -581,7 +638,7 @@ watch(() => route.params.userId, (newId) => {
               <span class="comments-count">{{ comments.length }}</span>
             </div>
 
-            <div v-if="auth.isLoggedIn" class="comment-form">
+            <div v-if="auth.isLoggedIn && canComment" class="comment-form">
               <img :src="resolveAvatar(auth.user?.avatarUrl ?? null)" alt="" class="comment-form-ava" />
               <div class="comment-input-wrap">
                 <textarea
@@ -603,8 +660,8 @@ watch(() => route.params.userId, (newId) => {
             </div>
 
             <div v-if="comments.length === 0 && !commentsLoading" class="comments-empty">
-              <span>💬</span>
-              <p>Коментарів поки немає. Будь першим!</p>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--gray)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <p>Коментарів поки немає</p>
             </div>
 
             <div class="comments-list">
@@ -644,7 +701,7 @@ watch(() => route.params.userId, (newId) => {
 
         <div class="va-sidebar">
 
-          <div v-if="profileFriends.length" class="va-side-panel va-side-panel--clickable" @click="openFriendsSection">
+          <div v-if="canSeeFriends && profileFriends.length" class="va-side-panel va-side-panel--clickable" @click="openFriendsSection">
             <div class="va-side-title">
               <span>ДРУЗІ</span>
               <span class="va-side-count">{{ profileFriends.length }}</span>
@@ -678,7 +735,7 @@ watch(() => route.params.userId, (newId) => {
             <p class="va-bio-text">{{ profile.bio }}</p>
           </div>
 
-          <div v-if="activeSocials.length" class="va-side-panel">
+          <div v-if="canSeeSocials && activeSocials.length" class="va-side-panel">
             <div class="va-side-title">СОЦІАЛЬНІ МЕРЕЖІ</div>
             <div class="side-social-list">
               <template v-for="s in activeSocials" :key="s.key">
@@ -958,7 +1015,7 @@ watch(() => route.params.userId, (newId) => {
 }
 .va-btn {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 2px;
   padding: 9px 22px;
   border: 2px solid;
@@ -969,7 +1026,13 @@ watch(() => route.params.userId, (newId) => {
   text-decoration: none;
   text-align: center;
   color: inherit;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.va-btn svg {
+  flex-shrink: 0;
 }
 .va-btn.p {
   border-color: var(--yellow);
@@ -992,24 +1055,26 @@ watch(() => route.params.userId, (newId) => {
   cursor: default;
 }
 .va-flag-btn {
+  display: none;
+}
+.va-report-corner {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(192,57,43,0.35);
-  font-size: 13px;
-  letter-spacing: 1px;
-  padding: 4px 0;
-  text-align: right;
-  font-family: var(--font-body);
-  font-weight: 600;
-  transition: color 0.15s;
-  align-self: flex-end;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  color: rgba(192,57,43,0.3);
+  padding: 6px;
+  transition: color 0.15s, transform 0.15s;
+  z-index: 2;
 }
-.va-flag-btn:hover {
-  color: var(--red);
+.va-report-corner:hover {
+  color: #c0392b;
+  transform: scale(1.15);
+}
+.va-report-corner svg {
+  display: block;
 }
 
 .va-body {

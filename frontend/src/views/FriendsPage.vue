@@ -159,7 +159,8 @@ async function openDm(email: string) {
             :class="{ active: activeTab === 'search' }"
             @click="activeTab = 'search'"
         >
-          🔍 Знайти гравців
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Знайти гравців
         </button>
       </div>
 
@@ -168,7 +169,9 @@ async function openDm(email: string) {
           <p>Завантаження...</p>
         </div>
         <div v-else-if="friendStore.friends.length === 0" class="empty-state">
-          <div class="empty-icon">👥</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
           <h3>Друзів поки немає</h3>
           <p>Знайди гравців у лобі та надішли запит у друзі!</p>
         </div>
@@ -184,7 +187,9 @@ async function openDm(email: string) {
               <div class="friend-since">Друзі з {{ timeAgo(friend.friendsSince) }}</div>
             </div>
             <div class="friend-actions">
-              <button class="btn-message" @click="openDm(friend.email)" title="Написати">💬</button>
+              <button class="btn-message" @click="openDm(friend.email)" title="Написати">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
               <button class="btn-danger" @click="friendStore.unfriend(friend.userId)" title="Видалити з друзів">✕</button>
             </div>
           </div>
@@ -193,7 +198,9 @@ async function openDm(email: string) {
 
       <div v-if="activeTab === 'incoming'" class="friends-list">
         <div v-if="friendStore.incomingRequests.length === 0" class="empty-state">
-          <div class="empty-icon">📬</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
           <h3>Немає вхідних запитів</h3>
         </div>
         <div v-else class="friend-cards">
@@ -215,7 +222,9 @@ async function openDm(email: string) {
 
       <div v-if="activeTab === 'outgoing'" class="friends-list">
         <div v-if="friendStore.outgoingRequests.length === 0" class="empty-state">
-          <div class="empty-icon">📤</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </div>
           <h3>Немає надісланих запитів</h3>
         </div>
         <div v-else class="friend-cards">
@@ -252,12 +261,16 @@ async function openDm(email: string) {
           <p style="color: var(--red);">{{ searchError }}</p>
         </div>
         <div v-else-if="searchQuery.trim().length >= 2 && searchResults.length === 0" class="empty-state" style="padding: 30px;">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
           <h3>Нікого не знайдено</h3>
           <p>Спробуйте інший запит</p>
         </div>
         <div v-else-if="searchQuery.trim().length < 2 && searchResults.length === 0" class="empty-state" style="padding: 30px;">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
           <h3>Знайти гравців</h3>
           <p>Введіть мінімум 2 символи для пошуку</p>
         </div>
@@ -271,12 +284,17 @@ async function openDm(email: string) {
               <div class="friend-status">{{ statusLabel(user.status) }}</div>
             </div>
             <div class="friend-actions">
-              <button class="btn-message" @click="openDm(user.email)" title="Написати повідомлення">💬</button>
+              <button class="btn-message" @click="openDm(user.email)" title="Написати повідомлення">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
               <template v-if="isFriend(user.id)">
                 <span class="friend-badge">✓ Друзі</span>
               </template>
               <template v-else-if="hasPendingRequest(user.id)">
-                <span class="pending-badge">⏳ Запит</span>
+                <span class="pending-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Запит
+                </span>
               </template>
               <template v-else>
                 <button class="btn-accept" @click="addFriend(user.id)">+ Додати</button>
@@ -522,8 +540,11 @@ a.friend-name:hover {
 }
 
 .empty-icon {
-  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16px;
+  color: var(--gray);
 }
 
 .empty-state h3 {
@@ -564,17 +585,23 @@ a.friend-name:hover {
 
 
 .btn-message {
-  font-size: 18px;
-  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: none;
   border: 2px solid var(--border);
+  color: var(--gray-light);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
   line-height: 1;
 }
 .btn-message:hover {
   border-color: var(--yellow-dim);
   background: var(--yellow-glow);
+  color: var(--yellow);
 }
 
 .friend-badge {
@@ -588,6 +615,9 @@ a.friend-name:hover {
 }
 
 .pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1px;

@@ -31,8 +31,9 @@ public class ProfileController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<ProfileDTO> getProfile(@PathVariable Long userId) {
-        return ResponseEntity.ok(profileService.getProfileByUserId(userId));
+    public ResponseEntity<ProfileDTO> getProfile(@PathVariable Long userId,
+                                                  @AuthenticationPrincipal User requester) {
+        return ResponseEntity.ok(profileService.getProfileByUserId(userId, requester));
     }
 
     @GetMapping("/{userId}/stats")

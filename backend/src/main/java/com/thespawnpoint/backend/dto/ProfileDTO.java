@@ -33,4 +33,5 @@ public class ProfileDTO {
     private String status;
     private Instant lastSeen;
     private Instant createdAt;
+    private PrivacySettingsDTO privacy;
 }

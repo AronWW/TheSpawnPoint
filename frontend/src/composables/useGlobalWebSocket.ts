@@ -100,10 +100,24 @@ export function useGlobalWebSocket() {
       stomp.subscribe('/topic/status', (frame) => {
         try {
           const payload = JSON.parse(frame.body)
-          const { email: userEmail, status, lastSeen } = payload
+          const { email: userEmail, status, lastSeen, statusVisibility } = payload
           if (userEmail) {
-            friendStore.updateFriendStatus(userEmail, status, lastSeen || null)
-            chatStore.updatePartnerStatus(userEmail, status, lastSeen || null)
+            if (statusVisibility === 'NOBODY') {
+              friendStore.updateFriendStatus(userEmail, 'OFFLINE', null)
+              chatStore.updatePartnerStatus(userEmail, 'OFFLINE', null)
+            } else if (statusVisibility === 'FRIENDS') {
+              const isFriend = friendStore.friends.some((f) => f.email === userEmail)
+              if (isFriend) {
+                friendStore.updateFriendStatus(userEmail, status, lastSeen || null)
+                chatStore.updatePartnerStatus(userEmail, status, lastSeen || null)
+              } else {
+                friendStore.updateFriendStatus(userEmail, 'OFFLINE', null)
+                chatStore.updatePartnerStatus(userEmail, 'OFFLINE', null)
+              }
+            } else {
+              friendStore.updateFriendStatus(userEmail, status, lastSeen || null)
+              chatStore.updatePartnerStatus(userEmail, status, lastSeen || null)
+            }
           }
         } catch { }
       })

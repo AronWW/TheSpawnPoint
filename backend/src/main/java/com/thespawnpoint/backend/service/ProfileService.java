@@ -1,12 +1,15 @@
 package com.thespawnpoint.backend.service;
 
+import com.thespawnpoint.backend.dto.PrivacySettingsDTO;
 import com.thespawnpoint.backend.dto.ProfileDTO;
 import com.thespawnpoint.backend.dto.UpdateProfileDTO;
 import com.thespawnpoint.backend.entity.party.PartyMember;
 import com.thespawnpoint.backend.entity.party.PartyStatus;
 import com.thespawnpoint.backend.entity.user.*;
 import com.thespawnpoint.backend.exception.ApiException;
+import com.thespawnpoint.backend.repository.FriendshipRepository;
 import com.thespawnpoint.backend.repository.PartyMemberRepository;
+import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
 import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,8 @@ public class ProfileService {
     private final UserRepository userRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final CloudinaryImageService cloudinaryImageService;
+    private final PrivacySettingsRepository privacySettingsRepository;
+    private final FriendshipRepository friendshipRepository;
 
     @Value("${app.upload.max-size:2097152}")
     private long maxFileSize;
@@ -55,10 +60,13 @@ public class ProfileService {
     public ProfileDTO getMyProfile(User user) {
         Profile profile = profileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Profile not found"));
-        return toDTO(profile, user);
+        ProfileDTO dto = toDTO(profile, user);
+        privacySettingsRepository.findByUserId(user.getId())
+                .ifPresent(ps -> dto.setPrivacy(buildPrivacyDTO(ps)));
+        return dto;
     }
 
-    public ProfileDTO getProfileByUserId(Long userId) {
+    public ProfileDTO getProfileByUserId(Long userId, User requester) {
         Profile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Profile not found"));
 
@@ -66,7 +74,68 @@ public class ProfileService {
             throw new ApiException(HttpStatus.NOT_FOUND, "Profile not found");
         }
 
-        return toDTO(profile, profile.getUser());
+        ProfileDTO dto = toDTO(profile, profile.getUser());
+
+        boolean isOwner = requester != null && requester.getId().equals(userId);
+        boolean isFriend = requester != null && !isOwner && friendshipRepository.areFriends(requester.getId(), userId);
+
+        PrivacySettings ps = privacySettingsRepository.findByUserId(userId).orElse(null);
+        if (ps != null && !isOwner) {
+            if (!isVisible(ps.getFriendsVisibility(), isFriend)) {
+                dto.setPrivacy(buildPrivacyDTO(ps));
+            }
+            if (!isVisible(ps.getStatusVisibility(), isFriend)) {
+                dto.setStatus("OFFLINE");
+                dto.setLastSeen(null);
+            }
+            if (!isVisible(ps.getFavoriteGamesVisibility(), isFriend)) {
+
+            }
+            if (!isVisible(ps.getSocialsVisibility(), isFriend)) {
+                dto.setDiscord(null);
+                dto.setSteam(null);
+                dto.setTwitch(null);
+                dto.setXbox(null);
+                dto.setPlaystation(null);
+                dto.setNintendo(null);
+            }
+            dto.setPrivacy(buildPrivacyDTO(ps, isFriend));
+        } else if (ps != null) {
+            dto.setPrivacy(buildPrivacyDTO(ps));
+        }
+
+        return dto;
+    }
+
+    private boolean isVisible(VisibilityLevel level, boolean isFriend) {
+        return switch (level) {
+            case ALL -> true;
+            case FRIENDS -> isFriend;
+            case NOBODY -> false;
+        };
+    }
+
+    private PrivacySettingsDTO buildPrivacyDTO(PrivacySettings ps) {
+        return PrivacySettingsDTO.builder()
+                .friendsVisibility(ps.getFriendsVisibility().name())
+                .statusVisibility(ps.getStatusVisibility().name())
+                .favoriteGamesVisibility(ps.getFavoriteGamesVisibility().name())
+                .statsVisibility(ps.getStatsVisibility().name())
+                .socialsVisibility(ps.getSocialsVisibility().name())
+                .commentsPolicy(ps.getCommentsPolicy().name())
+                .build();
+    }
+
+    private PrivacySettingsDTO buildPrivacyDTO(PrivacySettings ps, boolean isFriend) {
+
+        return PrivacySettingsDTO.builder()
+                .friendsVisibility(isVisible(ps.getFriendsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .statusVisibility(isVisible(ps.getStatusVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .favoriteGamesVisibility(isVisible(ps.getFavoriteGamesVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .statsVisibility(isVisible(ps.getStatsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .socialsVisibility(isVisible(ps.getSocialsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .commentsPolicy(isVisible(ps.getCommentsPolicy(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .build();
     }
 
     @Transactional
