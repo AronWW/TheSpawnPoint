@@ -235,13 +235,14 @@ export interface ChatParticipant {
   displayName: string
   email: string
   avatarUrl: string | null
+  role: 'OWNER' | 'ADMIN' | 'MEMBER'
 }
 
 export interface ChatItem {
   id: number
 
-
   isGroup: boolean
+  chatType: 'DM' | 'GROUP' | 'GAME'
   lastMessage: string | null
   lastMessageAt: string | null
   unreadCount: number
@@ -255,6 +256,7 @@ export interface ChatItem {
   isPartyLinked: boolean
   title: string | null
   partyId: number | null
+  groupAvatarUrl: string | null
   participants: ChatParticipant[] | null
 
   archived: boolean

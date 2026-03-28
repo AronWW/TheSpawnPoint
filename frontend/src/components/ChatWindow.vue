@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { useStompClient } from '../composables/useStompClient'
 import { CHAT_EMOJIS } from '../utils/emojis'
 import { API_BASE_URL } from '../config'
+import GroupChatSettingsModal from './GroupChatSettingsModal.vue'
 import type { ChatMessage, PinnedMessageInfo } from '../types'
 
 const router = useRouter()
@@ -14,6 +15,8 @@ const auth = useAuthStore()
 const stomp = useStompClient()
 
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+
+const showGroupSettings = ref(false)
 
 function resolveAvatar(url: string | null): string {
   if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
@@ -52,6 +55,15 @@ const emojiPickerStyle = computed(() => {
 
 const isGroup = computed(() => chatStore.activeChat?.isGroup ?? false)
 const activeChatId = computed(() => chatStore.activeChat?.id ?? 0)
+
+const myRole = computed(() => {
+  const chat = chatStore.activeChat
+  if (!chat?.isGroup || !chat.participants) return null
+  const me = chat.participants.find(p => p.email === auth.user?.email)
+  return me?.role ?? 'MEMBER'
+})
+
+const canDeleteAny = computed(() => myRole.value === 'OWNER' || myRole.value === 'ADMIN')
 
 const currentPinIndex = ref(-1)
 const showPinnedList = ref(false)
@@ -102,6 +114,7 @@ function onPinnedListItemClick(pin: PinnedMessageInfo) {
 watch(() => chatStore.activeChat?.id, () => {
   currentPinIndex.value = -1
   showPinnedList.value = false
+  showGroupSettings.value = false
 })
 
 watch(() => chatStore.pinnedMessages.length, () => {
@@ -111,9 +124,12 @@ watch(() => chatStore.pinnedMessages.length, () => {
 const chatTitle = computed(() => {
   const chat = chatStore.activeChat
   if (!chat) return ''
+  if (chat.chatType === 'GAME') return chat.title || 'Ігровий чат'
   if (chat.isGroup) return chat.title || 'Груповий чат'
   return chat.partnerDisplayName || 'Чат'
 })
+
+const chatType = computed(() => chatStore.activeChat?.chatType ?? 'DM')
 
 const isTyping = computed(() => activeChatId.value ? chatStore.isPartnerTyping(activeChatId.value) : false)
 const typingName = computed(() => activeChatId.value ? chatStore.typingDisplayName(activeChatId.value) : '')
@@ -389,17 +405,29 @@ watch(() => chatStore.editingMessage, (msg) => {
   <div class="chat-window" v-if="chatStore.activeChat" @click="onWindowClick">
 
     <div class="chat-window-header">
-      <div class="cw-avatar" :class="{ group: isGroup }">
+      <div class="cw-avatar" :class="{ group: chatType === 'GROUP', game: chatType === 'GAME' }">
         <img v-if="!isGroup && chatStore.activeChat?.partnerAvatarUrl" :src="resolveAvatar(chatStore.activeChat.partnerAvatarUrl)" alt="" class="cw-avatar-img" />
+        <img v-else-if="isGroup && chatStore.activeChat?.groupAvatarUrl" :src="resolveAvatar(chatStore.activeChat.groupAvatarUrl)" alt="" class="cw-avatar-img" />
         <span v-else class="cw-letter">{{ chatTitle.charAt(0).toUpperCase() }}</span>
       </div>
       <div class="cw-header-info">
-        <div class="cw-name">{{ chatTitle }}</div>
+        <div class="cw-name">
+          <span v-if="chatType === 'GAME'" class="cw-type-badge cw-type-game" title="Ігровий чат">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4"/><path d="M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
+          </span>
+          <span v-else-if="chatType === 'GROUP'" class="cw-type-badge cw-type-group" title="Груповий чат">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          {{ chatTitle }}
+        </div>
         <div class="cw-status" :class="{ typing: isTyping }">
           {{ chatSubtitle }}
         </div>
       </div>
       <div class="cw-header-actions">
+        <button v-if="isGroup && chatType !== 'GAME'" class="cw-action-btn" @click.stop="showGroupSettings = true" title="Налаштування">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
         <button class="cw-action-btn" @click.stop="toggleSearch" title="Пошук">
           ПОШУК
         </button>
@@ -595,7 +623,7 @@ watch(() => chatStore.editingMessage, (msg) => {
           {{ chatStore.pinnedMessages.some(p => p.messageId === contextMenu.msg!.id) ? 'ВІДКРІПИТИ' : 'ЗАКРІПИТИ' }}
         </button>
         <div class="ctx-divider"></div>
-        <button v-if="isOwnMessage(contextMenu.msg!.senderEmail)" class="ctx-item ctx-danger" @click="onDeleteMsg(contextMenu.msg!)">ВИДАЛИТИ</button>
+        <button v-if="isOwnMessage(contextMenu.msg!.senderEmail) || (isGroup && canDeleteAny)" class="ctx-item ctx-danger" @click="onDeleteMsg(contextMenu.msg!)">ВИДАЛИТИ</button>
       </div>
     </Teleport>
 
@@ -641,6 +669,12 @@ watch(() => chatStore.editingMessage, (msg) => {
       <div class="chat-placeholder-text">щоб почати спілкування</div>
     </div>
   </div>
+
+  <GroupChatSettingsModal
+    v-if="showGroupSettings && chatStore.activeChat"
+    :chat="chatStore.activeChat"
+    @close="showGroupSettings = false"
+  />
 </template>
 
 <style scoped>
@@ -648,6 +682,34 @@ watch(() => chatStore.editingMessage, (msg) => {
 .cw-avatar.group .cw-letter {
   background: linear-gradient(135deg, rgba(41, 128, 185, 0.2), rgba(41, 128, 185, 0.08));
   border-color: rgba(41, 128, 185, 0.4);
+  color: #5dade2;
+}
+
+.cw-avatar.game .cw-letter {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.2), rgba(39, 174, 96, 0.08));
+  border-color: rgba(39, 174, 96, 0.4);
+  color: #2ecc71;
+}
+
+.cw-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+.cw-type-game {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.18), rgba(39, 174, 96, 0.08));
+  border: 1px solid rgba(39, 174, 96, 0.4);
+  color: #2ecc71;
+}
+.cw-type-group {
+  background: linear-gradient(135deg, rgba(41, 128, 185, 0.18), rgba(41, 128, 185, 0.08));
+  border: 1px solid rgba(41, 128, 185, 0.4);
   color: #5dade2;
 }
 
@@ -700,6 +762,7 @@ watch(() => chatStore.editingMessage, (msg) => {
 
 .chat-window-header { display: flex; align-items: center; gap: 14px; }
 .cw-header-info { flex: 1; min-width: 0; }
+.cw-name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; color: var(--white); letter-spacing: 0.5px; }
 .cw-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .cw-action-btn {
   background: none;

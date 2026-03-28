@@ -10,5 +10,6 @@ public class ChatParticipantDTO {
     private String displayName;
     private String email;
     private String avatarUrl;
+    private String role;
 }
 

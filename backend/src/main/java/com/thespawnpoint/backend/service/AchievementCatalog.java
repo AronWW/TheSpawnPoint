@@ -17,6 +17,9 @@ public class AchievementCatalog {
     public static final String FIRST_GAME_COMPLETED = "FIRST_GAME_COMPLETED";
     public static final String FOOTER_TRIPLE_CLICK = "FOOTER_TRIPLE_CLICK";
 
+    public static final String SECRET_DOOM_FOUND     = "SECRET_DOOM_FOUND";
+    public static final String SECRET_DOOM_COMPLETED = "SECRET_DOOM_COMPLETED";
+
     @Getter
     public static class AchievementDefinition {
         private final String code;
@@ -122,6 +125,29 @@ public class AchievementCatalog {
                 "Іноді найцікавіше ховається внизу сторінки. Не завжди достатньо одного натискання.",
                 true,
                 1000
+        ));
+        register(new AchievementDefinition(
+                SECRET_DOOM_FOUND,
+                "RIP AND TEAR",
+                "Ти знайшов приховану кімнату. Doom чекав тебе.",
+                AchievementType.SECRET,
+                "🔫",
+                null,
+                "Деякі двері не позначені на карті.",
+                true,
+                1010
+        ));
+
+        register(new AchievementDefinition(
+                SECRET_DOOM_COMPLETED,
+                "IDDQD",
+                "Ти знаєш секретний код. God mode activated.",
+                AchievementType.SECRET,
+                "💀",
+                null,
+                "Класичний чіт-код — ключ до безсмертя.",
+                true,
+                1020
         ));
     }
 

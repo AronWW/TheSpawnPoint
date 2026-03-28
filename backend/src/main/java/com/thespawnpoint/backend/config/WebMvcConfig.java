@@ -16,14 +16,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${app.upload.dir:uploads/avatars}")
     private String uploadDir;
 
+    @Value("${app.upload.group-avatar.dir:uploads/group-avatars}")
+    private String groupAvatarDir;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path groupAvatarPath = Paths.get(groupAvatarDir).toAbsolutePath().normalize();
 
         registry.addResourceHandler("/avatars/**")
                 .addResourceLocations("file:" + uploadPath + "/");
 
         registry.addResourceHandler("/avatars/default/**")
                 .addResourceLocations("classpath:/static/avatars/default/");
+
+        registry.addResourceHandler("/group-avatars/**")
+                .addResourceLocations("file:" + groupAvatarPath + "/");
     }
 }

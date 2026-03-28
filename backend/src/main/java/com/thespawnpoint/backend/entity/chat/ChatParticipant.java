@@ -37,6 +37,11 @@ public class ChatParticipant {
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 10)
+    @Builder.Default
+    private ChatRole role = ChatRole.MEMBER;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean archived = false;

@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import ChatSidebar from '../components/ChatSidebar.vue'
 import ChatWindow from '../components/ChatWindow.vue'
+import CreateGroupChatModal from '../components/CreateGroupChatModal.vue'
 import type { ChatItem } from '../types'
 
 const route = useRoute()
@@ -14,6 +15,7 @@ const chatStore = useChatStore()
 
 const searchQuery = ref('')
 const mobileView = ref<'sidebar' | 'chat'>('sidebar')
+const showCreateGroupChat = ref(false)
 
 onMounted(async () => {
   if (!auth.isLoggedIn) {
@@ -54,6 +56,12 @@ function goBackToSidebar() {
               class="chat-search"
               placeholder="Пошук чатів..."
           />
+          <button class="create-group-btn" @click="showCreateGroupChat = true" title="Створити груповий чат">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>
+            </svg>
+          </button>
         </div>
         <ChatSidebar :search="searchQuery" @select="onSelectChat" />
       </div>
@@ -68,6 +76,12 @@ function goBackToSidebar() {
         <ChatWindow />
       </div>
     </div>
+
+    <CreateGroupChatModal
+      :visible="showCreateGroupChat"
+      @close="showCreateGroupChat = false"
+      @created="mobileView = 'chat'"
+    />
   </div>
 </template>
 
@@ -122,6 +136,28 @@ function goBackToSidebar() {
   padding: 16px 16px 12px;
   position: relative;
   z-index: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.create-group-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 2px solid var(--border);
+  color: var(--gray);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.create-group-btn:hover {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
+  box-shadow: 0 0 12px rgba(245,197,24,0.1);
 }
 
 .chat-search {

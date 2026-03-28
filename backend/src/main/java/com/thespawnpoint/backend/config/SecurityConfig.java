@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/avatars/**").permitAll()
+                        .requestMatchers("/group-avatars/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}/stats").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}/comments").permitAll()

@@ -163,7 +163,7 @@ public class ChatService {
                 .build());
 
         chatParticipantRepository.save(ChatParticipant.builder()
-                .chat(chat).user(creator).build());
+                .chat(chat).user(creator).role(ChatRole.OWNER).build());
 
         return chat;
     }
@@ -271,6 +271,130 @@ public class ChatService {
         chatRepository.save(chat);
 
         sendSystemMessage(chat, requester.getDisplayName() + " renamed the chat to \"" + newTitle + "\"");
+
+        return buildChatDTO(chat, requester);
+    }
+
+    @Transactional
+    public void removeGroupChatMember(User requester, Long chatId, Long targetUserId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
+
+        if (!chat.getIsGroup()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Not a group chat");
+        }
+
+        ChatParticipant requesterCp = chatParticipantRepository.findByChatIdAndUserId(chatId, requester.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant"));
+
+        if (requesterCp.getRole() != ChatRole.OWNER && requesterCp.getRole() != ChatRole.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only owner or admin can remove members");
+        }
+
+        ChatParticipant targetCp = chatParticipantRepository.findByChatIdAndUserId(chatId, targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User is not a participant"));
+
+        if (targetCp.getRole() == ChatRole.OWNER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Cannot remove the owner");
+        }
+
+        if (targetCp.getRole() == ChatRole.ADMIN && requesterCp.getRole() != ChatRole.OWNER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only owner can remove admins");
+        }
+
+        String targetName = targetCp.getUser().getDisplayName();
+        chatParticipantRepository.deleteByChatIdAndUserId(chatId, targetUserId);
+        sendSystemMessage(chat, requester.getDisplayName() + " видалив(-ла) " + targetName + " з чату");
+
+        broadcastChatEvent(chatId, "MEMBER_REMOVED",
+                Map.of("chatId", chatId, "userId", targetUserId));
+
+        ChatEventDTO deleteEvent = new ChatEventDTO("CHAT_DELETED", chatId, Map.of("chatId", chatId));
+        messagingTemplate.convertAndSendToUser(targetCp.getUser().getEmail(), "/queue/chat-events", deleteEvent);
+    }
+
+    @Transactional
+    public void grantAdmin(User requester, Long chatId, Long targetUserId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
+
+        if (!chat.getIsGroup()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Not a group chat");
+        }
+
+        ChatParticipant requesterCp = chatParticipantRepository.findByChatIdAndUserId(chatId, requester.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant"));
+
+        if (requesterCp.getRole() != ChatRole.OWNER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only owner can grant admin rights");
+        }
+
+        ChatParticipant targetCp = chatParticipantRepository.findByChatIdAndUserId(chatId, targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User is not a participant"));
+
+        if (targetCp.getRole() == ChatRole.OWNER) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot change owner role");
+        }
+
+        targetCp.setRole(ChatRole.ADMIN);
+        chatParticipantRepository.save(targetCp);
+
+        sendSystemMessage(chat, targetCp.getUser().getDisplayName() + " тепер адміністратор");
+        broadcastChatEvent(chatId, "MEMBER_ROLE_CHANGED",
+                Map.of("chatId", chatId, "userId", targetUserId, "role", "ADMIN"));
+    }
+
+    @Transactional
+    public void revokeAdmin(User requester, Long chatId, Long targetUserId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
+
+        if (!chat.getIsGroup()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Not a group chat");
+        }
+
+        ChatParticipant requesterCp = chatParticipantRepository.findByChatIdAndUserId(chatId, requester.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant"));
+
+        if (requesterCp.getRole() != ChatRole.OWNER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only owner can revoke admin rights");
+        }
+
+        ChatParticipant targetCp = chatParticipantRepository.findByChatIdAndUserId(chatId, targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User is not a participant"));
+
+        if (targetCp.getRole() != ChatRole.ADMIN) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "User is not an admin");
+        }
+
+        targetCp.setRole(ChatRole.MEMBER);
+        chatParticipantRepository.save(targetCp);
+
+        sendSystemMessage(chat, targetCp.getUser().getDisplayName() + " більше не адміністратор");
+        broadcastChatEvent(chatId, "MEMBER_ROLE_CHANGED",
+                Map.of("chatId", chatId, "userId", targetUserId, "role", "MEMBER"));
+    }
+
+    @Transactional
+    public ChatDTO uploadGroupAvatar(User requester, Long chatId, String avatarUrl) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
+
+        if (!chat.getIsGroup()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Not a group chat");
+        }
+
+        ChatParticipant requesterCp = chatParticipantRepository.findByChatIdAndUserId(chatId, requester.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant"));
+
+        if (requesterCp.getRole() != ChatRole.OWNER && requesterCp.getRole() != ChatRole.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only owner or admin can change avatar");
+        }
+
+        chat.setAvatarUrl(avatarUrl);
+        chatRepository.save(chat);
+
+        sendSystemMessage(chat, requester.getDisplayName() + " змінив(-ла) аватар групи");
 
         return buildChatDTO(chat, requester);
     }
@@ -418,8 +542,19 @@ public class ChatService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Message not found"));
 
-        if (message.getSender() == null || !message.getSender().getId().equals(user.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You can only delete your own messages");
+        boolean isOwn = message.getSender() != null && message.getSender().getId().equals(user.getId());
+
+        if (!isOwn) {
+            Chat chat = message.getChat();
+            if (Boolean.TRUE.equals(chat.getIsGroup())) {
+                ChatParticipant cp = chatParticipantRepository.findByChatIdAndUserId(chat.getId(), user.getId())
+                        .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant"));
+                if (cp.getRole() != ChatRole.OWNER && cp.getRole() != ChatRole.ADMIN) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "You can only delete your own messages");
+                }
+            } else {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You can only delete your own messages");
+            }
         }
 
         if (message.isDeleted()) {
@@ -506,6 +641,17 @@ public class ChatService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
         cp.setArchived(false);
         chatParticipantRepository.save(cp);
+    }
+
+    @Transactional
+    public void archiveChatForAllParticipants(Long chatId) {
+        Chat chat = chatRepository.findById(chatId).orElse(null);
+        if (chat == null) return;
+
+        chatParticipantRepository.archiveAllByChatId(chatId);
+        sendSystemMessage(chat, "Гру завершено — чат архівовано");
+
+        broadcastChatEvent(chatId, "CHAT_ARCHIVED", Map.of("chatId", chatId));
     }
 
     @Transactional
@@ -770,6 +916,7 @@ public class ChatService {
         return ChatDTO.builder()
                 .id(chat.getId())
                 .group(false)
+                .chatType("DM")
                 .partnerEmail(partner.getEmail())
                 .partnerDisplayName(partner.getDisplayName())
                 .partnerAvatarUrl(avatarUrl)
@@ -797,6 +944,7 @@ public class ChatService {
                             .displayName(cp.getUser().getDisplayName())
                             .email(cp.getUser().getEmail())
                             .avatarUrl(avatarUrl)
+                            .role(cp.getRole().name())
                             .build();
                 })
                 .toList();
@@ -805,12 +953,16 @@ public class ChatService {
                 .map(PartyRequest::getId)
                 .orElse(null);
 
+        String chatType = Boolean.TRUE.equals(chat.getPartyLinked()) ? "GAME" : "GROUP";
+
         return ChatDTO.builder()
                 .id(chat.getId())
                 .group(true)
+                .chatType(chatType)
                 .partyLinkedFlag(Boolean.TRUE.equals(chat.getPartyLinked()))
                 .title(chat.getTitle())
                 .partyId(partyId)
+                .groupAvatarUrl(chat.getAvatarUrl())
                 .participants(participants)
                 .lastMessage(lastMessage)
                 .lastMessageAt(lastMessageAt)

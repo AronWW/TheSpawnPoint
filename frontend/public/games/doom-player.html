@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DOOM</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+    #loading {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #cc2222; font-family: monospace; font-size: 18px;
+      text-align: center;
+    }
+    .bar-wrap { width: 260px; height: 12px; border: 1px solid #cc2222; margin: 14px auto 0; }
+    .bar-fill { height: 100%; width: 0; background: #cc2222; transition: width .15s; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    LOADING DOOM…
+    <div class="bar-wrap"><div class="bar-fill" id="bar"></div></div>
+  </div>
+  <canvas id="canvas"></canvas>
+
+  <script src="/emulators-dist/emulators.js"></script>
+  <script>
+    /* ── key mapping: e.code → DOSBox key code ── */
+    const CODE_MAP = {
+      Backspace:259, Tab:258, Enter:257, NumpadEnter:257,
+      ShiftLeft:340, ShiftRight:344,
+      ControlLeft:341, ControlRight:345,
+      AltLeft:342, AltRight:346,
+      Pause:284, Escape:256, Space:32,
+      PageUp:266, PageDown:267, End:269, Home:268,
+      ArrowLeft:263, ArrowUp:265, ArrowRight:262, ArrowDown:264,
+      Insert:260, Delete:261,
+      Digit0:48, Digit1:49, Digit2:50, Digit3:51, Digit4:52,
+      Digit5:53, Digit6:54, Digit7:55, Digit8:56, Digit9:57,
+      KeyA:65, KeyB:66, KeyC:67, KeyD:68, KeyE:69, KeyF:70,
+      KeyG:71, KeyH:72, KeyI:73, KeyJ:74, KeyK:75, KeyL:76,
+      KeyM:77, KeyN:78, KeyO:79, KeyP:80, KeyQ:81, KeyR:82,
+      KeyS:83, KeyT:84, KeyU:85, KeyV:86, KeyW:87, KeyX:88,
+      KeyY:89, KeyZ:90,
+      Numpad0:320, Numpad1:321, Numpad2:322, Numpad3:323,
+      Numpad4:324, Numpad5:325, Numpad6:326, Numpad7:327,
+      Numpad8:328, Numpad9:329,
+      NumpadMultiply:332, NumpadDivide:331,
+      NumpadAdd:334, NumpadSubtract:333, NumpadDecimal:330,
+      F1:290, F2:291, F3:292, F4:293, F5:294, F6:295,
+      F7:296, F8:297, F9:298, F10:299, F11:300, F12:301,
+      NumLock:282, ScrollLock:281, CapsLock:280,
+      Semicolon:59, Equal:61, Comma:44, Minus:45,
+      Period:46, Slash:47, Backquote:96,
+      BracketLeft:91, Backslash:92, BracketRight:93, Quote:39,
+      PrintScreen:283, IntlBackslash:348
+    };
+    function mapKey(e) { return CODE_MAP[e.code] || 0; }
+
+    /* ── main ── */
+    (async () => {
+      const bar   = document.getElementById('bar');
+      const loadEl= document.getElementById('loading');
+      const canvas = document.getElementById('canvas');
+
+      emulators.pathPrefix = '/emulators-dist/';
+
+      /* fetch bundle */
+      bar.style.width = '10%';
+      const resp = await fetch('/games/doom.jsdos');
+      const total = +resp.headers.get('Content-Length') || 0;
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total) bar.style.width = Math.min(90, 10 + 80 * received / total) + '%';
+      }
+      const bundle = new Uint8Array(received);
+      let off = 0;
+      for (const c of chunks) { bundle.set(c, off); off += c.length; }
+
+      bar.style.width = '95%';
+
+      /* start emulation */
+      const ci = await emulators.dosboxDirect(bundle);
+
+      bar.style.width = '100%';
+      setTimeout(() => loadEl.style.display = 'none', 200);
+
+      /* ── video ── */
+      const ctx = canvas.getContext('2d');
+      let fw = 0, fh = 0, imgData;
+
+      function fitCanvas() {
+        if (!fw || !fh) return;
+        const W = window.innerWidth, H = window.innerHeight;
+        const aspect = fw / fh;
+        let cw = W, ch = W / aspect;
+        if (ch > H) { ch = H; cw = H * aspect; }
+        canvas.style.width  = Math.floor(cw) + 'px';
+        canvas.style.height = Math.floor(ch) + 'px';
+      }
+      window.addEventListener('resize', fitCanvas);
+
+      ci.events().onFrameSize((w, h) => {
+        fw = w; fh = h;
+        canvas.width = w; canvas.height = h;
+        imgData = ctx.createImageData(w, h);
+        fitCanvas();
+      });
+
+      ci.events().onFrame((rgb, rgba) => {
+        const src = rgb || rgba;
+        if (!src || !imgData) return;
+        const dst = imgData.data;
+        let si = 0, di = 0;
+        if (rgb) {
+          while (di < dst.length) {
+            dst[di++] = src[si++];
+            dst[di++] = src[si++];
+            dst[di++] = src[si++];
+            dst[di++] = 255;
+          }
+        } else {
+          while (di < dst.length) {
+            dst[di++] = src[si++];
+            dst[di++] = src[si++];
+            dst[di++] = src[si++];
+            dst[di++] = 255;
+            si++;
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+      });
+
+      /* ── audio ── */
+      const freq = ci.soundFrequency();
+      if (freq > 0) {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: freq });
+        const queue = [];
+        ci.events().onSoundPush(s => { if (queue.length < 8) queue.push(s); });
+
+        const proc = audioCtx.createScriptProcessor(2048, 0, 1);
+        proc.onaudioprocess = e => {
+          const out = e.outputBuffer.getChannelData(0);
+          let written = 0;
+          while (queue.length && written < out.length) {
+            const s = queue[0];
+            const take = Math.min(s.length, out.length - written);
+            out.set(take === s.length ? s : s.subarray(0, take), written);
+            written += take;
+            if (take === s.length) queue.shift();
+            else queue[0] = s.subarray(take);
+          }
+          if (written < out.length) out.fill(0, written);
+        };
+        proc.connect(audioCtx.destination);
+
+        const resume = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); };
+        document.addEventListener('pointerdown', resume, { once: true });
+        document.addEventListener('keydown',     resume, { once: true });
+      }
+
+      /* ── keyboard ── */
+      const pressed = new Set();
+      window.addEventListener('keydown', e => {
+        const k = mapKey(e);
+        if (k && !pressed.has(k)) { pressed.add(k); ci.sendKeyEvent(k, true); }
+        e.preventDefault();
+      });
+      window.addEventListener('keyup', e => {
+        const k = mapKey(e);
+        if (k) { pressed.delete(k); ci.sendKeyEvent(k, false); }
+        e.preventDefault();
+      });
+
+      /* ── mouse ── */
+      canvas.addEventListener('click', () => { canvas.requestPointerLock && canvas.requestPointerLock(); });
+
+      canvas.addEventListener('mousemove', e => {
+        if (document.pointerLockElement === canvas) {
+          ci.sendMouseRelativeMotion(
+            Math.max(-50, Math.min(50, e.movementX)),
+            Math.max(-50, Math.min(50, e.movementY))
+          );
+        } else {
+          const r = canvas.getBoundingClientRect();
+          ci.sendMouseMotion(
+            Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+            Math.max(0, Math.min(1, (e.clientY - r.top)  / r.height))
+          );
+        }
+      });
+      canvas.addEventListener('mousedown', e => { ci.sendMouseButton(e.button === 0 ? 0 : 1, true);  e.preventDefault(); });
+      canvas.addEventListener('mouseup',   e => { ci.sendMouseButton(e.button === 0 ? 0 : 1, false); e.preventDefault(); });
+      canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    })().catch(err => {
+      document.getElementById('loading').textContent = 'Error: ' + err.message;
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

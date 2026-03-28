@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useChatStore } from '../stores/chat'
+import { useToast } from '../composables/useToast'
 import { timeAgo } from '../utils/helpers'
 import { API_BASE_URL } from '../config'
 import type { ChatItem } from '../types'
 
 const chatStore = useChatStore()
+const toast = useToast()
 
 const emit = defineEmits<{
   (e: 'select', chat: ChatItem): void
@@ -22,7 +24,10 @@ function resolveAvatar(url: string | null): string {
 }
 
 function chatAvatarUrl(chat: ChatItem): string | null {
-  if (chat.isGroup) return null
+  if (chat.isGroup) {
+    if (chat.groupAvatarUrl) return resolveAvatar(chat.groupAvatarUrl)
+    return null
+  }
   if (!chat.partnerAvatarUrl) return null
   return resolveAvatar(chat.partnerAvatarUrl)
 }
@@ -46,6 +51,7 @@ const filteredArchivedChats = computed(() => {
 })
 
 function chatDisplayName(chat: ChatItem): string {
+  if (chat.chatType === 'GAME') return chat.title || 'Ігровий чат'
   if (chat.isGroup) return chat.title || 'Груповий чат'
   return chat.partnerDisplayName || 'Чат'
 }
@@ -55,6 +61,7 @@ function chatAvatarLetter(chat: ChatItem): string {
 }
 
 function statusDotClass(chat: ChatItem): string {
+  if (chat.chatType === 'GAME') return 'is-game'
   if (chat.isGroup) return 'is-group'
   const status = chat.partnerStatus
   if (status === 'ONLINE') return 'online'
@@ -106,9 +113,61 @@ function onArchiveChat() {
 
 function onDeleteChat() {
   if (!ctxMenu.value.chat) return
-  chatStore.deleteChatAction(ctxMenu.value.chat.id)
+  const chat = ctxMenu.value.chat
   closeCtxMenu()
+
+  if (chat.isGroup) {
+    confirmModal.value = {
+      show: true,
+      chatId: chat.id,
+      title: chat.chatType === 'GAME' ? 'Вийти з ігрового чату?' : 'Вийти з групового чату?',
+      message: chat.chatType === 'GAME'
+        ? 'Ви впевнені, що хочете вийти з цього ігрового чату? Ви більше не зможете бачити повідомлення цієї групи.'
+        : 'Ви впевнені, що хочете вийти з цього чату? Ви більше не зможете бачити повідомлення цієї групи.',
+      isGroup: true,
+    }
+  } else {
+    confirmModal.value = {
+      show: true,
+      chatId: chat.id,
+      title: 'Видалити чат?',
+      message: 'Ви впевнені, що хочете видалити цей чат? Цю дію не можна скасувати.',
+      isGroup: false,
+    }
+  }
 }
+
+async function onConfirmDelete() {
+  const { chatId } = confirmModal.value
+  confirmModal.value.show = false
+  try {
+    await chatStore.deleteChatAction(chatId)
+    if (confirmModal.value.isGroup) {
+      toast.show('Ви покинули чат', 'success')
+    }
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || 'Не вдалося виконати дію'
+    toast.show(msg, 'error', 5000)
+  }
+}
+
+function onCancelDelete() {
+  confirmModal.value.show = false
+}
+
+const confirmModal = ref<{
+  show: boolean
+  chatId: number
+  title: string
+  message: string
+  isGroup: boolean
+}>({
+  show: false,
+  chatId: 0,
+  title: '',
+  message: '',
+  isGroup: false,
+})
 
 function onWindowClick() {
   closeCtxMenu()
@@ -143,15 +202,17 @@ function onWindowClick() {
       >
         <div class="chat-sidebar-avatar">
           <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
-          <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+          <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           <span class="chat-status-dot" :class="statusDotClass(chat)">
-            <svg v-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg v-if="chat.chatType === 'GAME'" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 11h4M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
+            <svg v-else-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </span>
         </div>
         <div class="chat-sidebar-info">
           <div class="chat-sidebar-name">
             <span class="pin-icon">●</span>
-            <span v-if="chat.isGroup" class="group-tag">ГРУПА</span>
+            <span v-if="chat.chatType === 'GAME'" class="game-tag">ІГРОВА</span>
+            <span v-else-if="chat.chatType === 'GROUP'" class="group-tag">ГРУПА</span>
             {{ chatDisplayName(chat) }}
           </div>
           <div class="chat-sidebar-last" :class="{ 'sidebar-typing': chatStore.isPartnerTyping(chat.id) }">
@@ -180,14 +241,16 @@ function onWindowClick() {
       >
         <div class="chat-sidebar-avatar">
           <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
-          <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+          <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           <span class="chat-status-dot" :class="statusDotClass(chat)">
-            <svg v-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg v-if="chat.chatType === 'GAME'" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 11h4M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
+            <svg v-else-if="chat.isGroup" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </span>
         </div>
         <div class="chat-sidebar-info">
           <div class="chat-sidebar-name">
-            <span v-if="chat.isGroup" class="group-tag">ГРУПА</span>
+            <span v-if="chat.chatType === 'GAME'" class="game-tag">ІГРОВА</span>
+            <span v-else-if="chat.chatType === 'GROUP'" class="group-tag">ГРУПА</span>
             {{ chatDisplayName(chat) }}
           </div>
           <div class="chat-sidebar-last" :class="{ 'sidebar-typing': chatStore.isPartnerTyping(chat.id) }">
@@ -220,11 +283,12 @@ function onWindowClick() {
         >
           <div class="chat-sidebar-avatar">
             <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
-            <span v-else class="chat-avatar-letter" :class="{ group: chat.isGroup }">{{ chatAvatarLetter(chat) }}</span>
+            <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           </div>
           <div class="chat-sidebar-info">
             <div class="chat-sidebar-name">
-              <span v-if="chat.isGroup" class="group-tag">ГРУПА</span>
+              <span v-if="chat.chatType === 'GAME'" class="game-tag">ІГРОВА</span>
+              <span v-else-if="chat.chatType === 'GROUP'" class="group-tag">ГРУПА</span>
               {{ chatDisplayName(chat) }}
             </div>
             <div class="chat-sidebar-last">{{ truncate(chat.lastMessage) }}</div>
@@ -250,6 +314,19 @@ function onWindowClick() {
         <button class="ctx-item ctx-danger" @click="onDeleteChat">
           {{ ctxMenu.chat!.isGroup ? 'ВИЙТИ З ЧАТУ' : 'ВИДАЛИТИ ЧАТ' }}
         </button>
+      </div>
+
+      <div v-if="confirmModal.show" class="confirm-overlay" @click.self="onCancelDelete">
+        <div class="confirm-modal">
+          <div class="confirm-title">{{ confirmModal.title }}</div>
+          <div class="confirm-message">{{ confirmModal.message }}</div>
+          <div class="confirm-actions">
+            <button class="confirm-btn cancel-btn" @click="onCancelDelete">СКАСУВАТИ</button>
+            <button class="confirm-btn danger-btn" @click="onConfirmDelete">
+              {{ confirmModal.isGroup ? 'ВИЙТИ' : 'ВИДАЛИТИ' }}
+            </button>
+          </div>
+        </div>
       </div>
     </Teleport>
   </div>
@@ -441,6 +518,16 @@ function onWindowClick() {
   box-shadow: 0 2px 10px rgba(41,128,185,0.15);
 }
 
+.chat-avatar-letter.game {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.2), rgba(39, 174, 96, 0.08));
+  border-color: rgba(39, 174, 96, 0.4);
+  color: #2ecc71;
+}
+.chat-sidebar-item:hover .chat-avatar-letter.game {
+  border-color: rgba(46, 204, 113, 0.6);
+  box-shadow: 0 2px 10px rgba(39, 174, 96, 0.15);
+}
+
 .chat-status-dot {
   position: absolute;
   bottom: -2px;
@@ -461,6 +548,11 @@ function onWindowClick() {
   background: rgba(41, 128, 185, 0.35);
   border-color: rgba(41, 128, 185, 0.5);
   color: #5dade2;
+}
+.chat-status-dot.is-game {
+  background: rgba(39, 174, 96, 0.35);
+  border-color: rgba(39, 174, 96, 0.5);
+  color: #2ecc71;
 }
 
 .chat-sidebar-info {
@@ -495,6 +587,17 @@ function onWindowClick() {
   background: linear-gradient(135deg, rgba(41, 128, 185, 0.2), rgba(41, 128, 185, 0.1));
   border: 1px solid rgba(41, 128, 185, 0.4);
   color: #5dade2;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+}
+
+.game-tag {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.2), rgba(39, 174, 96, 0.1));
+  border: 1px solid rgba(39, 174, 96, 0.4);
+  color: #2ecc71;
   flex-shrink: 0;
   font-family: var(--font-display);
 }
@@ -633,5 +736,75 @@ function onWindowClick() {
   height: 1px;
   background: var(--border);
   margin: 4px 12px;
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.confirm-modal {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-top: 3px solid var(--yellow);
+  width: 400px;
+  max-width: 90vw;
+  padding: 28px 28px 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.confirm-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: var(--yellow);
+  margin-bottom: 14px;
+}
+
+.confirm-message {
+  font-size: 13px;
+  color: var(--gray-light);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-btn {
+  padding: 8px 20px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 2px;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  color: var(--gray);
+}
+.cancel-btn:hover {
+  border-color: var(--gray);
+  color: var(--white);
+}
+
+.danger-btn {
+  color: var(--red);
+  border-color: rgba(192,57,43,0.4);
+}
+.danger-btn:hover {
+  background: rgba(192,57,43,0.12);
+  border-color: var(--red);
 }
 </style>

@@ -182,6 +182,7 @@ public class PartyService {
         if (remaining.isEmpty()) {
             party.setStatus(PartyStatus.CANCELLED);
             party.setIsOpen(false);
+            party.setCompletedAt(Instant.now());
             partyRequestRepository.save(party);
             broadcastPartyUpdate(partyId);
             return toDTO(party, remaining);
@@ -266,6 +267,7 @@ public class PartyService {
 
         party.setStatus(PartyStatus.CANCELLED);
         party.setIsOpen(false);
+        party.setCompletedAt(Instant.now());
         partyRequestRepository.save(party);
 
         List<PartyMember> members = partyMemberRepository.findByPartyRequestId(partyId);
@@ -478,6 +480,19 @@ public class PartyService {
 
         Instant inGameCutoff = Instant.now().minus(24, ChronoUnit.HOURS);
         partyRequestRepository.completeStaleInGameParties(inGameCutoff);
+    }
+
+    @Scheduled(fixedRate = 60_000)
+    @Transactional
+    public void autoArchiveGameChats() {
+        Instant cutoff = Instant.now().minus(1, ChronoUnit.HOURS);
+        List<PartyRequest> parties = partyRequestRepository.findPartiesWithChatsToArchive(
+                List.of(PartyStatus.COMPLETED, PartyStatus.CANCELLED), cutoff);
+        for (PartyRequest party : parties) {
+            if (party.getChat() != null) {
+                chatService.archiveChatForAllParticipants(party.getChat().getId());
+            }
+        }
     }
 
     private PartyRequest getPartyWithStatus(Long partyId, PartyStatus requiredStatus) {

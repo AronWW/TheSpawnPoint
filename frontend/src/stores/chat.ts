@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import api from '../api/axios'
 import { useStompClient } from '../composables/useStompClient'
 import { useAuthStore } from './auth'
-import { useToast } from '../composables/useToast'
 import type { ChatItem, ChatMessage, ChatEvent, PinnedMessageInfo, ReactionInfo } from '../types'
 
 export const useChatStore = defineStore('chat', () => {
@@ -136,6 +135,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function createGroupChat(title: string, memberEmails: string[]) {
+    const { data } = await api.post<ChatItem>('/chats/group', { title, memberEmails })
+    await fetchChats()
+    const found = chats.value.find(c => c.id === data.id)
+    if (found) {
+      await openChat(found)
+    }
+    return data
+  }
+
   function deleteMessage(messageId: number) {
     const stomp = useStompClient()
     stomp.publish('/app/chat.deleteMessage', { messageId })
@@ -202,15 +211,9 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function deleteChatAction(chatId: number) {
-    try {
-      await api.delete(`/chats/${chatId}`)
-      chats.value = chats.value.filter(c => c.id !== chatId)
-      if (activeChat.value?.id === chatId) resetChat()
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.response?.data?.error || 'Не вдалося видалити чат'
-      const toast = useToast()
-      toast.show(msg, 'error', 5000)
-    }
+    await api.delete(`/chats/${chatId}`)
+    chats.value = chats.value.filter(c => c.id !== chatId)
+    if (activeChat.value?.id === chatId) resetChat()
   }
 
   async function searchMessagesInChat(chatId: number, query: string) {
@@ -335,6 +338,22 @@ export const useChatStore = defineStore('chat', () => {
         if (activeChat.value?.id === chatId) resetChat()
         break
       }
+      case 'CHAT_ARCHIVED': {
+        const { chatId } = event.payload
+        const chat = chats.value.find(c => c.id === chatId)
+        if (chat) chat.archived = true
+        break
+      }
+      case 'MEMBER_REMOVED':
+      case 'MEMBER_ROLE_CHANGED': {
+        fetchChats().then(() => {
+          if (activeChat.value?.id === event.chatId) {
+            const found = chats.value.find(c => c.id === event.chatId)
+            if (found) activeChat.value = found
+          }
+        })
+        break
+      }
     }
   }
 
@@ -400,6 +419,71 @@ export const useChatStore = defineStore('chat', () => {
     pinnedMessages.value = []
   }
 
+  async function removeGroupMember(chatId: number, userId: number) {
+    await api.delete(`/chats/group/${chatId}/members/${userId}`)
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+  }
+
+  async function grantAdmin(chatId: number, userId: number) {
+    await api.post(`/chats/group/${chatId}/members/${userId}/admin`)
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+  }
+
+  async function revokeAdmin(chatId: number, userId: number) {
+    await api.delete(`/chats/group/${chatId}/members/${userId}/admin`)
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+  }
+
+  async function uploadGroupAvatar(chatId: number, file: File) {
+    const fd = new FormData()
+    fd.append('file', file)
+    const { data } = await api.post<ChatItem>(`/chats/group/${chatId}/avatar`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+    return data
+  }
+
+  async function renameGroupChat(chatId: number, title: string) {
+    await api.put(`/chats/group/${chatId}/title`, { title })
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+  }
+
+  async function addGroupMember(chatId: number, email: string) {
+    await api.post(`/chats/group/${chatId}/members`, { email })
+    await fetchChats()
+    if (activeChat.value?.id === chatId) {
+      const found = chats.value.find(c => c.id === chatId)
+      if (found) activeChat.value = found
+    }
+  }
+
+  async function leaveGroupChat(chatId: number) {
+    await api.post(`/chats/group/${chatId}/leave`)
+    chats.value = chats.value.filter(c => c.id !== chatId)
+    if (activeChat.value?.id === chatId) resetChat()
+  }
+
   return {
     chats,
     activeChat,
@@ -422,6 +506,7 @@ export const useChatStore = defineStore('chat', () => {
     openChat,
     openGroupChatById,
     openDm,
+    createGroupChat,
     fetchMessages,
     loadOlder,
     deleteMessage,
@@ -447,6 +532,13 @@ export const useChatStore = defineStore('chat', () => {
     clearTyping,
     updatePartnerStatus,
     resetChat,
+    removeGroupMember,
+    grantAdmin,
+    revokeAdmin,
+    uploadGroupAvatar,
+    renameGroupChat,
+    addGroupMember,
+    leaveGroupChat,
   }
 })
 

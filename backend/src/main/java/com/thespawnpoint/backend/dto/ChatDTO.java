@@ -20,8 +20,11 @@ public class ChatDTO {
     @Builder.Default
     private Boolean partyLinkedFlag = false;
 
+    private String chatType;
+
     private String title;
     private Long partyId;
+    private String groupAvatarUrl;
 
     private String partnerEmail;
     private String partnerDisplayName;

@@ -95,10 +95,21 @@ public interface PartyRequestRepository extends JpaRepository<PartyRequest, Long
     Page<PartyRequest> findHistoryByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Modifying
-    @Query("UPDATE PartyRequest p SET p.status = 'CANCELLED', p.isOpen = false WHERE p.status = 'OPEN' AND p.createdAt < :cutoff")
+    @Query("UPDATE PartyRequest p SET p.status = 'CANCELLED', p.isOpen = false, p.completedAt = CURRENT_TIMESTAMP WHERE p.status = 'OPEN' AND p.createdAt < :cutoff")
     int cancelStaleOpenParties(@Param("cutoff") Instant cutoff);
 
     @Modifying
     @Query("UPDATE PartyRequest p SET p.status = 'COMPLETED', p.isOpen = false, p.completedAt = CURRENT_TIMESTAMP, p.autoCompleted = true WHERE p.status = 'IN_GAME' AND p.startedAt < :cutoff")
     int completeStaleInGameParties(@Param("cutoff") Instant cutoff);
+
+    @Query("""
+            SELECT p FROM PartyRequest p
+            WHERE p.status IN :statuses
+              AND p.chat IS NOT NULL
+              AND p.completedAt IS NOT NULL
+              AND p.completedAt < :cutoff
+              AND EXISTS (SELECT cp FROM ChatParticipant cp WHERE cp.chat = p.chat AND cp.archived = false)
+            """)
+    List<PartyRequest> findPartiesWithChatsToArchive(@Param("statuses") List<PartyStatus> statuses,
+                                                     @Param("cutoff") Instant cutoff);
 }
