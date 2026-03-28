@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
+import { useAchievementStore } from '../stores/achievements'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile, Game, UserStats, ProfileComment, Friend } from '../types'
@@ -11,12 +12,14 @@ import { skillLabel, gameEmoji, timeAgo } from '../utils/helpers'
 import { ALL_COUNTRIES } from '../utils/countries'
 import ProfileFriendsModal from '../components/ProfileFriendsModal.vue'
 import ReportUserModal from '../components/ReportUserModal.vue'
+import AchievementPreviewSection from '../components/AchievementPreviewSection.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const friendStore = useFriendStore()
 const chatStore = useChatStore()
+const achievementStore = useAchievementStore()
 
 const BANNER_PRESETS: Record<string, string> = {
   'banner-1': 'linear-gradient(135deg, #1a0a2e 0%, #3d1a78 50%, #1a0a2e 100%)',
@@ -217,7 +220,7 @@ async function copyToClipboard(val: string, key: string) {
 }
 
 const isOwnProfile = computed(() =>
-    auth.user && profile.value && auth.user.id === profile.value.userId
+    Boolean(auth.user && profile.value && auth.user.id === profile.value.userId)
 )
 
 const canSeeFriends = computed(() => {
@@ -244,6 +247,11 @@ const canComment = computed(() => {
   if (isOwnProfile.value) return true
   return profile.value?.privacy?.commentsPolicy !== 'HIDDEN'
 })
+const canSeeAchievements = computed(() => {
+  if (isOwnProfile.value) return true
+  return profile.value?.privacy?.achievementsVisibility !== 'HIDDEN'
+})
+const achievementPreview = computed(() => achievementStore.profilePreview)
 const isFriend = computed(() =>
     profile.value ? friendStore.friends.some(f => f.userId === profile.value!.userId) : false
 )
@@ -259,12 +267,6 @@ const activeSocials = computed(() =>
       return typeof val === 'string' && val.trim().length > 0
     })
 )
-computed(() =>
-        profile.value && (
-            profile.value.skillLevel || profile.value.playStyle ||
-            profile.value.platforms?.length || profile.value.languages?.length
-        )
-);
 const onlineFriendsCount = computed(() =>
     profileFriends.value.filter(f => f.status === 'ONLINE').length
 )
@@ -380,6 +382,7 @@ async function fetchProfile(userId: string | string[]) {
   loading.value = true
   error.value = ''
   showGamesCount.value = 6
+  achievementStore.clearProfilePreview()
   try {
     const { data } = await api.get<Profile>(`/profile/${id}`)
     profile.value = data
@@ -387,6 +390,15 @@ async function fetchProfile(userId: string | string[]) {
       ? await friendStore.fetchFriendsByUserId(numericId)
       : []
     fetchComments(true)
+
+    if (canSeeAchievements.value && Number.isFinite(numericId)) {
+      try {
+        await achievementStore.fetchPreviewForUser(numericId)
+      } catch {
+        achievementStore.clearProfilePreview()
+      }
+    }
+
     try {
       const [gamesRes, statsRes] = await Promise.all([
         api.get<Game[]>(`/users/${id}/games`),
@@ -404,6 +416,7 @@ async function fetchProfile(userId: string | string[]) {
     profileFriends.value = []
     favoriteGames.value = []
     userStats.value = null
+    achievementStore.clearProfilePreview()
   } finally {
     loading.value = false
   }
@@ -597,6 +610,12 @@ watch(() => route.params.userId, (newId) => {
               </div>
             </div>
           </div>
+
+          <AchievementPreviewSection
+            v-if="canSeeAchievements && achievementPreview && achievementPreview.unlockedCount > 0"
+            :preview="achievementPreview"
+            :is-own-profile="isOwnProfile"
+          />
 
 
           <div v-if="canSeeFavoriteGames && favoriteGames.length" class="va-panel">

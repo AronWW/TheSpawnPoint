@@ -46,4 +46,10 @@ public class PrivacySettings {
     @Column(name = "comments_policy", nullable = false, length = 10)
     @Builder.Default
     private VisibilityLevel commentsPolicy = VisibilityLevel.ALL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "achievements_visibility", nullable = false, length = 10)
+    @Builder.Default
+    private VisibilityLevel achievementsVisibility = VisibilityLevel.ALL;
 }
+

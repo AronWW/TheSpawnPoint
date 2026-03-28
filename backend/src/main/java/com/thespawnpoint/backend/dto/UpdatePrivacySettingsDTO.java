@@ -30,5 +30,9 @@ public class UpdatePrivacySettingsDTO {
     @NotNull
     @Pattern(regexp = "ALL|FRIENDS|NOBODY", message = "Must be ALL, FRIENDS or NOBODY")
     private String commentsPolicy;
+
+    @NotNull
+    @Pattern(regexp = "ALL|FRIENDS|NOBODY", message = "Must be ALL, FRIENDS or NOBODY")
+    private String achievementsVisibility;
 }
 

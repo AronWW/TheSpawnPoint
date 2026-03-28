@@ -33,6 +33,7 @@ public class SettingsController {
         ps.setStatsVisibility(VisibilityLevel.valueOf(dto.getStatsVisibility()));
         ps.setSocialsVisibility(VisibilityLevel.valueOf(dto.getSocialsVisibility()));
         ps.setCommentsPolicy(VisibilityLevel.valueOf(dto.getCommentsPolicy()));
+        ps.setAchievementsVisibility(VisibilityLevel.valueOf(dto.getAchievementsVisibility()));
         privacySettingsRepository.save(ps);
         return ResponseEntity.ok(toDTO(ps));
     }
@@ -48,6 +49,7 @@ public class SettingsController {
                 .statsVisibility(ps.getStatsVisibility().name())
                 .socialsVisibility(ps.getSocialsVisibility().name())
                 .commentsPolicy(ps.getCommentsPolicy().name())
+                .achievementsVisibility(ps.getAchievementsVisibility().name())
                 .build();
     }
 }

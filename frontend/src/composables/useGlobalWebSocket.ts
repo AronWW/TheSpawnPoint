@@ -4,8 +4,9 @@ import { useNotificationStore } from '../stores/notifications'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
 import { usePartyStore } from '../stores/parties'
+import { useAchievementStore } from '../stores/achievements'
 import { useStompClient } from './useStompClient'
-import type { Notification, ChatMessage, ChatEvent } from '../types'
+import type { Notification, ChatMessage, ChatEvent, AchievementUnlockEvent } from '../types'
 
 
 export function useGlobalWebSocket() {
@@ -14,6 +15,7 @@ export function useGlobalWebSocket() {
   const friendStore = useFriendStore()
   const chatStore = useChatStore()
   const partyStore = usePartyStore()
+  const achievementStore = useAchievementStore()
   const stomp = useStompClient()
 
   let teardowns: (() => void)[] = []
@@ -83,6 +85,15 @@ export function useGlobalWebSocket() {
               }
             })
           }
+        } catch { }
+      })
+    )
+
+    teardowns.push(
+      stomp.subscribe('/user/queue/achievements', (frame) => {
+        try {
+          const achievement: AchievementUnlockEvent = JSON.parse(frame.body)
+          achievementStore.enqueueUnlock(achievement)
         } catch { }
       })
     )
@@ -188,6 +199,7 @@ export function useGlobalWebSocket() {
           connectAndSubscribe()
         }
       } else {
+        achievementStore.resetState()
         disconnectAndCleanup()
       }
     },

@@ -176,6 +176,38 @@ export interface PrivacySettings {
   statsVisibility: string
   socialsVisibility: string
   commentsPolicy: string
+  achievementsVisibility: string
+}
+
+export type AchievementType = 'STANDARD' | 'SECRET'
+
+export interface Achievement {
+  code: string
+  title: string
+  description: string
+  type: AchievementType
+  icon: string
+  requirementText: string | null
+  secretHint: string | null
+  hiddenBeforeUnlock: boolean
+  unlocked: boolean
+  unlockedAt: string | null
+  order: number
+}
+
+export interface AchievementPreview {
+  totalCount: number
+  unlockedCount: number
+  items: Achievement[]
+}
+
+export interface AchievementUnlockEvent {
+  code: string
+  title: string
+  description: string
+  type: AchievementType
+  icon: string
+  unlockedAt: string
 }
 
 export interface ProfileComment {

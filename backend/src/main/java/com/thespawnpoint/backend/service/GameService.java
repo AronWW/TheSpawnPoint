@@ -29,6 +29,7 @@ public class GameService {
     private final UserGameRepository userGameRepository;
     private final GameSuggestionRepository gameSuggestionRepository;
     private final NotificationService notificationService;
+    private final AchievementService achievementService;
 
     public List<GameDTO> getAllGames() {
         return gameRepository.findAll().stream()
@@ -74,6 +75,8 @@ public class GameService {
                 .user(user)
                 .game(game)
                 .build());
+
+        achievementService.unlock(user, AchievementCatalog.FIRST_FAVORITE_GAME, "AUTO");
     }
 
     @Transactional

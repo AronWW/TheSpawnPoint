@@ -7,6 +7,7 @@ import BannedModal from './components/BannedModal.vue'
 import PartyInvitePopup from './components/PartyInvitePopup.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import FloatingVoiceWidget from './components/FloatingVoiceWidget.vue'
+import AchievementUnlockOverlay from './components/AchievementUnlockOverlay.vue'
 import { useAuthStore } from './stores/auth'
 import { useVoiceStore } from './stores/voice'
 import { useGlobalWebSocket } from './composables/useGlobalWebSocket'
@@ -45,5 +46,6 @@ useGlobalWebSocket()
   <TheFooter v-if="showLayout" />
   <PartyInvitePopup />
   <ToastContainer />
+  <AchievementUnlockOverlay />
   <FloatingVoiceWidget />
 </template>

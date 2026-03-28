@@ -123,6 +123,7 @@ public class ProfileService {
                 .statsVisibility(ps.getStatsVisibility().name())
                 .socialsVisibility(ps.getSocialsVisibility().name())
                 .commentsPolicy(ps.getCommentsPolicy().name())
+                .achievementsVisibility(ps.getAchievementsVisibility().name())
                 .build();
     }
 
@@ -135,6 +136,7 @@ public class ProfileService {
                 .statsVisibility(isVisible(ps.getStatsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
                 .socialsVisibility(isVisible(ps.getSocialsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
                 .commentsPolicy(isVisible(ps.getCommentsPolicy(), isFriend) ? "VISIBLE" : "HIDDEN")
+                .achievementsVisibility(isVisible(ps.getAchievementsVisibility(), isFriend) ? "VISIBLE" : "HIDDEN")
                 .build();
     }
 

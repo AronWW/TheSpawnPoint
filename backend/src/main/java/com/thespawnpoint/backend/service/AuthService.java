@@ -46,6 +46,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
+    private final AchievementService achievementService;
 
     @Value("${app.email.verification-expiration}")
     private int verificationExpirationSeconds;

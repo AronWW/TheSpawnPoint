@@ -12,5 +12,6 @@ public class PrivacySettingsDTO {
     private String statsVisibility;
     private String socialsVisibility;
     private String commentsPolicy;
+    private String achievementsVisibility;
 }
 

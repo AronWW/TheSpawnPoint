@@ -32,6 +32,7 @@ public class FriendService {
     private final ProfileRepository profileRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final NotificationService notificationService;
+    private final AchievementService achievementService;
 
     @Transactional
     public void sendFriendRequest(User sender, Long receiverId) {
@@ -100,6 +101,9 @@ public class FriendService {
                 currentUser.getDisplayName() + " прийняв ваш запит у друзі",
                 invite.getId()
         );
+
+        achievementService.unlock(currentUser, AchievementCatalog.FIRST_FRIEND, "AUTO");
+        achievementService.unlock(invite.getSender(), AchievementCatalog.FIRST_FRIEND, "AUTO");
     }
 
     @Transactional

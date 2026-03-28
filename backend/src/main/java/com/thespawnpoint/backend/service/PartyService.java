@@ -46,6 +46,7 @@ public class PartyService {
     private final ChatService chatService;
     private final VoiceAccessService voiceAccessService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AchievementService achievementService;
 
     @Transactional
     public PartyRequestDTO createParty(User creator, CreatePartyRequestDTO dto) {
@@ -109,6 +110,8 @@ public class PartyService {
                 .build();
         partyMemberRepository.save(creatorMember);
 
+        achievementService.unlock(creator, AchievementCatalog.FIRST_PARTY_CREATED, "AUTO");
+
         return toDTO(party, List.of(creatorMember));
     }
 
@@ -148,6 +151,7 @@ public class PartyService {
         }
 
         List<PartyMember> members = partyMemberRepository.findByPartyRequestId(partyId);
+        achievementService.unlock(user, AchievementCatalog.FIRST_PARTY_JOINED, "AUTO");
         PartyRequestDTO result = toDTO(party, members);
         broadcastPartyUpdate(partyId);
         return result;
@@ -315,6 +319,9 @@ public class PartyService {
         partyRequestRepository.save(party);
 
         List<PartyMember> members = partyMemberRepository.findByPartyRequestId(partyId);
+        for (PartyMember member : members) {
+            achievementService.unlock(member.getUser(), AchievementCatalog.FIRST_GAME_COMPLETED, "AUTO");
+        }
         PartyRequestDTO result = toDTO(party, members);
         broadcastPartyUpdate(partyId);
         return result;

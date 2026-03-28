@@ -338,6 +338,13 @@ async function handleDeclineInvite(n: import('../types').Notification) {
                     <span class="di-text">Улюблені ігри</span>
                   </router-link>
 
+                  <router-link to="/achievements" class="dropdown-item" @click="userMenuOpen = false">
+                  <span class="di-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v3a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V3z"/><path d="M8 10v3.5L12 16l4-2.5V10"/><path d="M9 21h6"/></svg>
+                  </span>
+                    <span class="di-text">Досягнення</span>
+                  </router-link>
+
                   <router-link v-if="gameStore.mySuggestionsCount > 0" to="/my-suggestions" class="dropdown-item" @click="userMenuOpen = false">
                   <span class="di-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 12 18.469c-.89 0-1.74.353-2.366.992l-.172.176z"/></svg>
@@ -447,6 +454,12 @@ async function handleDeclineInvite(n: import('../types').Notification) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             </span>
             Улюблені ігри
+          </router-link>
+          <router-link to="/achievements" class="mobile-nav-link" @click="mobileMenuOpen = false">
+            <span class="mobile-nav-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v3a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V3z"/><path d="M8 10v3.5L12 16l4-2.5V10"/><path d="M9 21h6"/></svg>
+            </span>
+            Досягнення
           </router-link>
           <router-link to="/customization" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <span class="mobile-nav-icon">
