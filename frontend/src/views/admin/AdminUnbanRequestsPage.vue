@@ -82,7 +82,7 @@ function formatDate(d: string) {
           <td class="date-cell">{{ new Date(r.createdAt).toLocaleDateString('uk-UA') }}</td>
           <td>
             <button v-if="r.status === 'PENDING'" class="action-sm" @click="openReview(r)">Розглянути</button>
-            <span v-else-if="r.adminComment" class="comment-hint" :title="r.adminComment">💬</span>
+            <span v-else-if="r.adminComment" class="comment-hint" :title="r.adminComment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
           </td>
         </tr>
         <tr v-if="!getPageData().content.length">

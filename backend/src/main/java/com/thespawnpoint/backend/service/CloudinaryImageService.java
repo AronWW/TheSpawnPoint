@@ -23,9 +23,17 @@ public class CloudinaryImageService {
     private String avatarFolder;
 
     public UploadResult uploadAvatar(MultipartFile file, Long userId) {
-        try {
-            String publicId = avatarFolder + "/user-" + userId + "-" + UUID.randomUUID();
+        String publicId = avatarFolder + "/user-" + userId + "-" + UUID.randomUUID();
+        return doUpload(file, publicId);
+    }
 
+    public UploadResult uploadGroupAvatar(MultipartFile file, Long chatId) {
+        String publicId = avatarFolder + "/group-" + chatId + "-" + UUID.randomUUID();
+        return doUpload(file, publicId);
+    }
+
+    private UploadResult doUpload(MultipartFile file, String publicId) {
+        try {
             @SuppressWarnings("rawtypes")
             Map result = cloudinary.uploader().upload(
                     file.getBytes(),
@@ -45,9 +53,11 @@ public class CloudinaryImageService {
 
             return new UploadResult(secureUrl, uploadedPublicId);
         } catch (IOException e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload avatar to Cloudinary");
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload image to Cloudinary");
+        } catch (ApiException e) {
+            throw e;
         } catch (Exception e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload avatar to Cloudinary");
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload image to Cloudinary");
         }
     }
 

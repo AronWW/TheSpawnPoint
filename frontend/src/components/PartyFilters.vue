@@ -13,7 +13,7 @@ watch(
     () => partyStore.filterSkillLevel,
   ],
   () => {
-    partyStore.fetchParties()
+    partyStore.fetchParties(0)
   }
 )
 </script>
@@ -25,7 +25,7 @@ watch(
     <input
       class="filter-search"
       v-model="partyStore.search"
-      placeholder="🔍 Пошук по грі або опису..."
+      placeholder="Пошук по грі або опису..."
     />
 
     <select class="filter-select" v-model="partyStore.filterGameId">

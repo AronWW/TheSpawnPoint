@@ -206,10 +206,14 @@ img { display: block; }
   width: 38px; height: 38px;
   display: flex; align-items: center; justify-content: center;
   color: var(--gray-light);
-  font-size: 18px;
-  transition: border-color 0.15s, color 0.15s;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.notif-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+.notif-btn:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  box-shadow: 0 0 8px rgba(245,197,24,0.1);
+}
 
 .nav-admin-btn {
   font-family: var(--font-display), sans-serif;
@@ -318,7 +322,7 @@ img { display: block; }
   background: var(--yellow-glow);
   border: 1px solid var(--yellow-dim);
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
+  color: var(--yellow);
   flex-shrink: 0;
 }
 .notif-content { flex: 1; min-width: 0; }
@@ -962,12 +966,12 @@ img { display: block; }
 
 .party-slots {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: 14px;
   align-items: center;
 }
 .slot {
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
   border: 2px solid var(--border);
   background: var(--panel-light);
   display: flex; align-items: center; justify-content: center;
@@ -977,14 +981,27 @@ img { display: block; }
   letter-spacing: 0;
   position: relative;
   overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 .slot.filled {
   border-color: var(--yellow-dim);
-  background: rgba(245,197,24,0.08);
+  background: rgba(245,197,24,0.1);
   color: var(--yellow);
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 0 6px rgba(245,197,24,0.15);
 }
-.slot.empty-slot { border-style: dashed; }
+.slot.filled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(245,197,24,0.12), transparent 70%);
+  pointer-events: none;
+}
+.slot.empty-slot {
+  border-style: dashed;
+  border-color: rgba(255,255,255,0.12);
+}
 .slots-label {
   margin-left: 8px;
   font-size: 11px;
@@ -1041,7 +1058,13 @@ img { display: block; }
   text-align: center;
   border: 2px dashed var(--border);
 }
-.empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: var(--yellow);
+}
 .empty-state-title {
   font-family: var(--font-display);
   font-size: 24px;

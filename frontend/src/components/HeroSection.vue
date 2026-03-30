@@ -86,7 +86,7 @@ function goToParty() {
         </div>
         <div class="hero-stats">
           <div class="stat-item">
-            <div class="stat-num">{{ partyStore.parties.length || '—' }}</div>
+            <div class="stat-num">{{ partyStore.totalElements || '—' }}</div>
             <div class="stat-label">Відкриті лобі</div>
           </div>
           <div class="stat-item">

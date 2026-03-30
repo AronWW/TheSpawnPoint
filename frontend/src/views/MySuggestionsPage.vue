@@ -7,9 +7,9 @@ const suggestions = ref<GameSuggestion[]>([])
 const loading = ref(false)
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: '⏳ На розгляді',
-  APPROVED: '✅ Схвалено',
-  REJECTED: '❌ Відхилено',
+  PENDING: 'На розгляді',
+  APPROVED: 'Схвалено',
+  REJECTED: 'Відхилено',
 }
 
 async function fetchMySuggestions() {
@@ -36,12 +36,16 @@ onMounted(fetchMySuggestions)
       </div>
 
       <div v-if="loading" class="empty-state">
-        <div class="empty-icon">⏳</div>
+        <div class="empty-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+        </div>
         <h3>ЗАВАНТАЖЕННЯ...</h3>
       </div>
 
       <div v-else-if="!suggestions.length" class="empty-state">
-        <div class="empty-icon">💡</div>
+        <div class="empty-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><circle cx="12" cy="12" r="4"/><path d="M20 12h-2"/><path d="M6 12H4"/></svg>
+        </div>
         <h3>ЗАЯВОК ПОКИ НЕМАЄ</h3>
         <p>Ви ще не пропонували жодної гри. Зробити це можна на сторінці <router-link to="/games" class="inline-link">Ігри</router-link>.</p>
       </div>
@@ -50,14 +54,16 @@ onMounted(fetchMySuggestions)
         <div v-for="s in suggestions" :key="s.id" class="suggestion-card" :class="s.status.toLowerCase()">
           <div class="sg-left">
             <img v-if="s.imageUrl" :src="s.imageUrl" :alt="s.name" class="sg-cover" />
-            <div v-else class="sg-cover-ph">🎮</div>
+            <div v-else class="sg-cover-ph">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>
+            </div>
           </div>
           <div class="sg-info">
             <div class="sg-name">{{ s.name }}</div>
             <div class="sg-meta">
               <span v-if="s.genre" class="sg-genre">{{ s.genre }}</span>
               <span v-if="s.releaseYear" class="sg-year">{{ s.releaseYear }}</span>
-              <span class="sg-party">👥 до {{ s.maxPartySize }}</span>
+              <span class="sg-party"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> до {{ s.maxPartySize }}</span>
             </div>
             <div class="sg-date">Подано: {{ new Date(s.createdAt).toLocaleDateString('uk-UA') }}</div>
           </div>

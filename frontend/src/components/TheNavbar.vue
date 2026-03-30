@@ -218,7 +218,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
       <div class="nav-right">
         <div v-if="auth.isLoggedIn" class="notif-wrapper">
           <button class="notif-btn" @click.stop="toggleNotif" title="Сповіщення">
-            🔔
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span v-if="notifStore.hasUnread" class="notif-badge">{{ notifStore.unreadCount }}</span>
           </button>
 
@@ -227,7 +227,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
               <span>СПОВІЩЕННЯ</span>
               <div class="notif-header-actions">
                 <button @click="notifStore.markAllRead" title="Позначити прочитаними">✓ Все</button>
-                <button v-if="notifStore.notifications.length" @click="notifStore.deleteAll" title="Видалити всі" class="notif-delete-all-btn">🗑 Все</button>
+                <button v-if="notifStore.notifications.length" @click="notifStore.deleteAll" title="Видалити всі" class="notif-delete-all-btn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Все</button>
               </div>
             </div>
 
@@ -239,7 +239,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
                   :class="{ unread: !n.read }"
                   @click="handleNotifClick(n)"
               >
-                <div class="notif-icon">{{ notificationIcon(n.type) }}</div>
+                <div class="notif-icon" v-html="notificationIcon(n.type)"></div>
                 <div class="notif-content">
                   <div class="notif-text">{{ n.message }}</div>
                   <div class="notif-time">{{ timeAgo(n.createdAt) }}</div>
@@ -296,7 +296,12 @@ async function handleDeclineInvite(n: import('../types').Notification) {
               </div>
               <div class="nav-user-info">
                 <span class="nav-user-name">{{ auth.displayName }}</span>
-                <span class="nav-user-hint">Мій акаунт</span>
+                <span class="nav-user-hint">
+                  <span class="nav-user-hint-icon">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                  </span>
+                  Мій профіль
+                </span>
               </div>
               <span class="nav-user-chevron" :class="{ open: userMenuOpen }">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -340,7 +345,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
 
                   <router-link to="/achievements" class="dropdown-item" @click="userMenuOpen = false">
                   <span class="di-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v3a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V3z"/><path d="M8 10v3.5L12 16l4-2.5V10"/><path d="M9 21h6"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
                   </span>
                     <span class="di-text">Досягнення</span>
                   </router-link>
@@ -457,7 +462,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
           </router-link>
           <router-link to="/achievements" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <span class="mobile-nav-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v3a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V3z"/><path d="M8 10v3.5L12 16l4-2.5V10"/><path d="M9 21h6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
             </span>
             Досягнення
           </router-link>
@@ -518,7 +523,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 12px 5px 5px;
+  padding: 5px 14px 5px 5px;
   background: var(--panel);
   border: 1px solid var(--border);
   cursor: pointer;
@@ -529,7 +534,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
 .nav-user-btn.active {
   border-color: var(--yellow-dim);
   background: var(--panel-light);
-  box-shadow: 0 0 0 1px var(--yellow-dim);
+  box-shadow: 0 0 10px rgba(245,197,24,0.06);
 }
 
 .nav-avatar-wrap {
@@ -543,11 +548,12 @@ async function handleDeclineInvite(n: import('../types').Notification) {
   object-fit: cover;
   border: 2px solid var(--yellow-dim);
   display: block;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .nav-user-btn:hover .nav-avatar,
 .nav-user-btn.active .nav-avatar {
   border-color: var(--yellow);
+  box-shadow: 0 0 8px rgba(245,197,24,0.25);
 }
 .nav-avatar-online {
   position: absolute;
@@ -564,22 +570,47 @@ async function handleDeclineInvite(n: import('../types').Notification) {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 2px;
 }
 .nav-user-name {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 13px;
-  color: var(--white);
-  letter-spacing: 0.5px;
+  color: var(--yellow);
+  letter-spacing: 1px;
   line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(245,197,24,0.15);
+  transition: text-shadow 0.2s;
+}
+.nav-user-btn:hover .nav-user-name {
+  text-shadow: 0 0 12px rgba(245,197,24,0.3);
 }
 .nav-user-hint {
-  font-size: 10px;
-  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--gray);
   line-height: 1;
+  font-family: var(--font-body);
+  transition: color 0.15s;
+}
+.nav-user-hint-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--gray);
+  transition: color 0.15s;
+  position: relative;
+  top: 1px;
+}
+.nav-user-btn:hover .nav-user-hint {
+  color: var(--gray-light);
+}
+.nav-user-btn:hover .nav-user-hint-icon {
+  color: var(--yellow-dim);
 }
 
 .nav-user-chevron {

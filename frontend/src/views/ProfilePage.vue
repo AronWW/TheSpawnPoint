@@ -8,7 +8,7 @@ import { useAchievementStore } from '../stores/achievements'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile, Game, UserStats, ProfileComment, Friend } from '../types'
-import { skillLabel, gameEmoji, timeAgo } from '../utils/helpers'
+import { skillLabel, timeAgo } from '../utils/helpers'
 import { ALL_COUNTRIES } from '../utils/countries'
 import ProfileFriendsModal from '../components/ProfileFriendsModal.vue'
 import ReportUserModal from '../components/ReportUserModal.vue'
@@ -49,13 +49,13 @@ const bannerStyle = computed(() => {
 })
 
 const REGION_LABELS: Record<string, string> = {
-  EUROPE:        '🌍 Європа',
-  NORTH_AMERICA: '🌎 Північна Америка',
-  SOUTH_AMERICA: '🌎 Південна Америка',
-  ASIA:          '🌏 Азія',
-  MIDDLE_EAST:   '🌍 Близький Схід',
-  AFRICA:        '🌍 Африка',
-  OCEANIA:       '🌏 Океанія',
+  EUROPE:        'Європа',
+  NORTH_AMERICA: 'Північна Америка',
+  SOUTH_AMERICA: 'Південна Америка',
+  ASIA:          'Азія',
+  MIDDLE_EAST:   'Близький Схід',
+  AFRICA:        'Африка',
+  OCEANIA:       'Океанія',
 }
 
 const PLAY_STYLE_LABELS: Record<string, string> = {
@@ -476,7 +476,9 @@ watch(() => route.params.userId, (newId) => {
 
     <div v-else-if="error" class="va-page">
       <div class="empty-state">
-        <div class="empty-icon">😕</div>
+        <div class="empty-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
         <h3>{{ error }}</h3>
         <router-link to="/" class="action-btn">НА ГОЛОВНУ</router-link>
       </div>
@@ -502,12 +504,15 @@ watch(() => route.params.userId, (newId) => {
           </div>
           <div v-if="profile.fullName || profile.country || profile.region" class="va-details">
             <div v-if="profile.fullName" class="va-detail-item">
+              <svg class="va-detail-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span class="va-detail-val">{{ profile.fullName }}</span>
             </div>
             <div v-if="profile.country" class="va-detail-item">
+              <svg class="va-detail-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
               <span class="va-detail-val">{{ displayCountry }}</span>
             </div>
             <div v-if="profile.region" class="va-detail-item">
+              <svg class="va-detail-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
               <span class="va-detail-val">{{ REGION_LABELS[profile.region] ?? profile.region }}</span>
             </div>
           </div>
@@ -628,7 +633,9 @@ watch(() => route.params.userId, (newId) => {
                   @click="goToGame(game.id)"
               >
                 <img v-if="game.imageUrl" :src="game.imageUrl" :alt="game.name" class="va-game-cover-img" />
-                <div v-else class="va-game-cover">{{ gameEmoji(game.genre) }}</div>
+                <div v-else class="va-game-cover">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>
+                </div>
                 <div class="va-game-name">{{ game.name }}</div>
               </div>
             </div>
@@ -645,7 +652,9 @@ watch(() => route.params.userId, (newId) => {
           <div v-else-if="isOwnProfile" class="va-panel">
             <div class="va-panel-title">УЛЮБЛЕНІ ІГРИ</div>
             <div class="fav-games-empty">
-              <span class="fav-empty-icon">🎮</span>
+              <span class="fav-empty-icon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>
+              </span>
               <p>Ти ще не додав улюблених ігор</p>
               <router-link to="/favorite-games" class="fav-add-link">Перейти до каталогу ігор →</router-link>
             </div>
@@ -991,8 +1000,8 @@ watch(() => route.params.userId, (newId) => {
   border-color: var(--yellow-dim);
 }
 .va-detail-icon {
-  font-size: 12px;
   flex-shrink: 0;
+  color: var(--yellow-dim);
 }
 .va-detail-val {
   font-size: 12px;

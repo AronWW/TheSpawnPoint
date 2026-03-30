@@ -11,7 +11,7 @@ import { useChatStore } from '../stores/chat'
 import { usePartyStore } from '../stores/parties'
 import { useVoiceStore } from '../stores/voice'
 import type { Party } from '../types'
-import { gameEmoji, skillLabel, timeAgo } from '../utils/helpers'
+import { skillLabel, timeAgo } from '../utils/helpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -322,12 +322,16 @@ watch(
   <div class="party-detail-page">
     <div class="party-detail-container">
       <div v-if="loading" class="empty-state ink-panel">
-        <div class="empty-icon">⏳</div>
+        <div class="empty-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+        </div>
         <p>Завантаження лобі...</p>
       </div>
 
       <div v-else-if="error" class="empty-state ink-panel">
-        <div class="empty-icon">😕</div>
+        <div class="empty-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
         <h3>{{ error }}</h3>
         <router-link to="/" class="action-btn action-btn--primary">На головну</router-link>
       </div>
@@ -339,7 +343,9 @@ watch(
           <div class="party-cover-wrap">
             <div class="party-cover">
               <img v-if="party.gameImageUrl" :src="party.gameImageUrl" :alt="party.gameName" />
-              <div v-else class="cover-placeholder">{{ gameEmoji(party.gameName) }}</div>
+              <div v-else class="cover-placeholder">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>
+              </div>
             </div>
           </div>
 

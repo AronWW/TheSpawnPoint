@@ -31,7 +31,7 @@
             @load="focusIframe"
         ></iframe>
         <div v-if="showFocusHint" class="focus-hint" @click="focusIframe">
-          🎮 Натисни сюди, щоб керувати грою
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg> Натисни сюди, щоб керувати грою
         </div>
       </div>
 

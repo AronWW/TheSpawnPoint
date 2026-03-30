@@ -6,9 +6,9 @@ import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.exception.WebSocketExceptionHandler;
 import com.thespawnpoint.backend.repository.UserRepository;
 import com.thespawnpoint.backend.service.ChatService;
+import com.thespawnpoint.backend.service.CloudinaryImageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,16 +18,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -36,12 +30,7 @@ public class ChatController extends WebSocketExceptionHandler {
 
     private final ChatService chatService;
     private final UserRepository userRepository;
-
-    @Value("${app.upload.dir:uploads/avatars}")
-    private String uploadDir;
-
-    @Value("${app.upload.group-avatar.dir:uploads/group-avatars}")
-    private String groupAvatarDir;
+    private final CloudinaryImageService cloudinaryImageService;
 
     private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
     private static final Set<String> ALLOWED_TYPES = Set.of(
@@ -221,22 +210,9 @@ public class ChatController extends WebSocketExceptionHandler {
         if (!ALLOWED_TYPES.contains(file.getContentType())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Тільки JPEG, PNG, WebP та GIF");
         }
-        try {
-            Path uploadPath = Paths.get(groupAvatarDir);
-            Files.createDirectories(uploadPath);
-            String ext = "";
-            String orig = file.getOriginalFilename();
-            if (orig != null && orig.contains(".")) {
-                ext = orig.substring(orig.lastIndexOf('.'));
-            }
-            String filename = "group-" + chatId + "-" + UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            String avatarUrl = "/group-avatars/" + filename;
-            return ResponseEntity.ok(chatService.uploadGroupAvatar(currentUser, chatId, avatarUrl));
-        } catch (IOException e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Не вдалося зберегти файл");
-        }
+
+        CloudinaryImageService.UploadResult result = cloudinaryImageService.uploadGroupAvatar(file, chatId);
+        return ResponseEntity.ok(chatService.uploadGroupAvatar(currentUser, chatId, result.secureUrl(), result.publicId()));
     }
 
     @MessageMapping("/chat.send")

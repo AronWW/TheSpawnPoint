@@ -8,7 +8,7 @@ import type { Party } from '../types'
 const router = useRouter()
 const partyStore = usePartyStore()
 
-const popularParties = computed(() => partyStore.parties.slice(0, 8))
+const popularParties = computed(() => partyStore.parties)
 
 function selectParty(party: Party) {
   router.push(`/party/${party.id}`)
@@ -20,7 +20,7 @@ function selectParty(party: Party) {
     <div class="section-head">
       <div class="section-title">
         ПОПУЛЯРНІ ЛОБІ
-        <span class="section-count">{{ partyStore.parties.length }} активних</span>
+        <span class="section-count">{{ partyStore.totalElements }} активних</span>
       </div>
       <router-link to="/search-parties" class="view-all-btn">
         ВСІ ЛОБІ →

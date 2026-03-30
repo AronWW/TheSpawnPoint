@@ -369,13 +369,14 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function onPartnerTyping(chatId: number, senderEmail: string) {
-    let name = senderEmail
+  function onPartnerTyping(chatId: number, senderEmail: string, displayName?: string) {
+    let name = displayName || senderEmail
     const chat = chats.value.find((c) => c.id === chatId)
     if (chat) {
       if (chat.isGroup) {
         const p = chat.participants?.find((p) => p.email === senderEmail)
         if (p) name = p.displayName
+        else if (displayName) name = displayName
       } else {
         name = chat.partnerDisplayName || senderEmail
       }

@@ -421,11 +421,28 @@ watch(() => chatStore.editingMessage, (msg) => {
           {{ chatTitle }}
         </div>
         <div class="cw-status" :class="{ typing: isTyping }">
-          {{ chatSubtitle }}
+          <template v-if="isTyping && (chatType === 'GROUP' || chatType === 'GAME')">
+            <span class="cw-typing-name">{{ typingName }}</span>
+            <span class="cw-typing-text">пише</span>
+            <span class="cw-typing-dots">
+              <span class="cw-dot"></span>
+              <span class="cw-dot"></span>
+              <span class="cw-dot"></span>
+            </span>
+          </template>
+          <template v-else-if="isTyping">
+            <span class="cw-typing-text">друкує</span>
+            <span class="cw-typing-dots">
+              <span class="cw-dot"></span>
+              <span class="cw-dot"></span>
+              <span class="cw-dot"></span>
+            </span>
+          </template>
+          <template v-else>{{ chatSubtitle }}</template>
         </div>
       </div>
       <div class="cw-header-actions">
-        <button v-if="isGroup && chatType !== 'GAME'" class="cw-action-btn" @click.stop="showGroupSettings = true" title="Налаштування">
+        <button v-if="isGroup && chatType !== 'GAME'" class="cw-action-btn cw-icon-btn" @click.stop="showGroupSettings = true" title="Налаштування">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
         <button class="cw-action-btn" @click.stop="toggleSearch" title="Пошук">
@@ -753,7 +770,37 @@ watch(() => chatStore.editingMessage, (msg) => {
 
 .cw-status.typing {
   color: var(--yellow) !important;
-  animation: typingPulse 1.2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cw-typing-name {
+  color: #5dade2;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.cw-typing-text {
+  color: var(--yellow);
+  font-style: italic;
+}
+.cw-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+.cw-typing-dots .cw-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--yellow);
+  animation: cwDotBounce 1.4s ease-in-out infinite;
+}
+.cw-typing-dots .cw-dot:nth-child(2) { animation-delay: 0.2s; }
+.cw-typing-dots .cw-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes cwDotBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
 }
 @keyframes typingPulse {
   0%, 100% { opacity: 0.7; }
@@ -780,6 +827,14 @@ watch(() => chatStore.editingMessage, (msg) => {
   border-color: var(--yellow-dim);
   color: var(--yellow);
   box-shadow: 0 0 8px rgba(245,197,24,0.1);
+}
+.cw-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
 }
 .cw-action-btn:active {
   transform: scale(0.96);

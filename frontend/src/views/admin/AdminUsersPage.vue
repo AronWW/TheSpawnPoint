@@ -94,7 +94,7 @@ function getPageData() {
           <td><span class="role-badge" :class="{ admin: u.role === 'ADMIN' }">{{ u.role }}</span></td>
           <td>{{ u.status }}</td>
           <td>
-            <span v-if="u.banned" class="ban-badge" :title="u.banReason || ''">🚫 Забанений</span>
+            <span v-if="u.banned" class="ban-badge" :title="u.banReason || ''"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Забанений</span>
             <span v-else class="ok-badge">✓</span>
           </td>
           <td class="actions-cell">

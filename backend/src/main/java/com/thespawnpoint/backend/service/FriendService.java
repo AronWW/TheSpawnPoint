@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Map;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -200,14 +199,11 @@ public class FriendService {
                 .map(f -> f.getUser1().getId().equals(profileOwnerUserId) ? f.getUser2() : f.getUser1())
                 .toList();
 
-        Map<Long, String> avatarByUserId = profileRepository.findAllByUserIdIn(
-                        friends.stream().map(User::getId).toList()
-                ).stream()
-                .collect(Collectors.toMap(
-                        p -> p.getUser().getId(),
-                        Profile::getAvatarUrl,
-                        (a, b) -> a
-                ));
+        Map<Long, String> avatarByUserId = new java.util.HashMap<>();
+        for (Profile p : profileRepository.findAllByUserIdIn(
+                friends.stream().map(User::getId).toList())) {
+            avatarByUserId.putIfAbsent(p.getUser().getId(), p.getAvatarUrl());
+        }
 
         return friendships.stream()
                 .map(f -> {

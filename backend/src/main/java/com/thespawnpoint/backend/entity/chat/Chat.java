@@ -32,6 +32,9 @@ public class Chat {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(name = "avatar_public_id", length = 255)
+    private String avatarPublicId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

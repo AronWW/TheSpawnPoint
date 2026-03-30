@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Party } from '../types'
-import { genreColor, gameEmoji, skillLabel, timeAgo } from '../utils/helpers'
+import { genreColor, skillLabel, timeAgo } from '../utils/helpers'
 defineProps<{ party: Party }>()
 defineEmits<{ (e: 'select', p: Party): void }>()
 </script>
@@ -11,7 +11,9 @@ defineEmits<{ (e: 'select', p: Party): void }>()
     <div class="party-card-inner">
       <div class="party-card-top">
         <img v-if="party.gameImageUrl" :src="party.gameImageUrl" :alt="party.gameName" class="party-game-cover"/>
-        <div v-else class="party-game-cover-ph">{{ gameEmoji(party.gameName) }}</div>
+        <div v-else class="party-game-cover-ph">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>
+        </div>
         <div class="party-info">
           <div class="party-game">{{ party.gameName }}</div>
           <div class="party-host">Хост: <span>{{ party.creatorDisplayName }}</span></div>

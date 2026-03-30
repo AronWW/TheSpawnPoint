@@ -32,7 +32,9 @@ const props = defineProps<{
     </div>
 
     <div v-else class="achievement-preview-empty">
-      <span class="achievement-preview-empty__icon">🏆</span>
+      <span class="achievement-preview-empty__icon">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+      </span>
       <p v-if="isOwnProfile">У тебе ще немає відкритих досягнень. Саме час почати колекцію.</p>
       <p v-else>У цього гравця ще немає відкритих досягнень для показу.</p>
     </div>

@@ -6,6 +6,10 @@ import type { Party, CreatePartyRequest, SortOption, Page, PartyInvite } from '.
 export const usePartyStore = defineStore('parties', () => {
   const parties = ref<Party[]>([])
   const loading = ref(false)
+  const page = ref(0)
+  const totalPages = ref(0)
+  const totalElements = ref(0)
+  const size = ref(8)
 
   const search = ref('')
   const filterGameId = ref<number | null>(null)
@@ -20,11 +24,19 @@ export const usePartyStore = defineStore('parties', () => {
   const searchTotalElements = ref(0)
   const searchSize = ref(8)
 
-  async function fetchParties() {
+  async function fetchParties(p = 0) {
     loading.value = true
     try {
-      const { data } = await api.get<Party[]>('/parties')
-      parties.value = data
+      const params: Record<string, string | number> = { page: p, size: size.value }
+      if (filterGameId.value) params.gameId = filterGameId.value
+      if (filterPlatform.value) params.platform = filterPlatform.value
+      if (filterSkillLevel.value) params.skillLevel = filterSkillLevel.value
+
+      const { data } = await api.get<Page<Party>>('/parties', { params })
+      parties.value = data.content
+      page.value = data.page?.number ?? p
+      totalPages.value = data.page?.totalPages ?? 0
+      totalElements.value = data.page?.totalElements ?? 0
     } catch {
       parties.value = []
     } finally {
@@ -273,6 +285,10 @@ export const usePartyStore = defineStore('parties', () => {
   return {
     parties,
     loading,
+    page,
+    totalPages,
+    totalElements,
+    size,
     search,
     filterGameId,
     filterPlatform,

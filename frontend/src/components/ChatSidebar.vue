@@ -217,8 +217,12 @@ function onWindowClick() {
           </div>
           <div class="chat-sidebar-last" :class="{ 'sidebar-typing': chatStore.isPartnerTyping(chat.id) }">
             <template v-if="chatStore.isPartnerTyping(chat.id)">
-              <span v-if="chat.isGroup">{{ chatStore.typingDisplayName(chat.id) }} друкує...</span>
-              <span v-else>друкує...</span>
+              <span v-if="chat.isGroup" class="sidebar-typing-content">
+                <span class="sidebar-typing-name">{{ chatStore.typingDisplayName(chat.id) }}</span> пише<span class="sidebar-typing-dots"><span class="s-dot"></span><span class="s-dot"></span><span class="s-dot"></span></span>
+              </span>
+              <span v-else class="sidebar-typing-content">
+                друкує<span class="sidebar-typing-dots"><span class="s-dot"></span><span class="s-dot"></span><span class="s-dot"></span></span>
+              </span>
             </template>
             <template v-else>{{ truncate(chat.lastMessage) }}</template>
           </div>
@@ -255,8 +259,12 @@ function onWindowClick() {
           </div>
           <div class="chat-sidebar-last" :class="{ 'sidebar-typing': chatStore.isPartnerTyping(chat.id) }">
             <template v-if="chatStore.isPartnerTyping(chat.id)">
-              <span v-if="chat.isGroup">{{ chatStore.typingDisplayName(chat.id) }} друкує...</span>
-              <span v-else>друкує...</span>
+              <span v-if="chat.isGroup" class="sidebar-typing-content">
+                <span class="sidebar-typing-name">{{ chatStore.typingDisplayName(chat.id) }}</span> пише<span class="sidebar-typing-dots"><span class="s-dot"></span><span class="s-dot"></span><span class="s-dot"></span></span>
+              </span>
+              <span v-else class="sidebar-typing-content">
+                друкує<span class="sidebar-typing-dots"><span class="s-dot"></span><span class="s-dot"></span><span class="s-dot"></span></span>
+              </span>
             </template>
             <template v-else>{{ truncate(chat.lastMessage) }}</template>
           </div>
@@ -622,6 +630,39 @@ function onWindowClick() {
   50% { opacity: 1; }
 }
 
+.sidebar-typing-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sidebar-typing-name {
+  color: #5dade2;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.sidebar-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+.sidebar-typing-dots .s-dot {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--yellow);
+  animation: sidebarDotBounce 1.4s ease-in-out infinite;
+}
+.sidebar-typing-dots .s-dot:nth-child(2) { animation-delay: 0.2s; }
+.sidebar-typing-dots .s-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes sidebarDotBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-2px); opacity: 1; }
+}
+
 .chat-sidebar-meta {
   display: flex;
   flex-direction: column;
@@ -741,54 +782,101 @@ function onWindowClick() {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(0, 0, 0, 0.82);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  animation: confirmOverlayIn 0.2s ease-out;
+}
+@keyframes confirmOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .confirm-modal {
   background: var(--panel);
   border: 2px solid var(--border);
   border-top: 3px solid var(--yellow);
-  width: 400px;
+  width: 420px;
   max-width: 90vw;
-  padding: 28px 28px 20px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  padding: 0;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(245, 197, 24, 0.06),
+    inset 0 1px 0 rgba(245, 197, 24, 0.04);
+  animation: confirmModalIn 0.22s ease-out;
+  position: relative;
+}
+@keyframes confirmModalIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.confirm-modal::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(245, 197, 24, 0.04);
+  pointer-events: none;
+}
+.confirm-modal::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.03), transparent);
+  pointer-events: none;
 }
 
 .confirm-title {
   font-family: var(--font-display);
-  font-size: 14px;
-  letter-spacing: 2px;
+  font-size: 16px;
+  letter-spacing: 3px;
   color: var(--yellow);
-  margin-bottom: 14px;
+  padding: 22px 28px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-shadow: 0 0 12px rgba(245, 197, 24, 0.2);
+  position: relative;
+  z-index: 1;
 }
 
 .confirm-message {
   font-size: 13px;
   color: var(--gray-light);
-  line-height: 1.6;
-  margin-bottom: 24px;
+  line-height: 1.7;
+  padding: 14px 28px 0;
+  position: relative;
+  z-index: 1;
+  letter-spacing: 0.3px;
 }
 
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  padding: 22px 28px;
+  border-top: 1px solid var(--border);
+  margin-top: 22px;
+  position: relative;
+  z-index: 1;
 }
 
 .confirm-btn {
-  padding: 8px 20px;
+  padding: 9px 22px;
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
   border: 2px solid var(--border);
   background: transparent;
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
 .cancel-btn {
@@ -797,14 +885,28 @@ function onWindowClick() {
 .cancel-btn:hover {
   border-color: var(--gray);
   color: var(--white);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .danger-btn {
   color: var(--red);
-  border-color: rgba(192,57,43,0.4);
+  border-color: rgba(192, 57, 43, 0.4);
+}
+.danger-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(192, 57, 43, 0.08), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.danger-btn:hover::before {
+  opacity: 1;
 }
 .danger-btn:hover {
-  background: rgba(192,57,43,0.12);
+  background: rgba(192, 57, 43, 0.12);
   border-color: var(--red);
+  box-shadow: 0 0 12px rgba(192, 57, 43, 0.15);
+  text-shadow: 0 0 8px rgba(192, 57, 43, 0.3);
 }
 </style>

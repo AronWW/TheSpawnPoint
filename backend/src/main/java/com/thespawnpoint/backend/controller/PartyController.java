@@ -75,12 +75,16 @@ public class PartyController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PartyRequestDTO>> getOpenParties(
+    public ResponseEntity<Page<PartyRequestDTO>> getOpenParties(
             @RequestParam(required = false) Long gameId,
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) String skillLevel,
-            @RequestParam(required = false) String playStyle) {
-        return ResponseEntity.ok(partyService.getOpenParties(gameId, platform, skillLevel, playStyle));
+            @RequestParam(required = false) String playStyle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size) {
+        return ResponseEntity.ok(partyService.getOpenPartiesPaged(
+                gameId, platform, skillLevel, playStyle, null,
+                PageRequest.of(page, size)));
     }
 
     @GetMapping("/{id}")

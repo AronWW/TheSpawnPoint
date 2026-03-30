@@ -351,24 +351,57 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(0, 0, 0, 0.82);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  animation: overlayFadeIn 0.2s ease-out;
+}
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .settings-modal {
   background: var(--panel);
   border: 2px solid var(--border);
   border-top: 3px solid var(--yellow);
-  width: 480px;
+  width: 500px;
   max-width: 95vw;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(245,197,24,0.05);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(245, 197, 24, 0.06),
+    inset 0 1px 0 rgba(245, 197, 24, 0.04);
+  animation: modalSlideIn 0.22s ease-out;
+  position: relative;
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.settings-modal::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(245, 197, 24, 0.04);
+  pointer-events: none;
+  z-index: 0;
+}
+.settings-modal::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.03), transparent);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .settings-header {
@@ -377,6 +410,18 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   justify-content: space-between;
   padding: 18px 24px;
   border-bottom: 2px solid var(--border);
+  position: relative;
+  z-index: 1;
+}
+.settings-header::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--yellow-dim), transparent);
+  opacity: 0.4;
 }
 
 .settings-title {
@@ -384,62 +429,117 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   align-items: center;
   gap: 10px;
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 3px;
   color: var(--yellow);
+  text-shadow: 0 0 12px rgba(245, 197, 24, 0.2);
 }
 
 .settings-close {
   background: none;
-  border: none;
+  border: 2px solid var(--border);
   color: var(--gray);
-  font-size: 18px;
+  font-size: 14px;
   cursor: pointer;
-  transition: color 0.2s;
-  padding: 4px 8px;
+  transition: all 0.2s;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  line-height: 1;
 }
-.settings-close:hover { color: var(--red); }
+.settings-close:hover {
+  color: var(--red);
+  border-color: rgba(192, 57, 43, 0.5);
+  background: rgba(192, 57, 43, 0.06);
+  box-shadow: 0 0 8px rgba(192, 57, 43, 0.15);
+}
 
 .settings-body {
   padding: 0;
   overflow-y: auto;
   flex: 1;
+  position: relative;
+  z-index: 1;
+}
+.settings-body::-webkit-scrollbar {
+  width: 4px;
+}
+.settings-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+.settings-body::-webkit-scrollbar-thumb:hover {
+  background: var(--yellow-dim);
 }
 
 .settings-section {
-  padding: 20px 24px;
+  padding: 22px 24px;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 .settings-section:last-child { border-bottom: none; }
+.settings-section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.3s;
+}
+.settings-section:hover::before {
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.15), transparent);
+}
 
 .section-label {
   font-size: 10px;
   font-family: var(--font-display);
   letter-spacing: 3px;
   color: var(--gray);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  position: relative;
 }
 
 /* === AVATAR === */
 .avatar-section {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .group-avatar-preview {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
   border: 2px solid var(--border);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(41,128,185,0.15), rgba(41,128,185,0.06));
+  background: linear-gradient(135deg, rgba(41, 128, 185, 0.15), rgba(41, 128, 185, 0.06));
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+.group-avatar-preview::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(41, 128, 185, 0.1);
+  pointer-events: none;
+}
+.group-avatar-preview:hover {
+  border-color: rgba(41, 128, 185, 0.5);
+  box-shadow: 0 4px 16px rgba(41, 128, 185, 0.15);
 }
 
 .group-avatar-img {
@@ -450,22 +550,23 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 
 .group-avatar-letter {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 30px;
   color: #5dade2;
   letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(41, 128, 185, 0.3);
 }
 
 .avatar-controls {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .avatar-upload-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-family: var(--font-display);
   font-size: 10px;
   letter-spacing: 2px;
@@ -474,10 +575,24 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   color: var(--gray-light);
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.avatar-upload-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.04), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.avatar-upload-btn:hover::before {
+  opacity: 1;
 }
 .avatar-upload-btn:hover {
   border-color: var(--yellow-dim);
   color: var(--yellow);
+  box-shadow: 0 0 10px rgba(245, 197, 24, 0.08);
 }
 
 .avatar-hint {
@@ -490,13 +605,24 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   font-size: 11px;
   color: var(--red);
   letter-spacing: 0.5px;
+  padding: 3px 0;
+  animation: errorShake 0.3s ease-out;
+}
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 
 /* === TITLE === */
 .title-display {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--yellow-dim);
 }
 
 .title-text {
@@ -504,6 +630,7 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   color: var(--white);
   font-weight: 600;
   letter-spacing: 0.5px;
+  flex: 1;
 }
 
 .title-edit-btn {
@@ -519,6 +646,7 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 .title-edit-btn:hover {
   border-color: var(--yellow-dim);
   color: var(--yellow);
+  box-shadow: 0 0 6px rgba(245, 197, 24, 0.1);
 }
 
 .title-edit-row {
@@ -529,25 +657,29 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 
 .title-input {
   flex: 1;
-  padding: 8px 12px;
-  background: var(--panel-light);
+  padding: 9px 14px;
+  background: var(--dark);
   border: 2px solid var(--border);
+  border-left: 3px solid transparent;
   color: var(--white);
   font-size: 14px;
   font-family: var(--font-body);
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
 }
 .title-input:focus {
   border-color: var(--yellow-dim);
+  border-left-color: var(--yellow);
   outline: none;
+  box-shadow: 0 0 8px rgba(245, 197, 24, 0.06);
 }
-.title-input::placeholder { color: var(--gray); }
+.title-input::placeholder { color: var(--gray); font-style: italic; }
 
 .title-save-btn,
 .title-cancel-btn {
   background: none;
   border: 2px solid var(--border);
-  padding: 6px 8px;
+  padding: 7px 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -558,10 +690,11 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 }
 .title-save-btn:hover {
   border-color: #27ae60;
-  background: rgba(39,174,96,0.08);
+  background: rgba(39, 174, 96, 0.1);
+  box-shadow: 0 0 8px rgba(39, 174, 96, 0.1);
 }
 .title-save-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 .title-cancel-btn {
@@ -570,6 +703,7 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 .title-cancel-btn:hover {
   border-color: var(--red);
   color: var(--red);
+  background: rgba(192, 57, 43, 0.06);
 }
 
 /* === ADD MEMBER === */
@@ -577,7 +711,7 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   background: none;
   border: 2px solid var(--border);
   color: var(--gray);
-  padding: 4px 6px;
+  padding: 4px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -586,61 +720,79 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 .add-member-toggle:hover {
   border-color: var(--yellow-dim);
   color: var(--yellow);
+  box-shadow: 0 0 8px rgba(245, 197, 24, 0.08);
 }
 
 .add-member-section {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  animation: sectionSlideIn 0.2s ease-out;
+}
+@keyframes sectionSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .add-member-input {
   width: 100%;
-  padding: 8px 12px;
-  background: var(--panel-light);
+  padding: 9px 14px;
+  background: var(--dark);
   border: 2px solid var(--border);
+  border-left: 3px solid transparent;
   color: var(--white);
   font-size: 13px;
   font-family: var(--font-body);
-  margin-bottom: 6px;
-  transition: border-color 0.2s;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
 }
 .add-member-input:focus {
   border-color: var(--yellow-dim);
+  border-left-color: var(--yellow);
   outline: none;
+  box-shadow: 0 0 8px rgba(245, 197, 24, 0.06);
 }
-.add-member-input::placeholder { color: var(--gray); }
+.add-member-input::placeholder { color: var(--gray); font-style: italic; }
 
 .add-member-list {
   border: 2px solid var(--border);
-  background: var(--panel-light);
-  max-height: 160px;
+  background: var(--dark);
+  max-height: 180px;
   overflow-y: auto;
 }
 
 .add-member-empty {
-  padding: 16px;
+  padding: 18px;
   text-align: center;
   font-size: 12px;
   color: var(--gray);
   letter-spacing: 1px;
+  font-style: italic;
 }
 
 .add-member-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
   transition: all 0.15s;
 }
 .add-member-item:last-child { border-bottom: none; }
 .add-member-item:hover {
-  background: rgba(245,197,24,0.04);
+  background: linear-gradient(90deg, rgba(245, 197, 24, 0.04), transparent);
+  border-left-color: rgba(39, 174, 96, 0.5);
 }
 .add-member-item .add-icon {
   margin-left: auto;
   color: #27ae60;
   flex-shrink: 0;
+  transition: all 0.15s;
+}
+.add-member-item:hover .add-icon {
+  color: #2ecc71;
+  filter: drop-shadow(0 0 4px rgba(39, 174, 96, 0.3));
 }
 
 /* === MEMBERS === */
@@ -653,40 +805,57 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
 }
 .member-row:last-child { border-bottom: none; }
+.member-row:hover {
+  border-left-color: rgba(245, 197, 24, 0.2);
+}
 .member-row.is-me {
-  background: rgba(245,197,24,0.02);
+  background: linear-gradient(90deg, rgba(245, 197, 24, 0.03), transparent);
   margin: 0 -24px;
-  padding: 10px 24px;
+  padding: 12px 24px;
+  border-left-color: var(--yellow-dim);
 }
 
 .member-avatar {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
 }
 
 .member-avatar-img {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   object-fit: cover;
   border: 2px solid var(--border);
+  transition: border-color 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.member-row:hover .member-avatar-img {
+  border-color: var(--yellow-dim);
 }
 
 .member-avatar-letter {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: var(--yellow-glow);
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--yellow-glow), rgba(245, 197, 24, 0.06));
   border: 2px solid var(--border);
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--yellow);
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.member-row:hover .member-avatar-letter {
+  border-color: var(--yellow-dim);
+  box-shadow: 0 2px 8px rgba(245, 197, 24, 0.1);
 }
 
 .member-info {
@@ -694,7 +863,7 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .member-name-row {
@@ -708,38 +877,45 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   font-weight: 600;
   color: var(--white);
   letter-spacing: 0.3px;
+  transition: color 0.2s;
+}
+.member-row:hover .member-name {
+  color: var(--yellow);
 }
 
 .you-label {
   font-size: 10px;
-  color: var(--gray);
+  color: var(--yellow-dim);
   font-style: italic;
+  letter-spacing: 0.5px;
 }
 
 .role-badge {
   font-size: 9px;
   font-family: var(--font-display);
   letter-spacing: 1.5px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   display: inline-block;
   width: fit-content;
 }
 
 .role-owner {
-  background: linear-gradient(135deg, rgba(245,197,24,0.18), rgba(245,197,24,0.08));
-  border: 1px solid rgba(245,197,24,0.4);
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.18), rgba(245, 197, 24, 0.08));
+  border: 1px solid rgba(245, 197, 24, 0.4);
   color: var(--yellow);
+  box-shadow: 0 0 6px rgba(245, 197, 24, 0.08);
 }
 
 .role-admin {
-  background: linear-gradient(135deg, rgba(41,128,185,0.18), rgba(41,128,185,0.08));
-  border: 1px solid rgba(41,128,185,0.4);
+  background: linear-gradient(135deg, rgba(41, 128, 185, 0.18), rgba(41, 128, 185, 0.08));
+  border: 1px solid rgba(41, 128, 185, 0.4);
   color: #5dade2;
+  box-shadow: 0 0 6px rgba(41, 128, 185, 0.08);
 }
 
 .role-member {
-  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--gray);
 }
 
@@ -752,14 +928,14 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 .member-action-btn {
   background: none;
   border: 2px solid var(--border);
-  padding: 5px 7px;
+  padding: 5px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   transition: all 0.2s;
 }
 .member-action-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -767,8 +943,9 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   color: #5dade2;
 }
 .grant-btn:hover:not(:disabled) {
-  border-color: rgba(41,128,185,0.5);
-  background: rgba(41,128,185,0.08);
+  border-color: rgba(41, 128, 185, 0.5);
+  background: rgba(41, 128, 185, 0.1);
+  box-shadow: 0 0 8px rgba(41, 128, 185, 0.1);
 }
 
 .revoke-btn {
@@ -776,16 +953,18 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
 }
 .revoke-btn:hover:not(:disabled) {
   border-color: var(--yellow-dim);
-  background: rgba(245,197,24,0.06);
+  background: rgba(245, 197, 24, 0.08);
+  box-shadow: 0 0 8px rgba(245, 197, 24, 0.08);
 }
 
 .remove-btn {
   color: var(--gray);
 }
 .remove-btn:hover:not(:disabled) {
-  border-color: rgba(192,57,43,0.5);
+  border-color: rgba(192, 57, 43, 0.5);
   color: var(--red);
-  background: rgba(192,57,43,0.06);
+  background: rgba(192, 57, 43, 0.08);
+  box-shadow: 0 0 8px rgba(192, 57, 43, 0.1);
 }
 </style>
 

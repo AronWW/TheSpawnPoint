@@ -82,13 +82,13 @@ const PLAY_STYLES = [
 
 const REGIONS = [
   { value: '', label: '— Не вказано —' },
-  { value: 'EUROPE', label: '🌍 Європа' },
-  { value: 'NORTH_AMERICA', label: '🌎 Північна Америка' },
-  { value: 'SOUTH_AMERICA', label: '🌎 Південна Америка' },
-  { value: 'ASIA', label: '🌏 Азія' },
-  { value: 'MIDDLE_EAST', label: '🌍 Близький Схід' },
-  { value: 'AFRICA', label: '🌍 Африка' },
-  { value: 'OCEANIA', label: '🌏 Океанія' },
+  { value: 'EUROPE', label: 'Європа' },
+  { value: 'NORTH_AMERICA', label: 'Північна Америка' },
+  { value: 'SOUTH_AMERICA', label: 'Південна Америка' },
+  { value: 'ASIA', label: 'Азія' },
+  { value: 'MIDDLE_EAST', label: 'Близький Схід' },
+  { value: 'AFRICA', label: 'Африка' },
+  { value: 'OCEANIA', label: 'Океанія' },
 ]
 
 const ALL_LANGUAGES = [

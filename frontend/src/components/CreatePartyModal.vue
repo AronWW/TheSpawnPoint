@@ -62,13 +62,13 @@ const ALL_LANGUAGES = [
 ] as const
 
 const REGIONS = [
-  { value: 'EUROPE', label: '🌍 Європа' },
-  { value: 'NORTH_AMERICA', label: '🌎 Пн. Америка' },
-  { value: 'SOUTH_AMERICA', label: '🌎 Пд. Америка' },
-  { value: 'ASIA', label: '🌏 Азія' },
-  { value: 'MIDDLE_EAST', label: '🌍 Близький Схід' },
-  { value: 'AFRICA', label: '🌍 Африка' },
-  { value: 'OCEANIA', label: '🌏 Океанія' },
+  { value: 'EUROPE', label: 'Європа', icon: '🌍' },
+  { value: 'NORTH_AMERICA', label: 'Пн. Америка', icon: '🌎' },
+  { value: 'SOUTH_AMERICA', label: 'Пд. Америка', icon: '🌎' },
+  { value: 'ASIA', label: 'Азія', icon: '🌏' },
+  { value: 'MIDDLE_EAST', label: 'Близький Схід', icon: '🌍' },
+  { value: 'AFRICA', label: 'Африка', icon: '🌍' },
+  { value: 'OCEANIA', label: 'Океанія', icon: '🌏' },
 ] as const
 
 const TAG_PRESETS = ['mic required', 'ranked', 'chill', 'tryhard', 'newbie-friendly', 'no toxicity', '18+', 'fun'] as const
@@ -341,10 +341,10 @@ function close() {
                 v-for="r in REGIONS"
                 :key="r.value"
                 type="button"
-                class="toggle-btn"
+                class="toggle-btn region-btn"
                 :class="{ active: form.region === r.value }"
                 @click="form.region = form.region === r.value ? null : r.value"
-              >{{ r.label }}</button>
+              ><span class="region-icon">{{ r.icon }}</span> {{ r.label }}</button>
             </div>
           </div>
 
@@ -376,15 +376,30 @@ function close() {
               <span v-if="selectedGame" class="form-hint">(за замовчуванням: {{ gameMaxPartySize }})</span>
             </label>
             <div v-if="!selectedGame" class="members-hint">Спочатку оберіть гру</div>
-            <div v-else class="members-select">
-              <button
+            <div v-else class="slots-picker">
+              <div class="slots-row">
+                <div
                   v-for="n in memberOptions"
                   :key="n"
-                  type="button"
-                  class="members-btn"
-                  :class="{ active: form.maxMembers === n }"
+                  class="slot-square"
+                  :class="{
+                    filled: n <= form.maxMembers,
+                    empty: n > form.maxMembers
+                  }"
                   @click="form.maxMembers = n"
-              >{{ n }}</button>
+                >
+                  <svg v-if="n <= form.maxMembers" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span v-else class="slot-plus">+</span>
+                </div>
+              </div>
+              <div class="slots-counter">
+                <span class="slots-count-active">{{ form.maxMembers }}</span>
+                <span class="slots-count-sep">/</span>
+                <span class="slots-count-max">{{ gameMaxPartySize }}</span>
+                <span class="slots-count-label">гравців</span>
+              </div>
             </div>
           </div>
 
@@ -621,38 +636,109 @@ function close() {
   opacity: 1;
 }
 
-.members-select {
+.slots-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slots-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.members-btn {
-  width: 44px;
-  height: 44px;
-  font-family: var(--font-display);
-  font-size: 16px;
-  letter-spacing: 1px;
-  background: var(--dark);
+.slot-square {
+  width: 42px;
+  height: 42px;
   border: 2px solid var(--border);
-  color: var(--gray-light);
-  cursor: pointer;
-  transition: all 0.15s;
+  background: var(--dark);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
-.members-btn:hover {
+.slot-square.filled {
   border-color: var(--yellow-dim);
-  color: var(--white);
+  background: rgba(245, 197, 24, 0.08);
+  color: var(--yellow);
+  box-shadow: 0 0 8px rgba(245, 197, 24, 0.12), inset 0 0 12px rgba(245, 197, 24, 0.05);
 }
 
-.members-btn.active {
-  background: var(--yellow-glow);
-  border-color: var(--yellow);
+.slot-square.filled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245, 197, 24, 0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.slot-square.empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--gray);
+}
+
+.slot-square:hover {
+  border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.05);
+  transform: translateY(-1px);
+}
+
+.slot-square:hover .slot-plus {
+  color: var(--yellow);
+}
+
+.slot-plus {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--gray);
+  transition: color 0.15s;
+}
+
+.slots-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+
+.slots-count-active {
+  font-size: 20px;
   color: var(--yellow);
   font-weight: 700;
+}
+
+.slots-count-sep {
+  font-size: 14px;
+  color: var(--gray);
+}
+
+.slots-count-max {
+  font-size: 14px;
+  color: var(--gray-light);
+}
+
+.slots-count-label {
+  font-size: 11px;
+  color: var(--gray);
+  margin-left: 6px;
+  letter-spacing: 1.5px;
+}
+
+.toggle-btn.region-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.region-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .form-hint {

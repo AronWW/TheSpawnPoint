@@ -148,7 +148,7 @@ export function useGlobalWebSocket() {
         try {
           const payload = JSON.parse(frame.body)
           if (payload.chatId && payload.senderEmail) {
-            chatStore.onPartnerTyping(payload.chatId, payload.senderEmail)
+            chatStore.onPartnerTyping(payload.chatId, payload.senderEmail, payload.displayName)
           }
         } catch { }
       })

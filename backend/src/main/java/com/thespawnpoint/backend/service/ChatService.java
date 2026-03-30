@@ -38,6 +38,7 @@ public class ChatService {
     private final PrivacySettingsRepository privacySettingsRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationContext applicationContext;
+    private final CloudinaryImageService cloudinaryImageService;
 
     private ChatService self() {
         return applicationContext.getBean(ChatService.class);
@@ -172,7 +173,7 @@ public class ChatService {
     public ChatDTO createStandaloneGroupChat(User creator, String title, List<String> memberEmails) {
         Chat chat = createGroupChat(title, creator, false);
 
-        sendSystemMessage(chat, creator.getDisplayName() + " created the group");
+        sendSystemMessage(chat, creator.getDisplayName() + " створив(-ла) групу");
 
         for (String email : memberEmails) {
             User member = userRepository.findByEmail(email)
@@ -185,7 +186,7 @@ public class ChatService {
             chatParticipantRepository.save(ChatParticipant.builder()
                     .chat(chat).user(member).build());
 
-            sendSystemMessage(chat, member.getDisplayName() + " joined the chat");
+            sendSystemMessage(chat, member.getDisplayName() + " приєднався(-лась) до чату");
         }
 
         return buildChatDTO(chat, creator);
@@ -214,7 +215,7 @@ public class ChatService {
         chatParticipantRepository.save(ChatParticipant.builder()
                 .chat(chat).user(member).build());
 
-        sendSystemMessage(chat, member.getDisplayName() + " joined the chat");
+        sendSystemMessage(chat, member.getDisplayName() + " приєднався(-лась) до чату");
     }
 
     @Transactional
@@ -230,7 +231,7 @@ public class ChatService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "You are not a participant of this chat");
         }
 
-        sendSystemMessage(chat, user.getDisplayName() + " left the chat");
+        sendSystemMessage(chat, user.getDisplayName() + " покинув(-ла) чат");
         chatParticipantRepository.deleteByChatIdAndUserId(chatId, user.getId());
 
         int remaining = chatParticipantRepository.countByChatId(chatId);
@@ -270,7 +271,7 @@ public class ChatService {
         chat.setTitle(newTitle);
         chatRepository.save(chat);
 
-        sendSystemMessage(chat, requester.getDisplayName() + " renamed the chat to \"" + newTitle + "\"");
+        sendSystemMessage(chat, requester.getDisplayName() + " перейменував(-ла) чат на \"" + newTitle + "\"");
 
         return buildChatDTO(chat, requester);
     }
@@ -376,7 +377,7 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatDTO uploadGroupAvatar(User requester, Long chatId, String avatarUrl) {
+    public ChatDTO uploadGroupAvatar(User requester, Long chatId, String avatarUrl, String avatarPublicId) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
 
@@ -391,7 +392,12 @@ public class ChatService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only owner or admin can change avatar");
         }
 
+        if (chat.getAvatarPublicId() != null && !chat.getAvatarPublicId().isBlank()) {
+            cloudinaryImageService.deleteAvatar(chat.getAvatarPublicId());
+        }
+
         chat.setAvatarUrl(avatarUrl);
+        chat.setAvatarPublicId(avatarPublicId);
         chatRepository.save(chat);
 
         sendSystemMessage(chat, requester.getDisplayName() + " змінив(-ла) аватар групи");
@@ -411,7 +417,7 @@ public class ChatService {
         chatParticipantRepository.save(ChatParticipant.builder()
                 .chat(chat).user(user).build());
 
-        sendSystemMessage(chat, user.getDisplayName() + " joined the party");
+        sendSystemMessage(chat, user.getDisplayName() + " приєднався(-лась) до лобі");
     }
 
     @Transactional
@@ -424,7 +430,7 @@ public class ChatService {
 
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
-        sendSystemMessage(chat, user.getDisplayName() + " left the party");
+        sendSystemMessage(chat, user.getDisplayName() + " покинув(-ла) лобі");
     }
 
     @Transactional
@@ -437,7 +443,7 @@ public class ChatService {
 
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
-        sendSystemMessage(chat, "A member was removed from the party");
+        sendSystemMessage(chat, "Учасника було видалено з лобі");
     }
 
     @Transactional
@@ -520,9 +526,11 @@ public class ChatService {
         }
     }
 
+    @Transactional(readOnly = true)
     public void sendGroupTypingIndicator(User sender, Long chatId) {
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("senderEmail", sender.getEmail());
+        payload.put("displayName", sender.getDisplayName());
         payload.put("chatId", chatId);
 
         List<ChatParticipant> participants = chatParticipantRepository.findByChatId(chatId);
@@ -784,7 +792,7 @@ public class ChatService {
 
         PinnedMessageDTO dto = toPinnedDTO(pin);
         broadcastChatEvent(chatId, "MESSAGE_PINNED", dto);
-        sendSystemMessage(chat, user.getDisplayName() + " pinned a message");
+        sendSystemMessage(chat, user.getDisplayName() + " закріпив(-ла) повідомлення");
     }
 
     @Transactional
@@ -803,7 +811,7 @@ public class ChatService {
         pinnedMessageRepository.deleteByChatIdAndMessageId(chatId, messageId);
         broadcastChatEvent(chatId, "MESSAGE_UNPINNED",
                 Map.of("chatId", chatId, "messageId", messageId));
-        sendSystemMessage(chat, user.getDisplayName() + " unpinned a message");
+        sendSystemMessage(chat, user.getDisplayName() + " відкріпив(-ла) повідомлення");
     }
 
     @Transactional(readOnly = true)

@@ -5,13 +5,13 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const links = [
-  { path: '/admin', label: 'Дашборд', icon: '📊' },
-  { path: '/admin/users', label: 'Користувачі', icon: '👥' },
-  { path: '/admin/games', label: 'Ігри', icon: '🎮' },
-  { path: '/admin/game-suggestions', label: 'Заявки на ігри', icon: '💡' },
-  { path: '/admin/reports', label: 'Скарги', icon: '⚠️' },
-  { path: '/admin/tickets', label: 'Підтримка', icon: '📩' },
-  { path: '/admin/unban-requests', label: 'Запити на розбан', icon: '🔓' },
+  { path: '/admin', label: 'Дашборд', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+  { path: '/admin/users', label: 'Користувачі', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  { path: '/admin/games', label: 'Ігри', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="10" r="1"/><circle cx="18" cy="12" r="1"/></svg>' },
+  { path: '/admin/game-suggestions', label: 'Заявки на ігри', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><circle cx="12" cy="12" r="4"/><path d="M20 12h-2"/><path d="M6 12H4"/></svg>' },
+  { path: '/admin/reports', label: 'Скарги', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+  { path: '/admin/tickets', label: 'Підтримка', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>' },
+  { path: '/admin/unban-requests', label: 'Запити на розбан', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>' },
 ]
 
 const currentPath = computed(() => route.path)
@@ -32,7 +32,7 @@ const currentPath = computed(() => route.path)
           class="sidebar-link"
           :class="{ active: currentPath === link.path }"
         >
-          <span class="sidebar-icon">{{ link.icon }}</span>
+          <span class="sidebar-icon" v-html="link.icon"></span>
           <span class="sidebar-text">{{ link.label }}</span>
         </router-link>
       </nav>
