@@ -86,6 +86,10 @@ function goToParty() {
         </div>
         <div class="hero-stats">
           <div class="stat-item">
+            <div class="stat-num">{{ auth.onlineCount || '—' }}</div>
+            <div class="stat-label">Гравців онлайн</div>
+          </div>
+          <div class="stat-item">
             <div class="stat-num">{{ partyStore.totalElements || '—' }}</div>
             <div class="stat-label">Відкриті лобі</div>
           </div>
@@ -218,6 +222,15 @@ function goToParty() {
   align-items: center;
   justify-content: center;
   color: var(--gray);
+}
+
+.online-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.online-dot-icon {
+  flex-shrink: 0;
 }
 </style>
 

@@ -27,6 +27,7 @@ public class ReportService {
     private final UserReportRepository userReportRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final BlockService blockService;
 
     @Transactional
     public ReportDTO createReport(User reporter, CreateReportDTO dto) {
@@ -56,6 +57,14 @@ public class ReportService {
                 .build();
 
         userReportRepository.save(report);
+
+        if (dto.isBlockUser()) {
+            try {
+                blockService.blockUser(reporter, dto.getReportedUserId());
+            } catch (Exception ignored) {
+            }
+        }
+
         return toDTO(report);
     }
 

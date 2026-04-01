@@ -32,6 +32,7 @@ public class FriendService {
     private final PrivacySettingsRepository privacySettingsRepository;
     private final NotificationService notificationService;
     private final AchievementService achievementService;
+    private final BlockService blockService;
 
     @Transactional
     public void sendFriendRequest(User sender, Long receiverId) {
@@ -43,6 +44,10 @@ public class FriendService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (receiver.getRole() == com.thespawnpoint.backend.entity.user.Role.ADMIN) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        if (blockService.isBlockedBetween(sender.getId(), receiverId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "User not found");
         }
 
@@ -142,11 +147,13 @@ public class FriendService {
         friendshipRepository.delete(friendship);
     }
 
+    @Transactional(readOnly = true)
     public List<FriendDTO> getFriends(User currentUser) {
         List<Friendship> friendships = friendshipRepository.findAllByUserId(currentUser.getId());
         return toFriendDTOs(currentUser.getId(), friendships);
     }
 
+    @Transactional(readOnly = true)
     public List<FriendDTO> getFriendsByUserId(User currentUser, Long targetUserId) {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
@@ -159,6 +166,7 @@ public class FriendService {
         return toFriendDTOs(targetUserId, friendships);
     }
 
+    @Transactional(readOnly = true)
     public List<FriendRequestDTO> getIncomingRequests(User currentUser) {
         return inviteRepository.findByReceiverIdAndTypeAndStatusOrderByCreatedAtDesc(
                         currentUser.getId(), InviteType.FRIEND_REQUEST, InviteStatus.PENDING)
@@ -167,6 +175,7 @@ public class FriendService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<FriendRequestDTO> getOutgoingRequests(User currentUser) {
         return inviteRepository.findBySenderIdAndTypeAndStatusOrderByCreatedAtDesc(
                         currentUser.getId(), InviteType.FRIEND_REQUEST, InviteStatus.PENDING)
@@ -217,9 +226,6 @@ public class FriendService {
         String status = user.getStatus().name();
         String lastSeen = user.getLastSeen() != null ? user.getLastSeen().toString() : null;
 
-        privacySettingsRepository.findByUserId(user.getId()).ifPresent(ps -> {
-
-        });
         PrivacySettings ps = privacySettingsRepository.findByUserId(user.getId()).orElse(null);
         if (ps != null && ps.getStatusVisibility() == VisibilityLevel.NOBODY) {
             status = "OFFLINE";

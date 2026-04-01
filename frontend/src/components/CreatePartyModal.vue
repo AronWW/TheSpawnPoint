@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { usePartyStore } from '../stores/parties'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
+import { usePresetStore } from '../stores/presets'
 import { useToast } from '../composables/useToast'
 import SuggestGameModal from './SuggestGameModal.vue'
 import type { CreatePartyRequest } from '../types'
@@ -15,10 +16,15 @@ const router = useRouter()
 const partyStore = usePartyStore()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const presetStore = usePresetStore()
 const toast = useToast()
 
 const showSuggest = ref(false)
 const blockedByParty = ref(false)
+const activeTab = ref<'create' | 'presets' | 'history'>('create')
+const presetEditMode = ref(false)
+const presetEditSlot = ref<number | null>(null)
+const presetName = ref('')
 
 const PLATFORMS = [
   { value: 'PC', label: 'PC' },
@@ -78,12 +84,12 @@ const form = ref<CreatePartyRequest>({
   title: '',
   description: '',
   eventTime: null,
-  platform: ['PC'],
-  languages: ['UA'],
-  skillLevel: null,
-  playStyle: null,
+  platform: auth.myProfile?.platforms?.length ? [...auth.myProfile.platforms] : ['PC'],
+  languages: auth.myProfile?.languages?.length ? [...auth.myProfile.languages] : ['UA'],
+  skillLevel: auth.myProfile?.skillLevel ?? null,
+  playStyle: auth.myProfile?.playStyle ?? null,
   tags: [],
-  region: null,
+  region: auth.myProfile?.region ?? null,
   maxMembers: 4,
 })
 
@@ -171,6 +177,34 @@ function selectGame(gameId: number) {
 
 watch(() => props.visible, async (val) => {
   if (!val) { blockedByParty.value = false; return }
+  activeTab.value = 'create'
+  presetEditMode.value = false
+  presetEditSlot.value = null
+  presetName.value = ''
+
+  await auth.fetchMyProfile()
+  resetForm()
+  presetStore.fetchPresets()
+  partyStore.fetchHistory(0)
+
+  if (partyStore.playAgainData) {
+    const d = partyStore.playAgainData
+    form.value.gameId = d.gameId
+    form.value.title = d.title || ''
+    form.value.description = d.description || ''
+    form.value.platform = d.platform?.length ? [...d.platform] : form.value.platform
+    form.value.languages = d.languages?.length ? [...d.languages] : form.value.languages
+    form.value.skillLevel = d.skillLevel ?? form.value.skillLevel
+    form.value.playStyle = d.playStyle ?? form.value.playStyle
+    form.value.tags = d.tags?.length ? [...d.tags] : []
+    form.value.region = d.region ?? form.value.region
+    form.value.maxMembers = d.maxMembers ?? 4
+    if (d.gameId) {
+      const game = gameStore.games.find(g => g.id === d.gameId)
+      if (game) gameSearch.value = game.name
+    }
+  }
+
   await partyStore.fetchMyParties()
   if (partyStore.myParties.length > 0) {
     blockedByParty.value = true
@@ -178,6 +212,45 @@ watch(() => props.visible, async (val) => {
     error.value = 'Ви вже перебуваєте в активному лобі. Покиньте поточне, щоб створити нове.'
   }
 })
+
+const historySlice = computed(() => partyStore.historyParties.slice(0, 5))
+
+function playAgainFromHistory(party: import('../types').Party) {
+  partyStore.setPlayAgain(party)
+  const d = partyStore.playAgainData!
+  form.value.gameId = d.gameId
+  form.value.title = d.title || ''
+  form.value.description = d.description || ''
+  form.value.platform = d.platform?.length ? [...d.platform] : form.value.platform
+  form.value.languages = d.languages?.length ? [...d.languages] : form.value.languages
+  form.value.skillLevel = d.skillLevel ?? form.value.skillLevel
+  form.value.playStyle = d.playStyle ?? form.value.playStyle
+  form.value.tags = d.tags?.length ? [...d.tags] : []
+  form.value.region = d.region ?? form.value.region
+  form.value.maxMembers = d.maxMembers ?? 4
+  if (d.gameId) {
+    const game = gameStore.games.find(g => g.id === d.gameId)
+    if (game) gameSearch.value = game.name
+  }
+  activeTab.value = 'create'
+}
+
+function formatHistoryDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('uk-UA', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+}
+
+function historyStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    COMPLETED: 'Завершено',
+    CANCELLED: 'Скасовано',
+    OPEN: 'Відкрито',
+    FULL: 'Заповнено',
+    IN_GAME: 'В грі',
+  }
+  return map[status] ?? status
+}
 
 async function submit() {
   if (blockedByParty.value || partyStore.myParties.length > 0) {
@@ -196,7 +269,22 @@ async function submit() {
   error.value = ''
   submitting.value = true
   try {
+    const playAgain = partyStore.playAgainData
     const newParty = await partyStore.createParty(form.value)
+
+    if (playAgain?.previousMembers?.length) {
+      const myId = auth.user?.id
+      for (const member of playAgain.previousMembers) {
+        if (member.userId !== myId) {
+          try {
+            await partyStore.sendInvite(newParty.id, member.userId)
+          } catch {  }
+        }
+      }
+      toast.show(`Запрошення надіслано ${playAgain.previousMembers.filter(m => m.userId !== myId).length} гравцям`, 'success', 3000)
+    }
+
+    partyStore.playAgainData = null
     resetForm()
     emit('close')
     router.push(`/party/${newParty.id}`)
@@ -207,24 +295,104 @@ async function submit() {
   }
 }
 
+function getProfileDefaults() {
+  const p = auth.myProfile
+  return {
+    platform: p?.platforms?.length ? [...p.platforms] : ['PC'],
+    languages: p?.languages?.length ? [...p.languages] : ['UA'],
+    skillLevel: p?.skillLevel ?? null,
+    playStyle: p?.playStyle ?? null,
+    region: p?.region ?? null,
+  }
+}
+
 function resetForm() {
+  const defaults = getProfileDefaults()
   form.value = {
     gameId: null,
     title: '',
     description: '',
     eventTime: null,
-    platform: ['PC'],
-    languages: ['UA'],
-    skillLevel: null,
-    playStyle: null,
+    platform: defaults.platform,
+    languages: defaults.languages,
+    skillLevel: defaults.skillLevel,
+    playStyle: defaults.playStyle,
     tags: [],
-    region: null,
+    region: defaults.region,
     maxMembers: 4,
   }
   gameSearch.value = ''
   customTag.value = ''
   langSearch.value = ''
   error.value = ''
+}
+
+function startPresetCreate(slotIndex: number) {
+  presetEditSlot.value = slotIndex
+  presetEditMode.value = true
+  presetName.value = ''
+  resetForm()
+}
+
+function loadPreset(preset: { gameId: number; gameName?: string; maxMembers: number; platform: string[]; languages: string[]; skillLevel: string | null; playStyle: string | null; tags: string[]; region: string | null }) {
+  activeTab.value = 'create'
+  presetEditMode.value = false
+  form.value.gameId = preset.gameId
+  form.value.platform = [...preset.platform]
+  form.value.languages = [...preset.languages]
+  form.value.skillLevel = preset.skillLevel
+  form.value.playStyle = preset.playStyle
+  form.value.tags = [...preset.tags]
+  form.value.region = preset.region
+  form.value.maxMembers = preset.maxMembers
+  if (preset.gameId) {
+    const game = gameStore.games.find(g => g.id === preset.gameId)
+    if (game) gameSearch.value = game.name
+  }
+}
+
+async function savePreset() {
+  if (!presetName.value.trim()) {
+    error.value = 'Введіть назву шаблону'
+    return
+  }
+  if (!form.value.gameId) {
+    error.value = 'Оберіть гру'
+    return
+  }
+  error.value = ''
+  submitting.value = true
+  try {
+    await presetStore.savePreset({
+      name: presetName.value.trim(),
+      slotIndex: presetEditSlot.value ?? 0,
+      gameId: form.value.gameId,
+      maxMembers: form.value.maxMembers,
+      platform: form.value.platform,
+      languages: form.value.languages,
+      skillLevel: form.value.skillLevel,
+      playStyle: form.value.playStyle,
+      tags: form.value.tags,
+      region: form.value.region,
+    })
+    toast.show('Шаблон збережено', 'success', 2500)
+    presetEditMode.value = false
+    activeTab.value = 'presets'
+    resetForm()
+  } catch (e: any) {
+    error.value = e.response?.data?.message || 'Помилка при збереженні шаблону'
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function deletePreset(presetId: number) {
+  try {
+    await presetStore.deletePreset(presetId)
+    toast.show('Шаблон видалено', 'success', 2000)
+  } catch {
+    toast.show('Не вдалося видалити шаблон', 'error', 2500)
+  }
 }
 
 function close() {
@@ -237,21 +405,151 @@ function close() {
   <Transition name="fade">
     <div v-if="visible" class="modal-overlay" @click.self="close">
       <div class="modal">
-        <div class="modal-header">
-          <div class="modal-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+        <div class="modal-close-bar">
+          <button class="modal-close" @click="close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-tabs">
+          <button
+            class="modal-tab"
+            :class="{ active: activeTab === 'create' && !presetEditMode }"
+            @click="activeTab = 'create'; presetEditMode = false"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
               <line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>
             </svg>
             НОВЕ ЛОБІ
-          </div>
-          <button class="modal-close" @click="close">✕</button>
+          </button>
+          <button
+            class="modal-tab"
+            :class="{ active: activeTab === 'presets' || presetEditMode }"
+            @click="activeTab = 'presets'; presetEditMode = false"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            ЗАВАНТАЖИТИ ШАБЛОН
+          </button>
+          <button
+            class="modal-tab"
+            :class="{ active: activeTab === 'history' }"
+            @click="activeTab = 'history'; presetEditMode = false"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            ІСТОРІЯ
+          </button>
         </div>
-        <div class="modal-body">
-          <div v-if="error" class="modal-error">{{ error }}</div>
 
-          <div class="form-group">
-            <label class="form-label">Гра *</label>
+        <div v-if="activeTab === 'presets' && !presetEditMode" class="modal-body presets-body">
+          <div class="presets-grid">
+            <div
+              v-for="slot in 10"
+              :key="slot - 1"
+              class="preset-slot"
+              :class="{ filled: presetStore.getPresetBySlot(slot - 1) }"
+              @click="presetStore.getPresetBySlot(slot - 1) ? loadPreset(presetStore.getPresetBySlot(slot - 1)!) : startPresetCreate(slot - 1)"
+            >
+              <template v-if="presetStore.getPresetBySlot(slot - 1)">
+                <img
+                  v-if="presetStore.getPresetBySlot(slot - 1)!.gameImageUrl"
+                  :src="presetStore.getPresetBySlot(slot - 1)!.gameImageUrl!"
+                  class="preset-game-img"
+                />
+                <div v-else class="preset-game-ph">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+                </div>
+                <div class="preset-info">
+                  <div class="preset-name">{{ presetStore.getPresetBySlot(slot - 1)!.name }}</div>
+                  <div class="preset-game-name">{{ presetStore.getPresetBySlot(slot - 1)!.gameName }}</div>
+                </div>
+                <button
+                  class="preset-delete"
+                  @click.stop="deletePreset(presetStore.getPresetBySlot(slot - 1)!.id)"
+                  title="Видалити шаблон"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </template>
+              <template v-else>
+                <div class="preset-empty-icon">+</div>
+                <div class="preset-empty-text">Створити шаблон</div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="activeTab === 'history'" class="modal-body history-body">
+          <div v-if="partyStore.historyLoading" class="history-empty">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Завантаження...</span>
+          </div>
+          <div v-else-if="historySlice.length === 0" class="history-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+            <span>Історія порожня</span>
+          </div>
+          <div v-else class="history-mini-list">
+            <div v-for="hp in historySlice" :key="hp.id" class="history-mini-card">
+              <div class="hm-cover">
+                <img v-if="hp.gameImageUrl" :src="hp.gameImageUrl" :alt="hp.gameName" />
+                <div v-else class="hm-cover-ph">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+                </div>
+              </div>
+              <div class="hm-info">
+                <div class="hm-game">{{ hp.gameName }}</div>
+                <div class="hm-meta">
+                  <span class="hm-status" :class="hp.status.toLowerCase().replace('_', '-')">
+                    <svg v-if="hp.status === 'COMPLETED'" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg v-else width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {{ historyStatusLabel(hp.status) }}
+                  </span>
+                  <span class="hm-date">{{ formatHistoryDate(hp.createdAt) }}</span>
+                </div>
+                <div v-if="hp.members?.length" class="hm-avatars">
+                  <img
+                    v-for="m in hp.members.slice(0, 4)"
+                    :key="m.userId"
+                    :src="m.avatarUrl ? (m.avatarUrl.startsWith('http') ? m.avatarUrl : m.avatarUrl) : '/avatars/default/avatar-1.png'"
+                    class="hm-avatar"
+                  />
+                  <span v-if="(hp.members?.length ?? 0) > 4" class="hm-more">+{{ (hp.members?.length ?? 0) - 4 }}</span>
+                </div>
+              </div>
+              <button class="hm-replay-btn" @click="playAgainFromHistory(hp)" title="Грати знову">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <template v-if="activeTab === 'create' || presetEditMode">
+          <div class="modal-body">
+            <div v-if="error" class="modal-error">{{ error }}</div>
+
+            <div v-if="presetEditMode" class="form-group">
+              <label class="form-label">Назва шаблону *</label>
+              <input
+                class="form-input"
+                v-model="presetName"
+                placeholder="Наприклад: Ranked Valorant, Chill CS2..."
+                maxlength="50"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Гра *</label>
             <div class="game-search-wrapper">
               <input
                 class="form-input"
@@ -344,7 +642,10 @@ function close() {
                 class="toggle-btn region-btn"
                 :class="{ active: form.region === r.value }"
                 @click="form.region = form.region === r.value ? null : r.value"
-              ><span class="region-icon">{{ r.icon }}</span> {{ r.label }}</button>
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                {{ r.label }}
+              </button>
             </div>
           </div>
 
@@ -435,20 +736,37 @@ function close() {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Опис (необов'язково)</label>
+            <label class="form-label">Опис (необов'язково) <span class="form-hint">({{ form.description.length }}/200)</span></label>
             <textarea
                 class="form-textarea"
                 v-model="form.description"
                 placeholder="Що ти шукаєш у тімейтах? Стиль гри, вимоги, плани..."
+                maxlength="200"
             ></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="close">СКАСУВАТИ</button>
-          <button class="btn-submit" @click="submit" :disabled="submitting || blockedByParty">
+          <button class="btn-cancel" @click="presetEditMode ? (presetEditMode = false, activeTab = 'presets') : close()">
+            {{ presetEditMode ? 'НАЗАД' : 'СКАСУВАТИ' }}
+          </button>
+          <button
+            v-if="presetEditMode"
+            class="btn-submit"
+            @click="savePreset"
+            :disabled="submitting"
+          >
+            {{ submitting ? 'ЗБЕРЕЖЕННЯ...' : 'ЗБЕРЕГТИ ШАБЛОН' }}
+          </button>
+          <button
+            v-else
+            class="btn-submit"
+            @click="submit"
+            :disabled="submitting || blockedByParty"
+          >
             {{ submitting ? 'СТВОРЕННЯ...' : 'СТВОРИТИ ЛОБІ' }}
           </button>
         </div>
+        </template>
       </div>
     </div>
   </Transition>
@@ -457,6 +775,150 @@ function close() {
 </template>
 
 <style scoped>
+.modal-close-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px 0;
+}
+.modal-close {
+  background: none;
+  border: 1px solid var(--border);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.modal-close:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.modal-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+}
+.modal-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--gray);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.modal-tab:hover { color: var(--gray-light); }
+.modal-tab.active {
+  color: var(--yellow);
+  border-bottom-color: var(--yellow);
+}
+
+.presets-body {
+  padding: 20px;
+}
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.preset-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  background: var(--panel-light);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  min-height: 60px;
+}
+.preset-slot:hover {
+  border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.03);
+}
+.preset-slot.filled {
+  border-color: rgba(245, 197, 24, 0.15);
+}
+.preset-game-img {
+  width: 36px;
+  height: 48px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.preset-game-ph {
+  width: 36px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dark);
+  border: 1px solid var(--border);
+  color: var(--gray);
+  flex-shrink: 0;
+}
+.preset-info {
+  flex: 1;
+  min-width: 0;
+}
+.preset-name {
+  font-family: var(--font-display), sans-serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--yellow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preset-game-name {
+  font-size: 11px;
+  color: var(--gray);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preset-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.preset-slot:hover .preset-delete { opacity: 1; }
+.preset-delete:hover { color: var(--red); }
+.preset-empty-icon {
+  font-family: var(--font-display), sans-serif;
+  font-size: 24px;
+  color: var(--gray);
+  width: 36px;
+  text-align: center;
+}
+.preset-empty-text {
+  font-family: var(--font-display), sans-serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--gray);
+}
+
 .modal-title {
   display: flex;
   align-items: center;
@@ -736,9 +1198,132 @@ function close() {
   gap: 5px;
 }
 
-.region-icon {
-  font-size: 14px;
-  line-height: 1;
+.toggle-btn.region-btn svg {
+  flex-shrink: 0;
+}
+
+.history-body {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 460px;
+}
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: var(--gray);
+  font-size: 13px;
+}
+.history-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.history-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  background: var(--panel-light);
+  transition: border-color 0.15s, background 0.15s;
+}
+.history-mini-card:hover {
+  border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.03);
+}
+.hm-cover img {
+  width: 38px;
+  height: 52px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.hm-cover-ph {
+  width: 38px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dark);
+  border: 1px solid var(--border);
+  color: var(--gray);
+  flex-shrink: 0;
+}
+.hm-info {
+  flex: 1;
+  min-width: 0;
+}
+.hm-game {
+  font-family: var(--font-display), sans-serif;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--yellow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hm-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 3px;
+}
+.hm-status {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.hm-status.completed { color: var(--green); }
+.hm-status.cancelled { color: var(--red); }
+.hm-status.open { color: var(--green); }
+.hm-status.in-game { color: var(--yellow); }
+.hm-date {
+  font-size: 10px;
+  color: var(--gray);
+}
+.hm-avatars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 5px;
+}
+.hm-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  margin-left: -4px;
+}
+.hm-avatar:first-child { margin-left: 0; }
+.hm-more {
+  font-size: 10px;
+  color: var(--gray);
+  margin-left: 4px;
+}
+.hm-replay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--yellow-dim);
+  background: transparent;
+  color: var(--yellow);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.hm-replay-btn:hover {
+  background: var(--yellow);
+  color: var(--black);
 }
 
 .form-hint {

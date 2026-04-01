@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}/comments").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/achievements/users/{userId}").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/achievements/users/{userId}/preview").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/online-count").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

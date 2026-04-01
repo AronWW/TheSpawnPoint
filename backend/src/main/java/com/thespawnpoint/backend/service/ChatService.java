@@ -39,6 +39,7 @@ public class ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationContext applicationContext;
     private final CloudinaryImageService cloudinaryImageService;
+    private final BlockService blockService;
 
     private ChatService self() {
         return applicationContext.getBean(ChatService.class);
@@ -71,6 +72,10 @@ public class ChatService {
 
         if (recipient.getRole() == com.thespawnpoint.backend.entity.user.Role.ADMIN) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Recipient not found");
+        }
+
+        if (blockService.isBlockedBetween(sender.getId(), recipient.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Cannot send message to this user");
         }
 
         Chat chat = self().getOrCreateDmChat(sender, recipient);

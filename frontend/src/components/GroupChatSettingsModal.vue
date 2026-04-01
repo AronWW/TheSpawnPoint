@@ -181,7 +181,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   <Teleport to="body">
     <div class="settings-overlay" @click.self="emit('close')">
       <div class="settings-modal">
-        <!-- HEADER -->
         <div class="settings-header">
           <div class="settings-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -194,7 +193,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
         </div>
 
         <div class="settings-body">
-          <!-- AVATAR SECTION -->
           <div class="settings-section">
             <div class="section-label">АВАТАР ГРУПИ</div>
             <div class="avatar-section">
@@ -218,7 +216,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
             </div>
           </div>
 
-          <!-- TITLE SECTION -->
           <div class="settings-section">
             <div class="section-label">НАЗВА ЧАТУ</div>
             <div v-if="!editingTitle" class="title-display">
@@ -247,7 +244,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
             </div>
           </div>
 
-          <!-- MEMBERS SECTION -->
           <div class="settings-section">
             <div class="section-label">
               УЧАСНИКИ ({{ chat.participants?.length || 0 }})
@@ -261,7 +257,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
               </button>
             </div>
 
-            <!-- ADD MEMBER -->
             <div v-if="showAddMember && isOwnerOrAdmin" class="add-member-section">
               <input
                 v-model="addMemberSearch"
@@ -286,7 +281,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
               </div>
             </div>
 
-            <!-- MEMBERS LIST -->
             <div class="members-list">
               <div
                 v-for="p in sortedParticipants"
@@ -509,7 +503,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   position: relative;
 }
 
-/* === AVATAR === */
 .avatar-section {
   display: flex;
   align-items: center;
@@ -614,7 +607,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   75% { transform: translateX(3px); }
 }
 
-/* === TITLE === */
 .title-display {
   display: flex;
   align-items: center;
@@ -706,7 +698,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   background: rgba(192, 57, 43, 0.06);
 }
 
-/* === ADD MEMBER === */
 .add-member-toggle {
   background: none;
   border: 2px solid var(--border);
@@ -795,7 +786,6 @@ function canToggleAdmin(participant: ChatParticipant): boolean {
   filter: drop-shadow(0 0 4px rgba(39, 174, 96, 0.3));
 }
 
-/* === MEMBERS === */
 .members-list {
   display: flex;
   flex-direction: column;

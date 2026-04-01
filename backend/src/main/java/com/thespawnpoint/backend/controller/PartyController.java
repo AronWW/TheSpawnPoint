@@ -3,6 +3,7 @@ package com.thespawnpoint.backend.controller;
 import com.thespawnpoint.backend.dto.CreatePartyRequestDTO;
 import com.thespawnpoint.backend.dto.PartyInviteDTO;
 import com.thespawnpoint.backend.dto.PartyRequestDTO;
+import com.thespawnpoint.backend.dto.RecentTeammateDTO;
 import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.service.PartyInviteService;
 import com.thespawnpoint.backend.service.PartyService;
@@ -81,10 +82,11 @@ public class PartyController {
             @RequestParam(required = false) String skillLevel,
             @RequestParam(required = false) String playStyle,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "8") int size) {
+            @RequestParam(defaultValue = "8") int size,
+            @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
                 gameId, platform, skillLevel, playStyle, null,
-                PageRequest.of(page, size)));
+                PageRequest.of(page, size), user));
     }
 
     @GetMapping("/{id}")
@@ -100,10 +102,11 @@ public class PartyController {
             @RequestParam(required = false) String playStyle,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "8") int size) {
+            @RequestParam(defaultValue = "8") int size,
+            @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
                 gameId, platform, skillLevel, playStyle, q,
-                PageRequest.of(page, size)));
+                PageRequest.of(page, size), user));
     }
 
     @GetMapping("/my")
@@ -118,6 +121,21 @@ public class PartyController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(partyService.getPartyHistory(user, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/history/{userId}")
+    public ResponseEntity<Page<PartyRequestDTO>> getPartyHistoryForUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal User requester,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(partyService.getPartyHistoryForUser(userId, requester, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/recent-teammates")
+    public ResponseEntity<List<RecentTeammateDTO>> getRecentTeammates(
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(partyService.getRecentTeammates(user));
     }
 
     @PostMapping("/{partyId}/invite/{userId}")

@@ -406,6 +406,10 @@ img { display: block; }
 .notif-invite-status.cancelled {
   color: var(--gray);
 }
+.notif-invite-status.expired {
+  color: var(--gray);
+  font-style: italic;
+}
 
 /* ============================================================
    HERO SECTION

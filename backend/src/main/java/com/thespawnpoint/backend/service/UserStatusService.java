@@ -28,6 +28,7 @@ public class UserStatusService {
             user.setStatus(User.Status.ONLINE);
             userRepository.save(user);
             broadcastStatus(user, User.Status.ONLINE, null);
+            broadcastOnlineCount();
             log.debug("User online: {}", email);
         });
     }
@@ -40,6 +41,7 @@ public class UserStatusService {
             user.setLastSeen(now);
             userRepository.save(user);
             broadcastStatus(user, User.Status.OFFLINE, now.toString());
+            broadcastOnlineCount();
             log.debug("User offline: {}", email);
         });
     }
@@ -56,6 +58,12 @@ public class UserStatusService {
                 "statusVisibility", statusVisibility
         );
         messagingTemplate.convertAndSend("/topic/status", payload);
+    }
+
+    private void broadcastOnlineCount() {
+        long count = userRepository.countByStatus(User.Status.ONLINE);
+        Object payload = Map.of("count", count);
+        messagingTemplate.convertAndSend("/topic/online-count", payload);
     }
 }
 

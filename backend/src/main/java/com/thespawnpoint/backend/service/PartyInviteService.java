@@ -28,6 +28,7 @@ public class PartyInviteService {
     private final ChatService chatService;
     private final NotificationService notificationService;
     private final PartyService partyService;
+    private final BlockService blockService;
 
     @Transactional
     public PartyInviteDTO sendPartyInvite(User sender, Long partyId, Long receiverId) {
@@ -48,6 +49,10 @@ public class PartyInviteService {
 
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (blockService.isBlockedBetween(sender.getId(), receiverId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot invite this user");
+        }
 
         if (partyMemberRepository.existsByPartyRequestIdAndUserId(partyId, receiverId)) {
             throw new ApiException(HttpStatus.CONFLICT, "User is already in this party");
@@ -110,7 +115,12 @@ public class PartyInviteService {
         }
 
         if (partyMemberRepository.existsActivePartyForUser(user.getId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "You already have an active party");
+            var activeParties = partyMemberRepository.findActivePartiesByUserId(user.getId());
+            boolean inGame = activeParties.stream()
+                    .anyMatch(pm -> pm.getPartyRequest().getStatus() == com.thespawnpoint.backend.entity.party.PartyStatus.IN_GAME);
+            if (inGame) {
+                throw new ApiException(HttpStatus.CONFLICT, "Ви не можете змінити лобi під час гри");
+            }
         }
 
         if (partyMemberRepository.existsByPartyRequestIdAndUserId(party.getId(), user.getId())) {
@@ -236,6 +246,15 @@ public class PartyInviteService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invite is no longer pending");
         }
 
+        // Check if invite has expired (10 minutes)
+        if (invite.getCreatedAt() != null &&
+            invite.getCreatedAt().isBefore(Instant.now().minusSeconds(10 * 60))) {
+            invite.setStatus(InviteStatus.DECLINED);
+            invite.setRespondedAt(Instant.now());
+            inviteRepository.save(invite);
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Час запрошення вийшов");
+        }
+
         return invite;
     }
 
@@ -269,7 +288,7 @@ public class PartyInviteService {
     @Scheduled(fixedRate = 60_000)
     @Transactional
     public void expireOldInvites() {
-        Instant cutoff = Instant.now().minusSeconds(30 * 60);
+        Instant cutoff = Instant.now().minusSeconds(10 * 60);
         inviteRepository.expireOldPartyInvites(cutoff, Instant.now(), InviteStatus.DECLINED);
     }
 }

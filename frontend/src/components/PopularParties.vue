@@ -126,9 +126,11 @@ function selectParty(party: Party) {
   border: 2px solid var(--border);
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  will-change: transform, box-shadow;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .pp-card::before {
   content: '';
@@ -137,12 +139,13 @@ function selectParty(party: Party) {
   height: 2px;
   background: linear-gradient(90deg, var(--yellow), transparent);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.25s ease;
+  z-index: 1;
 }
 .pp-card:hover {
   border-color: var(--yellow-dim);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--yellow-dim);
 }
 .pp-card:hover::before {
   opacity: 1;
@@ -161,8 +164,9 @@ function selectParty(party: Party) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s;
+  transition: transform 0.25s ease, filter 0.25s ease;
   filter: brightness(0.7);
+  backface-visibility: hidden;
 }
 .pp-card:hover .pp-cover-img {
   transform: scale(1.08);
@@ -181,7 +185,7 @@ function selectParty(party: Party) {
 
 .pp-cover-fade {
   position: absolute;
-  bottom: 0; left: 0; right: 0;
+  bottom: -1px; left: 0; right: 0;
   height: 60%;
   background: linear-gradient(to top, var(--panel) 0%, transparent 100%);
   pointer-events: none;

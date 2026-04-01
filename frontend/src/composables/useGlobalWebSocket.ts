@@ -5,6 +5,7 @@ import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
 import { usePartyStore } from '../stores/parties'
 import { useAchievementStore } from '../stores/achievements'
+import { useBlockStore } from '../stores/block'
 import { useStompClient } from './useStompClient'
 import type { Notification, ChatMessage, ChatEvent, AchievementUnlockEvent } from '../types'
 
@@ -16,6 +17,7 @@ export function useGlobalWebSocket() {
   const chatStore = useChatStore()
   const partyStore = usePartyStore()
   const achievementStore = useAchievementStore()
+  const blockStore = useBlockStore()
   const stomp = useStompClient()
 
   let teardowns: (() => void)[] = []
@@ -172,8 +174,19 @@ export function useGlobalWebSocket() {
       })
     )
 
+    teardowns.push(
+      stomp.subscribe('/topic/online-count', (frame) => {
+        try {
+          const payload = JSON.parse(frame.body)
+          auth.onlineCount = payload.count ?? 0
+        } catch { }
+      })
+    )
+
     notifStore.fetchUnreadCount()
     chatStore.fetchChats()
+    blockStore.fetchBlockedUsers()
+    auth.fetchOnlineCount()
   }
 
 

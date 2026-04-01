@@ -18,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByDisplayNameIgnoreCase(String displayName);
 
+    long countByStatus(User.Status status);
+
     @Query("""
             SELECT u FROM User u
             WHERE u.id <> :excludeId

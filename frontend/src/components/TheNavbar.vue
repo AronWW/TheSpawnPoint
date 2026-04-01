@@ -7,6 +7,8 @@ import { useChatStore } from '../stores/chat'
 import { useFriendStore } from '../stores/friends'
 import { usePartyStore } from '../stores/parties'
 import { useGameStore } from '../stores/games'
+import { useVoiceStore } from '../stores/voice'
+import { useToast } from '../composables/useToast'
 import { notificationIcon, timeAgo } from '../utils/helpers'
 import { PUBLIC_BASE_URL } from '../config'
 
@@ -18,6 +20,8 @@ const chatStore = useChatStore()
 const friendStore = useFriendStore()
 const partyStore = usePartyStore()
 const gameStore = useGameStore()
+const voiceStore = useVoiceStore()
+const toastComposable = useToast()
 
 const isAdmin = computed(() => auth.user?.role === 'ADMIN')
 
@@ -125,20 +129,30 @@ function handleNotifClick(n: import('../types').Notification) {
 
 const respondedInviteIds = ref(new Set<number>())
 
+const INVITE_EXPIRY_MS = 10 * 60 * 1000
+
+function isInviteExpired(n: import('../types').Notification): boolean {
+  if (!n.createdAt) return false
+  return (Date.now() - new Date(n.createdAt).getTime()) > INVITE_EXPIRY_MS
+}
+
 function isInviteActionable(n: import('../types').Notification): boolean {
   if (!n.referenceId) return false
   if (respondedInviteIds.value.has(n.referenceId)) return false
   if (partyStore.respondedInvites.has(n.referenceId)) return false
+  if (isInviteExpired(n)) return false
   return n.message.includes('запрошує вас')
 }
 
 function getInviteResponseLabel(n: import('../types').Notification): string | null {
   if (!n.referenceId) return null
   const fromStore = partyStore.respondedInvites.get(n.referenceId)
-  if (fromStore === 'accepted') return '✓ Ви прийняли запрошення'
-  if (fromStore === 'declined') return '✗ Ви відхилили запрошення'
-  if (fromStore === 'cancelled') return '⊘ Скасовано відправником'
-  if (respondedInviteIds.value.has(n.referenceId)) return '✓ Відповідь надіслано'
+  if (fromStore === 'accepted') return 'Ви прийняли запрошення'
+  if (fromStore === 'declined') return 'Ви відхилили запрошення'
+  if (fromStore === 'cancelled') return 'Скасовано відправником'
+  if (fromStore === 'expired') return 'Час вийшов'
+  if (respondedInviteIds.value.has(n.referenceId)) return 'Відповідь надіслано'
+  if (n.message.includes('запрошує вас') && isInviteExpired(n)) return 'Час вийшов'
   return null
 }
 
@@ -148,6 +162,21 @@ async function handleAcceptInvite(n: import('../types').Notification) {
     await partyStore.fetchIncomingInvites()
     const inv = partyStore.incomingInvites.find((i) => i.inviteId === n.referenceId)
     const partyId = inv?.partyId
+
+    await partyStore.fetchMyParties()
+    if (partyStore.myParties.length > 0) {
+      const currentParty = partyStore.myParties[0]
+      if (currentParty && currentParty.status === 'IN_GAME') {
+        toastComposable.show('Ви не можете змінити лобi під час гри', 'error', 3000)
+        return
+      }
+      if (currentParty && voiceStore.isInPartyVoice(currentParty.id)) {
+        await voiceStore.leaveVoice({ silent: true })
+      }
+      if (currentParty) {
+        await partyStore.leaveParty(currentParty.id)
+      }
+    }
 
     await partyStore.acceptInvite(n.referenceId)
     respondedInviteIds.value.add(n.referenceId)
@@ -256,7 +285,8 @@ async function handleDeclineInvite(n: import('../types').Notification) {
                       class="notif-invite-status"
                       :class="{
                         accepted: partyStore.respondedInvites.get(n.referenceId!) === 'accepted',
-                        cancelled: partyStore.respondedInvites.get(n.referenceId!) === 'cancelled'
+                        cancelled: partyStore.respondedInvites.get(n.referenceId!) === 'cancelled',
+                        expired: partyStore.respondedInvites.get(n.referenceId!) === 'expired' || (n.message.includes('запрошує вас') && isInviteExpired(n))
                       }"
                       @click.stop
                   >
@@ -336,11 +366,11 @@ async function handleDeclineInvite(n: import('../types').Notification) {
                     <span class="di-badge">Live</span>
                   </button>
 
-                  <router-link to="/favorite-games" class="dropdown-item" @click="userMenuOpen = false">
+                  <router-link to="/party-history" class="dropdown-item" @click="userMenuOpen = false">
                   <span class="di-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   </span>
-                    <span class="di-text">Улюблені ігри</span>
+                    <span class="di-text">Історія ігор</span>
                   </router-link>
 
                   <router-link to="/achievements" class="dropdown-item" @click="userMenuOpen = false">
@@ -454,11 +484,11 @@ async function handleDeclineInvite(n: import('../types').Notification) {
             Моє лобі
             <span class="mobile-badge mobile-badge--live">Live</span>
           </button>
-          <router-link to="/favorite-games" class="mobile-nav-link" @click="mobileMenuOpen = false">
+          <router-link to="/party-history" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <span class="mobile-nav-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </span>
-            Улюблені ігри
+            Історія ігор
           </router-link>
           <router-link to="/achievements" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <span class="mobile-nav-icon">

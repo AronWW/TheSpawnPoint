@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api/axios'
-import type { Party, CreatePartyRequest, SortOption, Page, PartyInvite } from '../types'
+import type { Party, CreatePartyRequest, SortOption, Page, PartyInvite, PlayAgainData } from '../types'
+
+interface RecentTeammateType {
+  userId: number
+  displayName: string
+  avatarUrl: string | null
+  gamesPlayedTogether: number
+}
 
 export const usePartyStore = defineStore('parties', () => {
   const parties = ref<Party[]>([])
@@ -216,11 +223,61 @@ export const usePartyStore = defineStore('parties', () => {
     }
   }
 
+  async function fetchHistoryForUser(userId: number, page = 0) {
+    historyLoading.value = true
+    try {
+      const { data } = await api.get<Page<Party>>(`/parties/history/${userId}`, {
+        params: { page, size: 10 },
+      })
+      historyParties.value = data.content
+      historyPage.value = data.page?.number ?? page
+      historyTotalPages.value = data.page?.totalPages ?? 0
+    } catch (e: any) {
+      historyParties.value = []
+      if (e.response?.status === 403) throw new Error('PRIVATE')
+    } finally {
+      historyLoading.value = false
+    }
+  }
+
+  const recentTeammates = ref<RecentTeammateType[]>([])
+  const recentTeammatesLoading = ref(false)
+
+  async function fetchRecentTeammates() {
+    recentTeammatesLoading.value = true
+    try {
+      const { data } = await api.get<RecentTeammateType[]>('/parties/recent-teammates')
+      recentTeammates.value = data
+    } catch {
+      recentTeammates.value = []
+    } finally {
+      recentTeammatesLoading.value = false
+    }
+  }
+
+  const playAgainData = ref<PlayAgainData | null>(null)
+
+  function setPlayAgain(party: Party) {
+    playAgainData.value = {
+      gameId: party.gameId,
+      title: party.title || '',
+      description: party.description || '',
+      platform: party.platform || [],
+      languages: party.languages || [],
+      skillLevel: party.skillLevel,
+      playStyle: party.playStyle,
+      tags: party.tags || [],
+      region: party.region,
+      maxMembers: party.maxMembers,
+      previousMembers: party.members || [],
+    }
+  }
+
   const incomingInvites = ref<PartyInvite[]>([])
   const outgoingInvites = ref<PartyInvite[]>([])
   const partyInvites = ref<PartyInvite[]>([])
   const pendingInvite = ref<PartyInvite | null>(null)
-  const respondedInvites = ref<Map<number, 'accepted' | 'declined' | 'cancelled'>>(new Map())
+  const respondedInvites = ref<Map<number, 'accepted' | 'declined' | 'cancelled' | 'expired'>>(new Map())
 
   async function sendInvite(partyId: number, userId: number): Promise<PartyInvite> {
     const { data } = await api.post<PartyInvite>(`/parties/${partyId}/invite/${userId}`)
@@ -320,6 +377,12 @@ export const usePartyStore = defineStore('parties', () => {
     historyPage,
     historyTotalPages,
     fetchHistory,
+    fetchHistoryForUser,
+    recentTeammates,
+    recentTeammatesLoading,
+    fetchRecentTeammates,
+    playAgainData,
+    setPlayAgain,
     incomingInvites,
     outgoingInvites,
     partyInvites,

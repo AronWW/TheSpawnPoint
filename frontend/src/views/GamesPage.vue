@@ -234,13 +234,21 @@ onMounted(async () => {
 }
 .fav-count {
   font-family: var(--font-body), sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   background: var(--yellow);
   color: var(--black);
-  padding: 1px 7px;
-  border-radius: 10px;
-  line-height: 1.3;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  letter-spacing: 0;
+  margin-left: -3px;
+  box-sizing: border-box;
 }
 .fav-page-btn:hover .fav-count {
   background: var(--black);

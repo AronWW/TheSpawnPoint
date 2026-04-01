@@ -3,6 +3,7 @@ package com.thespawnpoint.backend.service;
 import com.thespawnpoint.backend.dto.CreatePartyRequestDTO;
 import com.thespawnpoint.backend.dto.PartyMemberDTO;
 import com.thespawnpoint.backend.dto.PartyRequestDTO;
+import com.thespawnpoint.backend.dto.RecentTeammateDTO;
 import com.thespawnpoint.backend.dto.UserStatsDTO;
 import com.thespawnpoint.backend.entity.game.Game;
 import com.thespawnpoint.backend.entity.party.PartyMember;
@@ -14,6 +15,8 @@ import com.thespawnpoint.backend.entity.user.Platform;
 import com.thespawnpoint.backend.entity.user.Region;
 import com.thespawnpoint.backend.entity.user.SkillLevel;
 import com.thespawnpoint.backend.entity.user.User;
+import com.thespawnpoint.backend.entity.user.PrivacySettings;
+import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.entity.chat.Chat;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.*;
@@ -47,6 +50,10 @@ public class PartyService {
     private final VoiceAccessService voiceAccessService;
     private final SimpMessagingTemplate messagingTemplate;
     private final AchievementService achievementService;
+    private final BlockService blockService;
+    private final PrivacySettingsRepository privacySettingsRepository;
+    private final FriendshipRepository friendshipRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public PartyRequestDTO createParty(User creator, CreatePartyRequestDTO dto) {
@@ -119,10 +126,19 @@ public class PartyService {
     public PartyRequestDTO joinParty(User user, Long partyId) {
 
         if (partyMemberRepository.existsActivePartyForUser(user.getId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "У вас вже є активне лобі");
+            var activeParties = partyMemberRepository.findActivePartiesByUserId(user.getId());
+            boolean inGame = activeParties.stream()
+                    .anyMatch(pm -> pm.getPartyRequest().getStatus() == PartyStatus.IN_GAME);
+            if (inGame) {
+                throw new ApiException(HttpStatus.CONFLICT, "Ви не можете змінити лобi під час гри");
+            }
         }
 
         PartyRequest party = getPartyWithStatus(partyId, PartyStatus.OPEN);
+
+        if (blockService.isBlockedBetween(user.getId(), party.getCreator().getId())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Party not found");
+        }
 
         if (partyMemberRepository.existsByPartyRequestIdAndUserId(partyId, user.getId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Ви вже в цьому лобі");
@@ -388,6 +404,12 @@ public class PartyService {
     public Page<PartyRequestDTO> getOpenPartiesPaged(Long gameId, String platform,
                                                      String skillLevel, String playStyle,
                                                      String q, Pageable pageable) {
+        return getOpenPartiesPaged(gameId, platform, skillLevel, playStyle, q, pageable, null);
+    }
+
+    public Page<PartyRequestDTO> getOpenPartiesPaged(Long gameId, String platform,
+                                                     String skillLevel, String playStyle,
+                                                     String q, Pageable pageable, User currentUser) {
 
         String platformParam = (platform != null && !platform.isBlank()) ? platform : null;
         String qParam = (q != null && !q.isBlank()) ? q.trim() : null;
@@ -396,10 +418,26 @@ public class PartyService {
                 gameId, skillLevel, playStyle, platformParam, qParam, pageable
         );
 
-        return page.map(p -> {
-            int count = partyMemberRepository.countByPartyRequestId(p.getId());
-            return toListDTO(p, count);
-        });
+        List<Long> blockedIds = (currentUser != null)
+                ? blockService.getAllBlockedBetweenIds(currentUser.getId())
+                : List.of();
+
+        if (blockedIds.isEmpty()) {
+            return page.map(p -> {
+                int count = partyMemberRepository.countByPartyRequestId(p.getId());
+                return toListDTO(p, count);
+            });
+        }
+
+        List<PartyRequestDTO> filtered = page.getContent().stream()
+                .filter(p -> !blockedIds.contains(p.getCreator().getId()))
+                .map(p -> {
+                    int count = partyMemberRepository.countByPartyRequestId(p.getId());
+                    return toListDTO(p, count);
+                })
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(filtered, pageable, page.getTotalElements());
     }
 
     public List<PartyRequestDTO> getMyParties(User user) {
@@ -415,9 +453,54 @@ public class PartyService {
     public Page<PartyRequestDTO> getPartyHistory(User user, Pageable pageable) {
         Page<PartyRequest> page = partyRequestRepository.findHistoryByUserId(user.getId(), pageable);
         return page.map(p -> {
-            int count = partyMemberRepository.countByPartyRequestId(p.getId());
-            return toListDTO(p, count);
+            List<PartyMember> members = partyMemberRepository.findByPartyRequestId(p.getId());
+            return toDTO(p, members);
         });
+    }
+
+    public Page<PartyRequestDTO> getPartyHistoryForUser(Long targetUserId, User requester, Pageable pageable) {
+        if (!targetUserId.equals(requester.getId())) {
+            PrivacySettings ps = privacySettingsRepository.findByUserId(targetUserId).orElse(null);
+            if (ps != null) {
+                VisibilityLevel vis = ps.getStatsVisibility();
+                if (vis == VisibilityLevel.NOBODY) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Статистика прихована");
+                }
+                if (vis == VisibilityLevel.FRIENDS) {
+                    boolean isFriend = friendshipRepository.areFriends(requester.getId(), targetUserId);
+                    if (!isFriend) {
+                        throw new ApiException(HttpStatus.FORBIDDEN, "Статистика доступна лише друзям");
+                    }
+                }
+            }
+        }
+        Page<PartyRequest> page = partyRequestRepository.findHistoryByUserId(targetUserId, pageable);
+        return page.map(p -> {
+            List<PartyMember> members = partyMemberRepository.findByPartyRequestId(p.getId());
+            return toDTO(p, members);
+        });
+    }
+
+    public List<RecentTeammateDTO> getRecentTeammates(User user) {
+        List<Object[]> rows = partyMemberRepository.findRecentTeammateIds(user.getId());
+        return rows.stream()
+                .map(row -> {
+                    Long usrId = ((Number) row[0]).longValue();
+                    int count = ((Number) row[1]).intValue();
+                    String displayName = userRepository.findById(usrId)
+                            .map(u -> u.getDisplayName())
+                            .orElse("Unknown");
+                    String avatarUrl = profileRepository.findByUserId(usrId)
+                            .map(p -> p.getAvatarUrl())
+                            .orElse(null);
+                    return RecentTeammateDTO.builder()
+                            .userId(usrId)
+                            .displayName(displayName)
+                            .avatarUrl(avatarUrl)
+                            .gamesPlayedTogether(count)
+                            .build();
+                })
+                .toList();
     }
 
     @Transactional

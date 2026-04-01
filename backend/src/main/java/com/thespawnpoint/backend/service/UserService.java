@@ -21,10 +21,13 @@ public class UserService {
     private final ProfileRepository profileRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
+    private final BlockService blockService;
 
     public List<UserSummaryDTO> search(String query, User currentUser) {
+        List<Long> blockedIds = blockService.getAllBlockedBetweenIds(currentUser.getId());
         return userRepository.searchByQuery(query, currentUser.getId())
                 .stream()
+                .filter(u -> !blockedIds.contains(u.getId()))
                 .map(u -> toSearchDTO(u, currentUser))
                 .toList();
     }

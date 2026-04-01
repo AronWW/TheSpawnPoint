@@ -18,6 +18,7 @@ const ADMIN_BLOCKED_ROUTES = new Set([
   'customization',
   'support',
   'profile',
+  'party-history',
 ])
 
 const router = createRouter({
@@ -41,6 +42,7 @@ const router = createRouter({
     { path: '/party/:id', name: 'party-detail', component: () => import('../views/PartyDetailPage.vue') },
     { path: '/support', name: 'support', component: () => import('../views/SupportPage.vue'), meta: { requiresAuth: true } },
     { path: '/my-suggestions', name: 'my-suggestions', component: () => import('../views/MySuggestionsPage.vue'), meta: { requiresAuth: true } },
+    { path: '/party-history/:userId?', name: 'party-history', component: () => import('../views/PartyHistoryPage.vue'), meta: { requiresAuth: true } },
     { path: '/secret-game', name: 'secret-game', component: () => import('../views/SecretGamePage.vue'), meta: { requiresAuth: true } },
 
     {

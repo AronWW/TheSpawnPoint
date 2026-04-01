@@ -1,12 +1,10 @@
-  background: var(--yellow);
-  border-bottom: 2px solid var(--border);
-  padding-bottom: 0;
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
+import { useBlockStore } from '../stores/block'
 import { timeAgo } from '../utils/helpers'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
@@ -15,8 +13,9 @@ const router = useRouter()
 const auth = useAuthStore()
 const friendStore = useFriendStore()
 const chatStore = useChatStore()
+const blockStore = useBlockStore()
 
-type Tab = 'friends' | 'incoming' | 'outgoing' | 'search'
+type Tab = 'friends' | 'incoming' | 'outgoing' | 'search' | 'blocked'
 const activeTab = ref<Tab>('friends')
 const FRIEND_LIMIT = 50
 const friendsLimitText = computed(() => `${friendStore.friendCount}/${FRIEND_LIMIT}`)
@@ -36,6 +35,7 @@ onMounted(async () => {
     friendStore.fetchFriends(),
     friendStore.fetchIncomingRequests(),
     friendStore.fetchOutgoingRequests(),
+    blockStore.fetchBlockedUsers(),
   ])
 })
 
@@ -161,6 +161,15 @@ async function openDm(email: string) {
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Знайти гравців
+        </button>
+        <button
+            class="friends-tab"
+            :class="{ active: activeTab === 'blocked' }"
+            @click="activeTab = 'blocked'"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          Заблоковані
+          <span v-if="blockStore.blockedUsers.length > 0" class="tab-count">{{ blockStore.blockedUsers.length }}</span>
         </button>
       </div>
 
@@ -299,6 +308,33 @@ async function openDm(email: string) {
               <template v-else>
                 <button class="btn-accept" @click="addFriend(user.id)">+ Додати</button>
               </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="activeTab === 'blocked'" class="friends-list">
+        <div v-if="blockStore.loading" class="empty-state">
+          <p>Завантаження...</p>
+        </div>
+        <div v-else-if="blockStore.blockedUsers.length === 0" class="empty-state">
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </div>
+          <h3>Заблокованих немає</h3>
+          <p>Тут з'являться користувачі, яких ви заблокуєте</p>
+        </div>
+        <div v-else class="friend-cards">
+          <div v-for="user in blockStore.blockedUsers" :key="user.userId" class="friend-card ink-panel">
+            <router-link :to="'/profile/' + user.userId" class="friend-avatar-link">
+              <img :src="resolveAvatar(user.avatarUrl)" :alt="user.displayName" class="friend-avatar" />
+            </router-link>
+            <div class="friend-info">
+              <router-link :to="'/profile/' + user.userId" class="friend-name">{{ user.displayName }}</router-link>
+              <div class="friend-since">Заблоковано {{ timeAgo(user.createdAt) }}</div>
+            </div>
+            <div class="friend-actions">
+              <button class="btn-accept" @click="blockStore.unblockUser(user.userId)">Розблокувати</button>
             </div>
           </div>
         </div>

@@ -430,6 +430,13 @@ export type VoiceConnectionState =
   | 'reconnecting'
   | 'error'
 
+export interface BlockedUser {
+  userId: number
+  displayName: string
+  avatarUrl: string | null
+  createdAt: string
+}
+
 export interface VoiceParticipant {
   identity: string
   userId: number | null
@@ -440,3 +447,54 @@ export interface VoiceParticipant {
   isMicrophoneEnabled: boolean
   audioLevel: number
 }
+
+export interface RecentTeammate {
+  userId: number
+  displayName: string
+  avatarUrl: string | null
+  gamesPlayedTogether: number
+}
+
+export interface PlayAgainData {
+  gameId: number
+  title: string
+  description: string
+  platform: string[]
+  languages: string[]
+  skillLevel: string | null
+  playStyle: string | null
+  tags: string[]
+  region: string | null
+  maxMembers: number
+  previousMembers: PartyMember[]
+}
+
+export interface PartyPreset {
+  id: number
+  name: string
+  slotIndex: number
+  gameId: number
+  gameName: string
+  gameImageUrl: string | null
+  maxMembers: number
+  platform: string[]
+  languages: string[]
+  skillLevel: string | null
+  playStyle: string | null
+  tags: string[]
+  region: string | null
+}
+
+export interface SavePartyPresetRequest {
+  name: string
+  slotIndex: number
+  gameId: number
+  maxMembers: number
+  platform: string[]
+  languages: string[]
+  skillLevel: string | null
+  playStyle: string | null
+  tags: string[]
+  region: string | null
+}
+

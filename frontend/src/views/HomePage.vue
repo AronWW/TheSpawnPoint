@@ -25,6 +25,7 @@ onMounted(async () => {
     partyStore.fetchParties(0),
     gameStore.fetchGames(),
     auth.fetchMe(),
+    auth.fetchOnlineCount(),
   ])
   if (auth.isLoggedIn) {
     notifStore.fetchUnreadCount()

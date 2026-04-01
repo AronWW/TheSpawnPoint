@@ -108,4 +108,18 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             LIMIT 1
             """, nativeQuery = true)
     Optional<Long> findFavoriteGameIdByUserId(@Param("userId") Long userId);
+
+    @Query(value = """
+            SELECT pm2.user_id AS userId, COUNT(DISTINCT pm2.party_request_id) AS cnt
+            FROM party_members pm1
+            JOIN party_members pm2 ON pm2.party_request_id = pm1.party_request_id
+            JOIN party_requests pr ON pr.id = pm1.party_request_id
+            WHERE pm1.user_id = :userId
+              AND pm2.user_id <> :userId
+              AND pr.status IN ('COMPLETED', 'CANCELLED')
+            GROUP BY pm2.user_id
+            ORDER BY cnt DESC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<Object[]> findRecentTeammateIds(@Param("userId") Long userId);
 }

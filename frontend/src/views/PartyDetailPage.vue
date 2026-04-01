@@ -12,6 +12,7 @@ import { usePartyStore } from '../stores/parties'
 import { useVoiceStore } from '../stores/voice'
 import type { Party } from '../types'
 import { skillLabel, timeAgo } from '../utils/helpers'
+import { useToast } from '../composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +21,7 @@ const partyStore = usePartyStore()
 const chatStore = useChatStore()
 const voiceStore = useVoiceStore()
 const stomp = useStompClient()
+const toast = useToast()
 
 const party = ref<Party | null>(null)
 const loading = ref(false)
@@ -27,6 +29,8 @@ const error = ref('')
 const actionLoading = ref(false)
 const actionError = ref('')
 const showInviteModal = ref(false)
+const showSwitchConfirm = ref(false)
+const descExpanded = ref(false)
 
 let unsubParty: (() => void) | null = null
 
@@ -154,16 +158,49 @@ async function loadParty() {
 async function handleJoin() {
   if (!party.value) return
 
+  await partyStore.fetchMyParties()
+  if (partyStore.myParties.length > 0) {
+    const currentParty = partyStore.myParties[0]
+    if (currentParty && currentParty.status === 'IN_GAME') {
+      actionError.value = 'Ви не можете змінити лобi під час гри'
+      toast.show('Ви не можете змінити лобi під час гри', 'error', 3000)
+      return
+    }
+    showSwitchConfirm.value = true
+    return
+  }
+
+  await doJoin()
+}
+
+async function doJoin() {
+  if (!party.value) return
+  showSwitchConfirm.value = false
   actionLoading.value = true
   actionError.value = ''
 
   try {
+    if (partyStore.myParties.length > 0) {
+      const currentParty = partyStore.myParties[0]
+      if (currentParty && voiceStore.isInPartyVoice(currentParty.id)) {
+        await voiceStore.leaveVoice({ silent: true })
+      }
+      if (currentParty) {
+        await partyStore.leaveParty(currentParty.id)
+      }
+      await chatStore.fetchChats()
+    }
+
     party.value = await partyStore.joinParty(party.value.id)
   } catch (e: unknown) {
     actionError.value = e instanceof Error ? e.message : 'Помилка'
   } finally {
     actionLoading.value = false
   }
+}
+
+function cancelSwitch() {
+  showSwitchConfirm.value = false
 }
 
 async function handleLeave() {
@@ -351,7 +388,7 @@ watch(
 
           <div class="party-header-main">
             <div class="party-header-topline">
-              <h1 class="party-title">{{ party.title || party.gameName }}</h1>
+              <h1 class="party-title">{{ (party.title || party.gameName).length > 110 ? (party.title || party.gameName).slice(0, 110) + '...' : (party.title || party.gameName) }}</h1>
               <span class="status-badge" :class="statusClass">{{ statusLabel }}</span>
             </div>
 
@@ -365,7 +402,20 @@ watch(
               <span class="party-created">{{ timeAgo(party.createdAt) }}</span>
             </div>
 
-            <p v-if="party.description" class="party-description">{{ party.description }}</p>
+            <div v-if="party.description" class="party-description-wrap">
+              <p class="party-description" :class="{ collapsed: !descExpanded && party.description.length > 120 }">
+                {{ descExpanded || party.description.length <= 120 ? party.description : party.description.slice(0, 120) + '...' }}
+              </p>
+              <button
+                v-if="party.description.length > 120"
+                class="desc-toggle"
+                @click="descExpanded = !descExpanded"
+              >
+                <svg v-if="!descExpanded" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                {{ descExpanded ? 'Згорнути' : 'Розгорнути' }}
+              </button>
+            </div>
 
             <div class="party-tags">
               <span v-for="platform in party.platform" :key="platform" class="chip chip--accent">{{ platform }}</span>
@@ -550,6 +600,31 @@ watch(
             @close="showInviteModal = false"
         />
 
+        <Transition name="fade">
+          <div v-if="showSwitchConfirm" class="switch-overlay" @click.self="cancelSwitch">
+            <div class="switch-modal">
+              <div class="switch-modal-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <h3 class="switch-modal-title">ПЕРЕХІД ДО ІНШОГО ЛОБІ</h3>
+              <p class="switch-modal-text">
+                Ви впевнені, що хочете покинути поточне лобi та приєднатися до
+                <strong>{{ party.title || party.gameName }}</strong>?
+              </p>
+              <div class="switch-modal-actions">
+                <button class="switch-btn switch-btn--confirm" @click="doJoin" :disabled="actionLoading">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ actionLoading ? 'ПЕРЕХІД...' : 'ПІДТВЕРДИТИ' }}
+                </button>
+                <button class="switch-btn switch-btn--cancel" @click="cancelSwitch">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  СКАСУВАТИ
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
         <button
             v-if="isCreator"
             type="button"
@@ -680,6 +755,10 @@ watch(
   line-height: 0.95;
   color: var(--white);
   letter-spacing: 0.4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .party-subtitle-row {
@@ -731,6 +810,110 @@ watch(
   font-size: 15px;
   line-height: 1.55;
   max-width: 80ch;
+}
+
+.party-description-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.desc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--yellow-dim);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+  align-self: flex-start;
+}
+.desc-toggle:hover {
+  color: var(--yellow);
+}
+
+.switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.switch-modal {
+  background: var(--panel);
+  border: 2px solid var(--yellow-dim);
+  padding: 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.switch-modal-icon {
+  color: var(--yellow);
+}
+.switch-modal-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 3px;
+  color: var(--yellow);
+}
+.switch-modal-text {
+  color: var(--gray-light);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.switch-modal-text strong {
+  color: var(--white);
+}
+.switch-modal-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.switch-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 2px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.switch-btn--confirm {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: var(--black);
+}
+.switch-btn--confirm:hover {
+  background: var(--yellow-dim);
+}
+.switch-btn--confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.switch-btn--cancel {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--gray-light);
+}
+.switch-btn--cancel:hover {
+  border-color: var(--red-dim);
+  color: var(--red);
 }
 
 .party-tags {

@@ -65,13 +65,19 @@ watch(
           ПОШУК ЛОБІ
           <span class="section-count">{{ partyStore.searchTotalElements }} знайдено</span>
         </div>
-        <button v-if="auth.isLoggedIn" class="create-party-btn" @click="modalOpen = true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          СТВОРИТИ ЛОБІ
-        </button>
+        <div class="section-head-actions">
+          <router-link v-if="auth.isLoggedIn" to="/party-history" class="history-link-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            ІСТОРІЯ
+          </router-link>
+          <button v-if="auth.isLoggedIn" class="create-party-btn" @click="modalOpen = true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            СТВОРИТИ ЛОБІ
+          </button>
+        </div>
       </div>
 
       <div class="filters-bar">
@@ -287,5 +293,27 @@ watch(
   .search-container {
     padding: 24px 20px 60px;
   }
+}
+
+.section-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-link-btn {
+  font-family: var(--font-display), sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 10px 20px;
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--gray-light);
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.history-link-btn:hover {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
 }
 </style>

@@ -14,5 +14,7 @@ public class CreateReportDTO {
     private String reason;
 
     private String description;
+
+    private boolean blockUser;
 }
 

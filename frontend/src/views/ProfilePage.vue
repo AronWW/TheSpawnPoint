@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useFriendStore } from '../stores/friends'
 import { useChatStore } from '../stores/chat'
 import { useAchievementStore } from '../stores/achievements'
+import { useBlockStore } from '../stores/block'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
 import type { Profile, Game, UserStats, ProfileComment, Friend } from '../types'
@@ -20,6 +21,7 @@ const auth = useAuthStore()
 const friendStore = useFriendStore()
 const chatStore = useChatStore()
 const achievementStore = useAchievementStore()
+const blockStore = useBlockStore()
 
 const BANNER_PRESETS: Record<string, string> = {
   'banner-1': 'linear-gradient(135deg, #1a0a2e 0%, #3d1a78 50%, #1a0a2e 100%)',
@@ -39,6 +41,11 @@ const showReport = ref(false)
 const showFriendsModal = ref(false)
 const profileFriends = ref<Friend[]>([])
 const showGamesCount = ref(6)
+const blockingUser = ref(false)
+
+const isBlockedByMe = computed(() =>
+    profile.value ? blockStore.isBlockedByMe(profile.value.userId) : false
+)
 
 const bannerStyle = computed(() => {
   const key = profile.value?.bannerUrl
@@ -336,7 +343,7 @@ async function fetchComments(reset = false) {
   commentsLoading.value = true
   try {
     const { data } = await api.get(`/profile/${profile.value.userId}/comments`, {
-      params: { page: commentsPage.value, size: 10 }
+      params: { page: commentsPage.value, size: 6 }
     })
     const page = data as any
     const content: ProfileComment[] = page.content
@@ -435,6 +442,22 @@ async function openDm() {
   router.push('/chat')
 }
 
+async function toggleBlock() {
+  if (!profile.value || blockingUser.value) return
+  blockingUser.value = true
+  try {
+    if (isBlockedByMe.value) {
+      await blockStore.unblockUser(profile.value.userId)
+    } else {
+      await blockStore.blockUser(profile.value.userId)
+      await friendStore.fetchFriends()
+      await friendStore.fetchOutgoingRequests()
+      await friendStore.fetchIncomingRequests()
+    }
+  } catch { }
+  finally { blockingUser.value = false }
+}
+
 function goToGame(gameId: number) {
   router.push({ path: '/search-parties', query: { gameId: String(gameId) } })
 }
@@ -459,6 +482,7 @@ onMounted(async () => {
       friendStore.fetchFriends(),
       friendStore.fetchIncomingRequests(),
       friendStore.fetchOutgoingRequests(),
+      blockStore.fetchBlockedUsers(),
     ])
   }
 })
@@ -534,7 +558,7 @@ watch(() => route.params.userId, (newId) => {
               НАЛАШТУВАННЯ
             </router-link>
           </template>
-          <template v-else-if="auth.isLoggedIn">
+          <template v-else-if="auth.isLoggedIn && !isBlockedByMe">
             <button class="va-btn p" @click="openDm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               НАПИСАТИ
@@ -552,15 +576,31 @@ watch(() => route.params.userId, (newId) => {
               ДОДАТИ В ДРУЗІ
             </button>
           </template>
+          <template v-else-if="auth.isLoggedIn && isBlockedByMe">
+            <span class="va-blocked-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              ЗАБЛОКОВАНО
+            </span>
+          </template>
         </div>
-        <button
-          v-if="!isOwnProfile && auth.isLoggedIn"
-          class="va-report-corner"
-          title="Поскаржитись"
-          @click="showReport = true"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        </button>
+        <div v-if="!isOwnProfile && auth.isLoggedIn" class="va-corner-actions">
+          <button
+            class="va-report-corner"
+            title="Поскаржитись"
+            @click="showReport = true"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </button>
+          <button
+            class="va-block-corner"
+            :class="{ 'is-blocked': isBlockedByMe }"
+            :title="isBlockedByMe ? 'Розблокувати' : 'Заблокувати'"
+            :disabled="blockingUser"
+            @click="toggleBlock"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </button>
+        </div>
       </div>
 
       <ReportUserModal
@@ -574,21 +614,41 @@ watch(() => route.params.userId, (newId) => {
         <div class="va-main">
 
           <div v-if="canSeeStats && userStats && (userStats.completedGames || userStats.hoursPlayed)" class="va-panel">
-            <div class="va-panel-title">ІГРОВА СТАТИСТИКА</div>
+            <div
+              class="va-panel-title va-panel-title--clickable"
+              @click="router.push('/party-history/' + profile!.userId)"
+              title="Переглянути історію ігор"
+            >ІГРОВА СТАТИСТИКА</div>
             <div class="va-stats-grid">
-              <div class="va-stat">
+              <div
+                class="va-stat va-stat--clickable"
+                @click="router.push('/party-history/' + profile!.userId)"
+                title="Переглянути історію ігор"
+              >
                 <div class="va-stat-val">{{ userStats.completedGames }}</div>
                 <div class="va-stat-lbl">Завершено ігор</div>
               </div>
-              <div class="va-stat">
+              <div
+                class="va-stat va-stat--clickable"
+                @click="router.push('/party-history/' + profile!.userId)"
+                title="Переглянути історію ігор"
+              >
                 <div class="va-stat-val">{{ userStats.partiesCreated }}</div>
                 <div class="va-stat-lbl">Лобі створено</div>
               </div>
-              <div class="va-stat">
+              <div
+                class="va-stat va-stat--clickable"
+                @click="router.push('/party-history/' + profile!.userId)"
+                title="Переглянути історію ігор"
+              >
                 <div class="va-stat-val">{{ userStats.partiesJoined }}</div>
                 <div class="va-stat-lbl">Приєднань</div>
               </div>
-              <div class="va-stat blue">
+              <div
+                class="va-stat blue va-stat--clickable"
+                @click="router.push('/party-history/' + profile!.userId)"
+                title="Переглянути історію ігор"
+              >
                 <div class="va-stat-val">{{ formatHours(userStats.hoursPlayed) }}</div>
                 <div class="va-stat-lbl">{{ formatPlaytimeLabel(userStats.hoursPlayed) }}</div>
               </div>
@@ -719,7 +779,7 @@ watch(() => route.params.userId, (newId) => {
             <div v-if="commentsLoading" class="comments-loading">Завантаження...</div>
 
             <button
-              v-if="commentsHasMore && comments.length > 0 && !commentsLoading"
+              v-if="commentsHasMore && !commentsLoading"
               class="comments-load-more"
               @click="loadMoreComments"
             >ПОКАЗАТИ ЩЕ</button>
@@ -1086,16 +1146,12 @@ watch(() => route.params.userId, (newId) => {
   display: none;
 }
 .va-report-corner {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
   background: none;
   border: none;
   cursor: pointer;
   color: rgba(192,57,43,0.3);
   padding: 6px;
   transition: color 0.15s, transform 0.15s;
-  z-index: 2;
 }
 .va-report-corner:hover {
   color: #c0392b;
@@ -1103,6 +1159,49 @@ watch(() => route.params.userId, (newId) => {
 }
 .va-report-corner svg {
   display: block;
+}
+.va-corner-actions {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.va-block-corner {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(192,57,43,0.3);
+  padding: 6px;
+  transition: color 0.15s, transform 0.15s;
+}
+.va-block-corner:hover {
+  color: #c0392b;
+  transform: scale(1.15);
+}
+.va-block-corner.is-blocked {
+  color: #c0392b;
+}
+.va-block-corner:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.va-block-corner svg {
+  display: block;
+}
+.va-blocked-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: var(--red);
+  padding: 8px 16px;
+  border: 2px solid var(--red-dim);
+  background: rgba(192,57,43,0.06);
 }
 
 .va-body {
@@ -1155,6 +1254,13 @@ watch(() => route.params.userId, (newId) => {
   gap: 12px;
   margin-bottom: 16px;
 }
+.va-panel-title--clickable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.va-panel-title--clickable:hover {
+  color: var(--yellow);
+}
 .va-stat {
   background: var(--dark);
   border: 1px solid var(--border);
@@ -1163,16 +1269,21 @@ watch(() => route.params.userId, (newId) => {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
-.va-stat:hover {
+.va-stat--clickable {
+  cursor: pointer;
+}
+.va-stat--clickable:hover {
   border-color: var(--yellow-dim);
+  background: rgba(245, 197, 24, 0.03);
 }
 .va-stat.blue {
   border-color: rgba(93,173,226,0.3);
 }
-.va-stat.blue:hover {
+.va-stat.blue.va-stat--clickable:hover {
   border-color: #5dade2;
+  background: rgba(93, 173, 226, 0.05);
 }
 .va-stat-val {
   font-family: var(--font-display);

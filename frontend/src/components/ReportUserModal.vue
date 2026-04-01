@@ -16,6 +16,7 @@ const REASONS = [
 
 const reason = ref('')
 const description = ref('')
+const blockUser = ref(false)
 const loading = ref(false)
 const success = ref(false)
 const error = ref('')
@@ -29,6 +30,7 @@ async function submit() {
       reportedUserId: props.reportedUserId,
       reason: reason.value,
       description: description.value || null,
+      blockUser: blockUser.value,
     })
     success.value = true
     setTimeout(() => emit('close'), 1500)
@@ -60,6 +62,11 @@ async function submit() {
 
         <label class="modal-label">Опис (необов'язково)</label>
         <textarea v-model="description" class="modal-input modal-textarea" rows="3" placeholder="Деталі..."></textarea>
+
+        <label class="block-check">
+          <input type="checkbox" v-model="blockUser" class="block-checkbox" />
+          <span class="block-check-text">Також заблокувати користувача</span>
+        </label>
 
         <div v-if="error" class="error-msg">{{ error }}</div>
 
@@ -108,5 +115,23 @@ async function submit() {
 
 .success-msg { color: #4caf50; font-size: 1rem; padding: 20px 0; text-align: center; }
 .error-msg { color: var(--red); font-size: 0.85rem; margin-top: 8px; }
+
+.block-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+.block-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--red);
+  cursor: pointer;
+}
+.block-check-text {
+  color: var(--gray-light);
+  font-size: 0.85rem;
+}
 </style>
 
