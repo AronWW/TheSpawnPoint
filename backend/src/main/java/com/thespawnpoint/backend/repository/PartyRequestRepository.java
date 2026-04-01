@@ -19,6 +19,8 @@ public interface PartyRequestRepository extends JpaRepository<PartyRequest, Long
 
     List<PartyRequest> findByCreatorId(Long creatorId);
 
+    long countByCreatorId(Long creatorId);
+
     long countByStatus(PartyStatus status);
 
     Page<PartyRequest> findByStatusOrderByCreatedAtDesc(PartyStatus status, Pageable pageable);

@@ -118,6 +118,7 @@ public class PartyService {
         partyMemberRepository.save(creatorMember);
 
         achievementService.unlock(creator, AchievementCatalog.FIRST_PARTY_CREATED, "AUTO");
+        achievementService.syncCreatedPartyMilestones(creator);
 
         return toDTO(party, List.of(creatorMember));
     }
@@ -168,6 +169,7 @@ public class PartyService {
 
         List<PartyMember> members = partyMemberRepository.findByPartyRequestId(partyId);
         achievementService.unlock(user, AchievementCatalog.FIRST_PARTY_JOINED, "AUTO");
+        achievementService.syncJoinedPartyMilestones(user);
         PartyRequestDTO result = toDTO(party, members);
         broadcastPartyUpdate(partyId);
         return result;
@@ -339,6 +341,7 @@ public class PartyService {
         List<PartyMember> members = partyMemberRepository.findByPartyRequestId(partyId);
         for (PartyMember member : members) {
             achievementService.unlock(member.getUser(), AchievementCatalog.FIRST_GAME_COMPLETED, "AUTO");
+            achievementService.syncCompletedPartyMilestones(member.getUser());
         }
         PartyRequestDTO result = toDTO(party, members);
         broadcastPartyUpdate(partyId);

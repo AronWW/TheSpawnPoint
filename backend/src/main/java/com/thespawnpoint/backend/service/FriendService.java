@@ -106,8 +106,8 @@ public class FriendService {
                 invite.getId()
         );
 
-        achievementService.unlock(currentUser, AchievementCatalog.FIRST_FRIEND, "AUTO");
-        achievementService.unlock(invite.getSender(), AchievementCatalog.FIRST_FRIEND, "AUTO");
+        achievementService.syncFriendMilestones(currentUser);
+        achievementService.syncFriendMilestones(invite.getSender());
     }
 
     @Transactional

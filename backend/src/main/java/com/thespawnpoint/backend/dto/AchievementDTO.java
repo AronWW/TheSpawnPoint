@@ -7,7 +7,8 @@ import java.time.Instant;
 
 @Data
 @Builder
-public class AchievementDTO {
+public class
+AchievementDTO {
     private String code;
     private String title;
     private String description;
@@ -19,4 +20,8 @@ public class AchievementDTO {
     private boolean unlocked;
     private Instant unlockedAt;
     private int order;
+    private Integer currentProgress;
+    private Integer targetProgress;
+    private Integer progressPercent;
+    private boolean showProgress;
 }

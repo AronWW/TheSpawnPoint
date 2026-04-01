@@ -39,6 +39,12 @@ export const useAchievementStore = defineStore('achievements', () => {
 
   async function claimSecret(code: string) {
     const { data } = await api.post<Achievement>('/achievements/claim-secret', { code })
+    const index = myAchievements.value.findIndex((item) => item.code === data.code)
+    if (index >= 0) {
+      myAchievements.value[index] = data
+    } else if (myAchievements.value.length > 0) {
+      myAchievements.value.push(data)
+    }
     return data
   }
 
@@ -58,8 +64,22 @@ export const useAchievementStore = defineStore('achievements', () => {
     const duplicateQueued = queue.value.some((item) => item.code === event.code && item.unlockedAt === event.unlockedAt)
     if (duplicateActive || duplicateQueued) return
 
+    const existing = myAchievements.value.find((item) => item.code === event.code)
+    if (existing) {
+      existing.unlocked = true
+      existing.unlockedAt = event.unlockedAt
+      if (existing.showProgress && existing.targetProgress !== null) {
+        existing.currentProgress = existing.targetProgress
+        existing.progressPercent = 100
+      }
+    }
+
     queue.value.push(event)
     promoteNext()
+
+    if (myAchievements.value.length > 0) {
+      void fetchMyAchievements()
+    }
   }
 
   function dismissActivePopup() {

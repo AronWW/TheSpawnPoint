@@ -1,6 +1,8 @@
 package com.thespawnpoint.backend.service;
 
-import com.thespawnpoint.backend.dto.*;
+import com.thespawnpoint.backend.dto.AchievementDTO;
+import com.thespawnpoint.backend.dto.AchievementPreviewDTO;
+import com.thespawnpoint.backend.dto.AchievementUnlockedEventDTO;
 import com.thespawnpoint.backend.entity.achievement.AchievementType;
 import com.thespawnpoint.backend.entity.achievement.UserAchievement;
 import com.thespawnpoint.backend.entity.user.PrivacySettings;
@@ -8,6 +10,9 @@ import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.exception.ApiException;
 import com.thespawnpoint.backend.repository.FriendshipRepository;
+import com.thespawnpoint.backend.repository.MessageRepository;
+import com.thespawnpoint.backend.repository.PartyMemberRepository;
+import com.thespawnpoint.backend.repository.PartyRequestRepository;
 import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
 import com.thespawnpoint.backend.repository.UserAchievementRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
@@ -17,7 +22,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,9 +37,13 @@ public class AchievementService {
     private final UserRepository userRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
+    private final MessageRepository messageRepository;
+    private final PartyMemberRepository partyMemberRepository;
+    private final PartyRequestRepository partyRequestRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public List<AchievementDTO> getMyAchievements(User user) {
+        syncCalculatedAchievements(user);
         return buildAchievementList(user.getId());
     }
 
@@ -45,7 +57,7 @@ public class AchievementService {
 
         List<AchievementDTO> all = buildAchievementList(targetUserId);
         List<AchievementDTO> items = all.stream()
-                .filter(a -> a.isUnlocked())
+                .filter(AchievementDTO::isUnlocked)
                 .sorted(Comparator.comparing(AchievementDTO::getUnlockedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(4)
                 .toList();
@@ -80,6 +92,54 @@ public class AchievementService {
     }
 
     @Transactional
+    public void syncCalculatedAchievements(User user) {
+        syncFriendMilestones(user);
+        syncMessageMilestones(user);
+        syncCreatedPartyMilestones(user);
+        syncJoinedPartyMilestones(user);
+        syncCompletedPartyMilestones(user);
+    }
+
+    @Transactional
+    public void syncFriendMilestones(User user) {
+        long friendCount = friendshipRepository.countByUserId(user.getId());
+        unlockIfReached(user, AchievementCatalog.FIRST_FRIEND, friendCount, 1);
+        unlockIfReached(user, AchievementCatalog.FRIENDS_25, friendCount, 25);
+        unlockIfReached(user, AchievementCatalog.FRIENDS_50, friendCount, 50);
+    }
+
+    @Transactional
+    public void syncMessageMilestones(User user) {
+        long sentMessages = messageRepository.countEligibleBySenderId(user.getId());
+        unlockIfReached(user, AchievementCatalog.FIRST_CHAT_MESSAGE, sentMessages, 1);
+        unlockIfReached(user, AchievementCatalog.CHATTERBOX_100, sentMessages, 100);
+        unlockIfReached(user, AchievementCatalog.CHATTERBOX_1000, sentMessages, 1000);
+        unlockIfReached(user, AchievementCatalog.CHATTERBOX_10000, sentMessages, 10000);
+    }
+
+
+    @Transactional
+    public void syncCreatedPartyMilestones(User user) {
+        long createdParties = partyRequestRepository.countByCreatorId(user.getId());
+        unlockIfReached(user, AchievementCatalog.CREATED_PARTIES_25, createdParties, 25);
+        unlockIfReached(user, AchievementCatalog.CREATED_PARTIES_50, createdParties, 50);
+    }
+
+    @Transactional
+    public void syncJoinedPartyMilestones(User user) {
+        long joinedParties = partyMemberRepository.countAllPartiesJoinedByUserId(user.getId());
+        unlockIfReached(user, AchievementCatalog.JOINED_PARTIES_25, joinedParties, 25);
+        unlockIfReached(user, AchievementCatalog.JOINED_PARTIES_50, joinedParties, 50);
+    }
+
+    @Transactional
+    public void syncCompletedPartyMilestones(User user) {
+        long completedParties = partyMemberRepository.countCompletedPartiesByUserId(user.getId());
+        unlockIfReached(user, AchievementCatalog.COMPLETED_PARTIES_25, completedParties, 25);
+        unlockIfReached(user, AchievementCatalog.COMPLETED_PARTIES_50, completedParties, 50);
+    }
+
+    @Transactional
     public boolean unlock(User user, String code, String source) {
         AchievementCatalog.AchievementDefinition definition = achievementCatalog.findByCode(code)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Achievement not found"));
@@ -105,6 +165,12 @@ public class AchievementService {
 
         messagingTemplate.convertAndSendToUser(user.getEmail(), "/queue/achievements", event);
         return true;
+    }
+
+    private void unlockIfReached(User user, String code, long currentValue, int target) {
+        if (currentValue >= target) {
+            unlock(user, code, "AUTO");
+        }
     }
 
     private void ensureAchievementsVisible(Long targetUserId, User requester) {
@@ -145,10 +211,14 @@ public class AchievementService {
                         LinkedHashMap::new
                 ));
 
+        UserProgressSnapshot progressSnapshot = loadProgressSnapshot(userId);
+
         return achievementCatalog.getAll().stream()
                 .sorted(Comparator.comparingInt(AchievementCatalog.AchievementDefinition::getOrder))
                 .map(def -> {
                     UserAchievement unlocked = unlockedByCode.get(def.getCode());
+                    AchievementProgress progress = resolveProgress(def, unlocked != null, progressSnapshot);
+
                     return AchievementDTO.builder()
                             .code(def.getCode())
                             .title(def.getTitle())
@@ -161,8 +231,69 @@ public class AchievementService {
                             .unlocked(unlocked != null)
                             .unlockedAt(unlocked != null ? unlocked.getUnlockedAt() : null)
                             .order(def.getOrder())
+                            .currentProgress(progress.currentProgress())
+                            .targetProgress(progress.targetProgress())
+                            .progressPercent(progress.progressPercent())
+                            .showProgress(progress.showProgress())
                             .build();
                 })
                 .toList();
+    }
+
+    private UserProgressSnapshot loadProgressSnapshot(Long userId) {
+        long friendCount = friendshipRepository.countByUserId(userId);
+        long sentMessageCount = messageRepository.countEligibleBySenderId(userId);
+        long createdPartyCount = partyRequestRepository.countByCreatorId(userId);
+        long joinedPartyCount = partyMemberRepository.countAllPartiesJoinedByUserId(userId);
+        long completedPartyCount = partyMemberRepository.countCompletedPartiesByUserId(userId);
+        return new UserProgressSnapshot(friendCount, sentMessageCount, createdPartyCount, joinedPartyCount, completedPartyCount);
+    }
+
+    private AchievementProgress resolveProgress(
+            AchievementCatalog.AchievementDefinition definition,
+            boolean unlocked,
+            UserProgressSnapshot progressSnapshot
+    ) {
+        if (!definition.hasDynamicProgress()) {
+            return AchievementProgress.empty();
+        }
+
+        long actualProgress = switch (definition.getProgressMetric()) {
+            case FRIEND_COUNT -> progressSnapshot.friendCount();
+            case SENT_MESSAGE_COUNT -> progressSnapshot.sentMessageCount();
+            case CREATED_PARTY_COUNT -> progressSnapshot.createdPartyCount();
+            case JOINED_PARTY_COUNT -> progressSnapshot.joinedPartyCount();
+            case COMPLETED_PARTY_COUNT -> progressSnapshot.completedPartyCount();
+            case NONE -> 0L;
+        };
+
+        int target = definition.getTargetProgress();
+        int visibleCurrent = unlocked
+                ? target
+                : (int) Math.min(actualProgress, target);
+        int percent = target > 0
+                ? Math.min(100, (int) Math.round((visibleCurrent * 100.0) / target))
+                : 0;
+
+        return new AchievementProgress(
+                visibleCurrent,
+                target,
+                percent,
+                definition.showsProgressBar()
+        );
+    }
+
+    private record UserProgressSnapshot(
+            long friendCount,
+            long sentMessageCount,
+            long createdPartyCount,
+            long joinedPartyCount,
+            long completedPartyCount
+    ) {}
+
+    private record AchievementProgress(Integer currentProgress, Integer targetProgress, Integer progressPercent, boolean showProgress) {
+        private static AchievementProgress empty() {
+            return new AchievementProgress(null, null, null, false);
+        }
     }
 }

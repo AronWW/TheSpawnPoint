@@ -32,4 +32,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     @Query("SELECT m FROM Message m WHERE m.chat = :chat AND m.deleted = false AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.sentAt DESC")
     List<Message> searchInChat(@Param("chat") Chat chat, @Param("query") String query, Pageable pageable);
+
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.sender.id = :senderId AND m.system = false AND m.deleted = false")
+    long countEligibleBySenderId(@Param("senderId") Long senderId);
 }

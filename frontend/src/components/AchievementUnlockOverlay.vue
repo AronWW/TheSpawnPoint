@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useAchievementStore } from '../stores/achievements'
+import AchievementIcon from './AchievementIcon.vue'
 
 const achievementStore = useAchievementStore()
+const isSecret = computed(() => achievementStore.activePopup?.type === 'SECRET')
 </script>
 
 <template>
@@ -12,7 +15,9 @@ const achievementStore = useAchievementStore()
         class="achievement-unlock"
         @click="achievementStore.dismissActivePopup"
       >
-        <div class="achievement-unlock__icon">{{ achievementStore.activePopup.icon }}</div>
+        <div class="achievement-unlock__icon" :class="{ secret: isSecret }">
+          <AchievementIcon :code="achievementStore.activePopup.code" :size="32" />
+        </div>
         <div class="achievement-unlock__content">
           <div class="achievement-unlock__eyebrow">ДОСЯГНЕННЯ ВІДКРИТО</div>
           <div class="achievement-unlock__title">{{ achievementStore.activePopup.title }}</div>
@@ -49,9 +54,14 @@ const achievementStore = useAchievementStore()
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
   flex-shrink: 0;
+  color: var(--yellow);
   background: linear-gradient(180deg, rgba(245, 197, 24, 0.18), rgba(245, 197, 24, 0.05));
+}
+.achievement-unlock__icon.secret {
+  border-color: rgba(125, 142, 255, 0.35);
+  color: #b5c0ff;
+  background: linear-gradient(180deg, rgba(125, 142, 255, 0.18), rgba(125, 142, 255, 0.05));
 }
 .achievement-unlock__content {
   position: relative;

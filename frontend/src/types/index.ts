@@ -193,6 +193,10 @@ export interface Achievement {
   unlocked: boolean
   unlockedAt: string | null
   order: number
+  currentProgress: number | null
+  targetProgress: number | null
+  progressPercent: number | null
+  showProgress: boolean
 }
 
 export interface AchievementPreview {

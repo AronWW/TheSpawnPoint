@@ -40,6 +40,7 @@ public class ChatService {
     private final ApplicationContext applicationContext;
     private final CloudinaryImageService cloudinaryImageService;
     private final BlockService blockService;
+    private final AchievementService achievementService;
 
     private ChatService self() {
         return applicationContext.getBean(ChatService.class);
@@ -102,6 +103,7 @@ public class ChatService {
         messagingTemplate.convertAndSendToUser(recipient.getEmail(), "/queue/messages", dto);
         messagingTemplate.convertAndSendToUser(sender.getEmail(), "/queue/messages", dto);
 
+        achievementService.syncMessageMilestones(sender);
         return dto;
     }
 
@@ -486,6 +488,7 @@ public class ChatService {
                     cp.getUser().getEmail(), "/queue/messages", dto);
         }
 
+        achievementService.syncMessageMilestones(sender);
         return dto;
     }
 
