@@ -67,7 +67,7 @@ watch(
         </div>
         <div class="section-head-actions">
           <router-link v-if="auth.isLoggedIn" to="/party-history" class="history-link-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             ІСТОРІЯ
           </router-link>
           <button v-if="auth.isLoggedIn" class="create-party-btn" @click="modalOpen = true">
@@ -303,14 +303,24 @@ watch(
 
 .history-link-btn {
   font-family: var(--font-display), sans-serif;
-  font-size: 12px;
-  letter-spacing: 2px;
-  padding: 10px 20px;
+  font-size: 16px;
+  letter-spacing: 3px;
+  padding: 12px 28px;
   border: 2px solid var(--border);
   background: transparent;
   color: var(--gray-light);
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   transition: all 0.15s;
+  flex-shrink: 0;
+}
+.history-link-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 .history-link-btn:hover {
   border-color: var(--yellow-dim);

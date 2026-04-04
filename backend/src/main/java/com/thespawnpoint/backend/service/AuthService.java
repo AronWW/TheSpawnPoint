@@ -29,6 +29,8 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -186,6 +188,15 @@ public class AuthService {
         emailVerificationTokenRepository.delete(token);
 
         setAuthCookies(response, user.getEmail(), false);
+
+        Long userId = user.getId();
+        CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() -> {
+            try {
+                userRepository.findById(userId).ifPresent(u ->
+                        achievementService.unlock(u, AchievementCatalog.WELCOME_ABOARD, "AUTO")
+                );
+            } catch (Exception ignored) {}
+        });
 
         return Map.of(
                 "message", "Email successfully confirmed",

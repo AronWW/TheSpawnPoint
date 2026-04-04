@@ -10,6 +10,12 @@ const props = withDefaults(defineProps<{
 
 const iconKind = computed(() => {
   switch (props.code) {
+    case 'WELCOME_ABOARD':
+      return 'welcome'
+
+    case 'PROFILE_COMPLETED':
+      return 'profile-complete'
+
     case 'FIRST_FAVORITE_GAME':
       return 'favorite'
 
@@ -47,6 +53,12 @@ const iconKind = computed(() => {
       return 'doom-found'
     case 'SECRET_DOOM_COMPLETED':
       return 'doom-completed'
+    case 'ROOM_OF_REQUIREMENT':
+      return 'room-secret'
+    case 'NOT_WHAT_YOU_EXPECTED':
+      return 'rickroll-secret'
+    case 'ONE_RING':
+      return 'one-ring'
     default:
       return 'fallback'
   }
@@ -119,11 +131,14 @@ const badgeFontSize = computed(() => {
       </g>
     </svg>
 
-    <svg v-else-if="iconKind === 'party-joined'" viewBox="0 0 24 24" fill="none">
-      <path d="M4.8 6.15h6.2v11.7H4.8z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round" />
-      <path d="M10.25 12h8.3" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" />
-      <path d="m14.8 8.55 3.75 3.45-3.75 3.45" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round" />
-      <path d="M7.15 11.25v1.5" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" opacity="0.72" />
+     <svg v-else-if="iconKind === 'party-joined'" viewBox="0 0 24 24" fill="none">
+      <circle cx="7.15" cy="14.05" r="1.55" stroke="currentColor" stroke-width="1.7" />
+      <path d="M3.95 19.35c0-1.6 1.3-2.75 3.2-2.75s3.2 1.15 3.2 2.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M10.95 3.75H18.85V20.25H10.95V3.75Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+      <path d="M17.35 5.1V18.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.55" />
+      <path d="M10.95 5.2L14.95 6.05V17.95L10.95 18.8V5.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+      <path d="M14.95 6.05V17.95" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      <path d="M13.75 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
       <g v-if="badgeText">
         <circle v-if="!isWideBadge" cx="18.15" cy="18.15" r="4.05" class="badge-disc" />
         <rect v-else x="11.7" y="14.55" width="11.15" height="7.15" rx="3.55" class="badge-disc" />
@@ -140,6 +155,25 @@ const badgeFontSize = computed(() => {
         <rect v-else x="11.7" y="14.55" width="11.15" height="7.15" rx="3.55" class="badge-disc" />
         <text x="18.2" y="19.35" text-anchor="middle" class="badge-text">{{ badgeText }}</text>
       </g>
+    </svg>
+
+
+    <svg v-else-if="iconKind === 'room-secret'" viewBox="0 0 24 24" fill="none">
+      <path d="M6.9 20V9.75c0-2.95 2.17-5.05 5.1-5.05s5.1 2.1 5.1 5.05V20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8.6 20V10.2c0-2 1.38-3.35 3.4-3.35s3.4 1.35 3.4 3.35V20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>
+      <path d="M12 7.05v12.9" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" opacity="0.78"/>
+      <circle cx="13.95" cy="13" r="1.05" fill="currentColor"/>
+      <path d="M5.4 8.55c1.1-.32 1.84-1.22 2.08-2.45.6.92 1.42 1.45 2.52 1.62" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.62"/>
+      <path d="M15.95 6.1c.42.86 1.12 1.45 2.2 1.74-.92.38-1.52 1.02-1.82 1.94" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" opacity="0.62"/>
+    </svg>
+
+    <svg v-else-if="iconKind === 'rickroll-secret'" viewBox="0 0 24 24" fill="none">
+      <path d="M9.3 4.9v10.35" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M9.3 6.1 16.95 4.55v7.35" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="7.2" cy="18.15" rx="2.55" ry="1.9" stroke="currentColor" stroke-width="1.55"/>
+      <ellipse cx="14.8" cy="16.65" rx="2.55" ry="1.9" stroke="currentColor" stroke-width="1.55"/>
+      <path d="M18.1 8.55c1.08.24 1.82.84 2.35 1.82" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.72"/>
+      <path d="M18.15 11.15c.68.14 1.18.48 1.56 1.06" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.52"/>
     </svg>
 
     <svg v-else-if="iconKind === 'party-completed'" viewBox="0 0 24 24" fill="none">
@@ -177,6 +211,27 @@ const badgeFontSize = computed(() => {
       <path d="M9.95 10.95h1.18v1.45H9.95zM12.87 10.95h1.18v1.45h-1.18z" fill="currentColor" />
       <path d="M10.35 13.95c.46.34 1.02.52 1.65.52.63 0 1.19-.18 1.65-.52" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
       <path d="m9.7 17.05 1.45 1.45 3.2-3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <svg v-else-if="iconKind === 'welcome'" viewBox="0 0 24 24" fill="none"><path d="M15.18 19.95L12.7 16.95L12.42 18.42L11.05 18.34L10.97 16.97L8.33 19.78L6.18 16.36L6.18 14.18L5.28 14.08L4.95 13.61L3.52 14.38L2.91 15.76L2.76 17.15L2.34 16.84L2.21 14.24L2.82 12.59L4.14 11.34L6.25 10.41L7.02 7.95L8.29 6.45L11.03 5.03L12.1 4.97L14.76 6.26L16.35 8.05L17.13 10.49L19.36 11.41L20.81 13.29L20.81 16.98L20.59 17.22L20.36 16.83L20.36 15.95L19.75 14.53L18.12 13.68L17.96 14.11L16.98 14.18L16.98 16.36L15.18 19.95ZM10.02 15.08L10.93 14.75L10.88 13.12L7.74 13.06L9.73 15.13L10.02 15.08ZM13.82 15.07L15.69 13.03L12.54 13.24L12.54 14.64L13.82 15.07Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+
+    <svg v-else-if="iconKind === 'profile-complete'" viewBox="0 0 24 24" fill="none">
+      <circle cx="10" cy="8.2" r="3.2" stroke="currentColor" stroke-width="1.7" />
+      <path d="M4 19.5c0-3.2 2.7-5.5 6-5.5 1.2 0 2.3.3 3.2.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      <circle cx="17.5" cy="16.5" r="4.2" stroke="currentColor" stroke-width="1.6" />
+      <path d="m15.3 16.5 1.5 1.5 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <svg v-else-if="iconKind === 'one-ring'" viewBox="0 0 24 24" fill="none">
+      <g transform="translate(12 12) rotate(-24) translate(-12 -12)">
+        <ellipse cx="12" cy="12" rx="7.25" ry="5.15" stroke="currentColor" stroke-width="2.15" opacity="0.95" />
+        <ellipse cx="12" cy="12" rx="4.7" ry="2.9" stroke="currentColor" stroke-width="1.5" opacity="0.92" />
+        <path d="M5.2 12.55c1.05 1.95 3.72 3.28 6.8 3.28 3.08 0 5.75-1.33 6.8-3.28" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" opacity="0.78" />
+        <path d="M6.1 10.9c1.18-1.22 3.36-2.03 5.9-2.03 2.54 0 4.72.81 5.9 2.03" stroke="currentColor" stroke-width="0.85" stroke-linecap="round" opacity="0.34" />
+        <path d="M8.1 9.15l.18-.36.14.34.18-.34m.42.08l.08.58m.22-.58l.08.58m.28-.48l.16.44.16-.44m.36.02l.1.5.18-.22.1.22m.42-.46l.12.56m.2-.5l.16.18.16-.18.08.5m.42-.42l.06.56m.26-.54l.16.46.18-.46m.42.08l.12.48.14-.2.12.2m.42-.38l.08.52m.24-.48l.18.18.14-.18.1.46" stroke="currentColor" stroke-width="0.38" stroke-linecap="round" stroke-linejoin="round" opacity="0.62" />
+        <path d="M8.15 9.55c.9-.7 2.26-1.14 3.85-1.14" stroke="currentColor" stroke-width="0.95" stroke-linecap="round" opacity="0.22" />
+        <path d="M13.85 15.55c1.65-.18 3.05-.79 3.95-1.64" stroke="currentColor" stroke-width="0.95" stroke-linecap="round" opacity="0.18" />
+      </g>
     </svg>
 
     <svg v-else viewBox="0 0 24 24" fill="none">

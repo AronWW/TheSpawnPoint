@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import api from '../api/axios'
 import type { Achievement, AchievementPreview, AchievementUnlockEvent } from '../types'
 
@@ -8,6 +8,7 @@ export const useAchievementStore = defineStore('achievements', () => {
   const profilePreview = ref<AchievementPreview | null>(null)
   const loading = ref(false)
   const previewLoading = ref(false)
+  const hasLoadedMyAchievements = ref(false)
 
   const queue = ref<AchievementUnlockEvent[]>([])
   const activePopup = ref<AchievementUnlockEvent | null>(null)
@@ -18,6 +19,7 @@ export const useAchievementStore = defineStore('achievements', () => {
     try {
       const { data } = await api.get<Achievement[]>('/achievements/me')
       myAchievements.value = data
+      hasLoadedMyAchievements.value = true
     } finally {
       loading.value = false
     }
@@ -35,6 +37,18 @@ export const useAchievementStore = defineStore('achievements', () => {
 
   function clearProfilePreview() {
     profilePreview.value = null
+  }
+
+  const unlockedAchievementCodes = computed(() =>
+    new Set(
+      myAchievements.value
+        .filter((item) => item.unlocked)
+        .map((item) => item.code),
+    ),
+  )
+
+  function hasAchievement(code: string) {
+    return unlockedAchievementCodes.value.has(code)
   }
 
   async function claimSecret(code: string) {
@@ -97,6 +111,7 @@ export const useAchievementStore = defineStore('achievements', () => {
   function resetState() {
     myAchievements.value = []
     profilePreview.value = null
+    hasLoadedMyAchievements.value = false
     queue.value = []
     activePopup.value = null
     if (popupTimer !== null) {
@@ -110,10 +125,12 @@ export const useAchievementStore = defineStore('achievements', () => {
     profilePreview,
     loading,
     previewLoading,
+    hasLoadedMyAchievements,
     activePopup,
     fetchMyAchievements,
     fetchPreviewForUser,
     clearProfilePreview,
+    hasAchievement,
     claimSecret,
     enqueueUnlock,
     dismissActivePopup,

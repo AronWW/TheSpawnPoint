@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
@@ -7,16 +7,30 @@ import { useStompClient } from '../composables/useStompClient'
 import { CHAT_EMOJIS } from '../utils/emojis'
 import { API_BASE_URL } from '../config'
 import GroupChatSettingsModal from './GroupChatSettingsModal.vue'
+import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
+import ChatEmptyStateSecret from './ChatEmptyStateSecret.vue'
+import { useAchievementStore } from '../stores/achievements'
 import type { ChatMessage, PinnedMessageInfo } from '../types'
 
 const router = useRouter()
 const chatStore = useChatStore()
 const auth = useAuthStore()
 const stomp = useStompClient()
+const achievementStore = useAchievementStore()
 
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 
 const showGroupSettings = ref(false)
+
+
+const ROOM_OF_REQUIREMENT_CODE = 'ROOM_OF_REQUIREMENT'
+
+const secretPlaceholderLocked = ref(false)
+
+const shouldRenderSecretPlaceholder = computed(() => (
+  achievementStore.hasLoadedMyAchievements
+    && (secretPlaceholderLocked.value || !achievementStore.hasAchievement(ROOM_OF_REQUIREMENT_CODE))
+))
 
 function resolveAvatar(url: string | null): string {
   if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
@@ -111,10 +125,13 @@ function onPinnedListItemClick(pin: PinnedMessageInfo) {
   showPinnedList.value = false
 }
 
-watch(() => chatStore.activeChat?.id, () => {
+watch(() => chatStore.activeChat?.id, (newId) => {
   currentPinIndex.value = -1
   showPinnedList.value = false
   showGroupSettings.value = false
+  if (newId) {
+    secretPlaceholderLocked.value = false
+  }
 })
 
 watch(() => chatStore.pinnedMessages.length, () => {
@@ -399,6 +416,12 @@ function onWindowClick() {
 watch(() => chatStore.editingMessage, (msg) => {
   if (msg) messageInput.value = msg.content
 })
+
+onMounted(() => {
+  if (!achievementStore.hasLoadedMyAchievements && !achievementStore.loading) {
+    void achievementStore.fetchMyAchievements()
+  }
+})
 </script>
 
 <template>
@@ -677,14 +700,10 @@ watch(() => chatStore.editingMessage, (msg) => {
     </div>
   </div>
 
+  <ChatEmptyStateSecret v-else-if="shouldRenderSecretPlaceholder" @scene-lock="secretPlaceholderLocked = true" />
+
   <div class="chat-window chat-placeholder" v-else>
-    <div class="chat-placeholder-inner">
-      <div class="chat-placeholder-icon">
-        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      </div>
-      <div class="chat-placeholder-title">ОБЕРІТЬ ЧАТ</div>
-      <div class="chat-placeholder-text">щоб почати спілкування</div>
-    </div>
+    <ChatEmptyStateBase />
   </div>
 
   <GroupChatSettingsModal

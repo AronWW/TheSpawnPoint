@@ -148,7 +148,7 @@ function toggleLanguage(lang: string) {
   if (idx !== -1) {
     if (form.value.languages.length > 1) form.value.languages.splice(idx, 1)
   } else {
-    form.value.languages.push(lang)
+    if (form.value.languages.length < 4) form.value.languages.push(lang)
   }
 }
 
@@ -436,7 +436,7 @@ function close() {
               <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               <polyline points="10 9 9 9 8 9"/>
             </svg>
-            ЗАВАНТАЖИТИ ШАБЛОН
+            ШАБЛОН
           </button>
           <button
             class="modal-tab"
@@ -450,7 +450,8 @@ function close() {
           </button>
         </div>
 
-        <div v-if="activeTab === 'presets' && !presetEditMode" class="modal-body presets-body">
+        <Transition name="tab-fade" mode="out-in">
+        <div v-if="activeTab === 'presets' && !presetEditMode" key="presets" class="modal-body presets-body">
           <div class="presets-grid">
             <div
               v-for="slot in 10"
@@ -488,7 +489,7 @@ function close() {
           </div>
         </div>
 
-        <div v-if="activeTab === 'history'" class="modal-body history-body">
+        <div v-else-if="activeTab === 'history'" key="history" class="modal-body history-body">
           <div v-if="partyStore.historyLoading" class="history-empty">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>Завантаження...</span>
@@ -534,7 +535,7 @@ function close() {
           </div>
         </div>
 
-        <template v-if="activeTab === 'create' || presetEditMode">
+        <div v-else key="create" class="tab-pane-create">
           <div class="modal-body">
             <div v-if="error" class="modal-error">{{ error }}</div>
 
@@ -604,7 +605,7 @@ function close() {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Мова</label>
+            <label class="form-label">Мова <span class="form-hint">(макс. 4)</span></label>
             <div v-if="form.languages.length" class="selected-tags" style="margin-bottom: 8px">
               <span v-for="code in form.languages" :key="code" class="tag-chip">
                 {{ langName(code) }}
@@ -624,6 +625,7 @@ function close() {
                 type="button"
                 class="toggle-btn lang-btn"
                 :class="{ active: form.languages.includes(lang.code) }"
+                :disabled="!form.languages.includes(lang.code) && form.languages.length >= 4"
                 @click="toggleLanguage(lang.code)"
               >
                 <span class="lang-code">{{ lang.code }}</span>
@@ -766,7 +768,8 @@ function close() {
             {{ submitting ? 'СТВОРЕННЯ...' : 'СТВОРИТИ ЛОБІ' }}
           </button>
         </div>
-        </template>
+        </div>
+        </Transition>
       </div>
     </div>
   </Transition>
@@ -775,10 +778,17 @@ function close() {
 </template>
 
 <style scoped>
+.modal {
+  height: 85vh;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
 .modal-close-bar {
   display: flex;
   justify-content: flex-end;
   padding: 8px 10px 0;
+  flex-shrink: 0;
 }
 .modal-close {
   background: none;
@@ -800,6 +810,7 @@ function close() {
 .modal-tabs {
   display: flex;
   border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
 }
 .modal-tab {
   flex: 1;
@@ -825,13 +836,12 @@ function close() {
   border-bottom-color: var(--yellow);
 }
 
-.presets-body {
-  padding: 20px;
-}
 .presets-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(5, 1fr);
   gap: 10px;
+  flex: 1;
 }
 .preset-slot {
   display: flex;
@@ -1204,8 +1214,40 @@ function close() {
 
 .history-body {
   padding: 16px;
+  flex: 1;
   overflow-y: auto;
-  max-height: 460px;
+}
+
+.presets-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-pane-create {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tab-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.tab-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 .history-empty {
   display: flex;
@@ -1216,6 +1258,7 @@ function close() {
   padding: 60px 20px;
   color: var(--gray);
   font-size: 13px;
+  flex: 1;
 }
 .history-mini-list {
   display: flex;

@@ -6,6 +6,7 @@ import com.thespawnpoint.backend.dto.AchievementUnlockedEventDTO;
 import com.thespawnpoint.backend.entity.achievement.AchievementType;
 import com.thespawnpoint.backend.entity.achievement.UserAchievement;
 import com.thespawnpoint.backend.entity.user.PrivacySettings;
+import com.thespawnpoint.backend.entity.user.Profile;
 import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.entity.user.VisibilityLevel;
 import com.thespawnpoint.backend.exception.ApiException;
@@ -14,6 +15,7 @@ import com.thespawnpoint.backend.repository.MessageRepository;
 import com.thespawnpoint.backend.repository.PartyMemberRepository;
 import com.thespawnpoint.backend.repository.PartyRequestRepository;
 import com.thespawnpoint.backend.repository.PrivacySettingsRepository;
+import com.thespawnpoint.backend.repository.ProfileRepository;
 import com.thespawnpoint.backend.repository.UserAchievementRepository;
 import com.thespawnpoint.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class AchievementService {
     private final AchievementCatalog achievementCatalog;
     private final UserAchievementRepository userAchievementRepository;
     private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
     private final MessageRepository messageRepository;
@@ -93,11 +96,43 @@ public class AchievementService {
 
     @Transactional
     public void syncCalculatedAchievements(User user) {
+        syncRegistrationAchievement(user);
+        syncProfileCompletion(user);
         syncFriendMilestones(user);
         syncMessageMilestones(user);
         syncCreatedPartyMilestones(user);
         syncJoinedPartyMilestones(user);
         syncCompletedPartyMilestones(user);
+    }
+
+    @Transactional
+    public void syncRegistrationAchievement(User user) {
+        if (user.isEmailVerified()) {
+            unlock(user, AchievementCatalog.WELCOME_ABOARD, "AUTO");
+        }
+    }
+
+    @Transactional
+    public void syncProfileCompletion(User user) {
+        profileRepository.findByUserId(user.getId()).ifPresent(profile -> {
+            if (isProfileComplete(profile)) {
+                unlock(user, AchievementCatalog.PROFILE_COMPLETED, "AUTO");
+            }
+        });
+    }
+
+    public boolean isProfileComplete(Profile profile) {
+        if (profile.getFullName() == null || profile.getFullName().isBlank()) return false;
+        if (profile.getAvatarUrl() == null || profile.getAvatarUrl().isBlank()) return false;
+        if (profile.getBio() == null || profile.getBio().isBlank()) return false;
+        if (profile.getBirthDate() == null) return false;
+        if (profile.getPlatforms() == null || profile.getPlatforms().isEmpty()) return false;
+        if (profile.getSkillLevel() == null) return false;
+        if (profile.getPlayStyle() == null) return false;
+        if (profile.getLanguages() == null || profile.getLanguages().isEmpty()) return false;
+        if (profile.getCountry() == null || profile.getCountry().isBlank()) return false;
+        if (profile.getRegion() == null) return false;
+        return true;
     }
 
     @Transactional

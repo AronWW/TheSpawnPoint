@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -12,6 +13,7 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
 const loading = ref(false)
+const showPrivacy = ref(false)
 
 async function handleRegister() {
   error.value = ''
@@ -37,6 +39,11 @@ async function handleRegister() {
     return
   }
 
+  showPrivacy.value = true
+}
+
+async function confirmRegister() {
+  showPrivacy.value = false
   loading.value = true
   try {
     await auth.register(displayName.value, email.value, password.value)
@@ -130,6 +137,14 @@ async function handleRegister() {
         </div>
       </div>
     </div>
+
+    <PrivacyPolicyModal
+      :visible="showPrivacy"
+      @accept="confirmRegister"
+      @close="showPrivacy = false"
+    />
   </div>
 </template>
+
+
 

@@ -32,6 +32,7 @@ public class ProfileService {
     private final CloudinaryImageService cloudinaryImageService;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
+    private final AchievementService achievementService;
 
     @Value("${app.upload.max-size:2097152}")
     private long maxFileSize;
@@ -204,6 +205,11 @@ public class ProfileService {
         }
 
         profileRepository.save(profile);
+
+        if (achievementService.isProfileComplete(profile)) {
+            achievementService.unlock(user, AchievementCatalog.PROFILE_COMPLETED, "AUTO");
+        }
+
         return toDTO(profile, user);
     }
 
@@ -235,6 +241,10 @@ public class ProfileService {
         profile.setAvatarPublicId(uploadResult.publicId());
         profileRepository.save(profile);
 
+        if (achievementService.isProfileComplete(profile)) {
+            achievementService.unlock(user, AchievementCatalog.PROFILE_COMPLETED, "AUTO");
+        }
+
         return toDTO(profile, user);
     }
 
@@ -255,6 +265,10 @@ public class ProfileService {
         profile.setAvatarUrl(DEFAULT_AVATARS.get(index - 1));
         profile.setAvatarPublicId(null);
         profileRepository.save(profile);
+
+        if (achievementService.isProfileComplete(profile)) {
+            achievementService.unlock(user, AchievementCatalog.PROFILE_COMPLETED, "AUTO");
+        }
 
         return toDTO(profile, user);
     }

@@ -10,6 +10,9 @@ import java.util.*;
 @Component
 public class AchievementCatalog {
 
+    public static final String WELCOME_ABOARD = "WELCOME_ABOARD";
+    public static final String PROFILE_COMPLETED = "PROFILE_COMPLETED";
+
     public static final String FIRST_FAVORITE_GAME = "FIRST_FAVORITE_GAME";
     public static final String FIRST_FRIEND = "FIRST_FRIEND";
     public static final String FRIENDS_25 = "FRIENDS_25";
@@ -31,7 +34,10 @@ public class AchievementCatalog {
     public static final String ANSWER_TO_LIFE = "ANSWER_TO_LIFE";
 
     public static final String SECRET_DOOM_FOUND = "SECRET_DOOM_FOUND";
+    public static final String ROOM_OF_REQUIREMENT = "ROOM_OF_REQUIREMENT";
+    public static final String NOT_WHAT_YOU_EXPECTED = "NOT_WHAT_YOU_EXPECTED";
     public static final String SECRET_DOOM_COMPLETED = "SECRET_DOOM_COMPLETED";
+    public static final String ONE_RING = "ONE_RING";
 
     public enum ProgressMetric {
         NONE,
@@ -96,6 +102,32 @@ public class AchievementCatalog {
 
     @PostConstruct
     void init() {
+        register(new AchievementDefinition(
+                WELCOME_ABOARD,
+                "Hey you. You're finally awake.",
+                "Ласкаво просимо до TheSpawnPoint! Твоя пригода починається тут.",
+                AchievementType.STANDARD,
+                "welcome",
+                "Зареєструйся на платформі.",
+                null,
+                false,
+                5,
+                ProgressMetric.NONE,
+                0
+        ));
+        register(new AchievementDefinition(
+                PROFILE_COMPLETED,
+                "ПОВНА ГОТОВНІСТЬ",
+                "Твій профіль заповнений на 100% — тепер тебе точно помітять у будь-якому загоні.",
+                AchievementType.STANDARD,
+                "profile-complete",
+                "Заповни всі поля профілю (соціальні мережі не враховуються).",
+                null,
+                false,
+                10,
+                ProgressMetric.NONE,
+                0
+        ));
         register(new AchievementDefinition(
                 FIRST_FAVORITE_GAME,
                 "ПЕРШИЙ ПІК",
@@ -333,11 +365,11 @@ public class AchievementCatalog {
         register(new AchievementDefinition(
                 ANSWER_TO_LIFE,
                 "Відповідь на питання життя",
-                "Тут немає довгого квесту — лише одне коротке число, яке треба знати.",
+                "У правильно поставленому запитанні міститься половина відповіді.",
                 AchievementType.SECRET,
                 "life-answer",
                 null,
-                "Підказка: це відповідь на головне питання життя, всесвіту і взагалі всього.",
+                "Підказка: це відповідь на питання життя, Всесвіту і взагалі.",
                 false,
                 1005,
                 ProgressMetric.NONE,
@@ -346,13 +378,39 @@ public class AchievementCatalog {
         register(new AchievementDefinition(
                 SECRET_DOOM_FOUND,
                 "RIP AND TEAR",
-                "Ти знайшов приховану кімнату. Doom чекав тебе.",
+                "Як ти сюди потрапив?",
                 AchievementType.SECRET,
                 "doom-found",
                 null,
-                "Деякі двері не позначені на карті.",
+                "Найтеємничніша таємниця в історії сайту; Слеш секрет.",
                 true,
                 1010,
+                ProgressMetric.NONE,
+                0
+        ));
+        register(new AchievementDefinition(
+                ROOM_OF_REQUIREMENT,
+                "Кімната на вимогу",
+                "Ти знайшов двері, які з'являються лише тим, хто достатньо наполегливо шукає.",
+                AchievementType.SECRET,
+                "room-secret",
+                null,
+                "Іноді там, де розмова ще не почалась, варто постукати кілька разів у саму тишу.",
+                true,
+                1015,
+                ProgressMetric.NONE,
+                0
+        ));
+        register(new AchievementDefinition(
+                NOT_WHAT_YOU_EXPECTED,
+                "Не те на що ти очікував, еге ж?",
+                "Ти все ж таки відкрив ці двері. Наслідки були... музичними.",
+                AchievementType.SECRET,
+                "rickroll-secret",
+                null,
+                "Іноді краще не перевіряти, що саме ховається по той бік магічних дверей.",
+                true,
+                1016,
                 ProgressMetric.NONE,
                 0
         ));
@@ -366,6 +424,19 @@ public class AchievementCatalog {
                 "Класичний чіт-код — ключ до безсмертя.",
                 true,
                 1020,
+                ProgressMetric.NONE,
+                0
+        ));
+        register(new AchievementDefinition(
+                ONE_RING,
+                "Одне кільце, щоб правити всіма",
+                "Ash nazg durbatulûk, ash nazg gimbatul, ash nazg thrakatulûk, agh burzum-ishi krimpatul.",
+                AchievementType.SECRET,
+                "one-ring",
+                null,
+                "Не все золото блищить, але дещо вміло ховається біля самого краю.",
+                true,
+                1025,
                 ProgressMetric.NONE,
                 0
         ));

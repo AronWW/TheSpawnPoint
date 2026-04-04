@@ -2,7 +2,7 @@
 import type { AchievementPreview } from '../types'
 import AchievementCard from './AchievementCard.vue'
 
-const props = defineProps<{
+defineProps<{
   preview: AchievementPreview
   isOwnProfile: boolean
 }>()

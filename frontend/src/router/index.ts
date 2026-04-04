@@ -25,6 +25,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'home', component: () => import('../views/HomePage.vue') },
+    { path: '/about', name: 'about', component: () => import('../views/AboutPage.vue') },
+    { path: '/community-guidelines', name: 'community-guidelines', component: () => import('../views/CommunityGuidelinesPage.vue') },
     { path: '/login', name: 'login', component: () => import('../views/LoginPage.vue') },
     { path: '/register', name: 'register', component: () => import('../views/RegisterPage.vue') },
     { path: '/verify-email', name: 'verify-email', component: () => import('../views/VerifyEmailPage.vue') },
@@ -43,7 +45,7 @@ const router = createRouter({
     { path: '/support', name: 'support', component: () => import('../views/SupportPage.vue'), meta: { requiresAuth: true } },
     { path: '/my-suggestions', name: 'my-suggestions', component: () => import('../views/MySuggestionsPage.vue'), meta: { requiresAuth: true } },
     { path: '/party-history/:userId?', name: 'party-history', component: () => import('../views/PartyHistoryPage.vue'), meta: { requiresAuth: true } },
-    { path: '/secret-game', name: 'secret-game', component: () => import('../views/SecretGamePage.vue'), meta: { requiresAuth: true } },
+    { path: '/secret', name: 'secret-game', component: () => import('../views/SecretGamePage.vue'), meta: { requiresAuth: true } },
 
     {
       path: '/admin',

@@ -29,10 +29,10 @@ const isSecret = computed(() => props.achievement.type === 'SECRET')
 const hasProgress = computed(() => props.achievement.showProgress && !isSecret.value)
 const isLifeAnswerAchievement = computed(() => props.achievement.code === ANSWER_TO_LIFE_CODE)
 const canOpenLifeAnswer = computed(() => (
-  props.allowSecretInteraction
-  && !props.compact
-  && isLifeAnswerAchievement.value
-  && !isUnlocked.value
+    props.allowSecretInteraction
+    && !props.compact
+    && isLifeAnswerAchievement.value
+    && !isUnlocked.value
 ))
 
 const shouldShowDescription = computed(() => {
@@ -122,18 +122,18 @@ async function submitLifeAnswer() {
 
 <template>
   <article
-    class="achievement-card"
-    :class="[
+      class="achievement-card"
+      :class="[
       compact ? 'compact' : 'full',
       achievement.unlocked ? 'is-unlocked' : 'is-locked',
       isSecret ? 'is-secret' : 'is-standard',
       canOpenLifeAnswer ? 'is-interactive' : '',
       canOpenLifeAnswer && showLifeInput ? 'is-expanded' : '',
     ]"
-    :role="canOpenLifeAnswer ? 'button' : undefined"
-    :tabindex="canOpenLifeAnswer ? 0 : undefined"
-    @click="handleCardClick"
-    @keydown="handleCardKeydown"
+      :role="canOpenLifeAnswer ? 'button' : undefined"
+      :tabindex="canOpenLifeAnswer ? 0 : undefined"
+      @click="handleCardClick"
+      @keydown="handleCardKeydown"
   >
     <div class="achievement-card__badge">
       <AchievementIcon :code="achievement.code" :size="compact ? 30 : 34" />
@@ -146,7 +146,12 @@ async function submitLifeAnswer() {
       </div>
 
       <h3 class="achievement-card__title">{{ displayTitle }}</h3>
-      <p v-if="shouldShowDescription" class="achievement-card__desc">
+
+      <p
+          v-if="shouldShowDescription"
+          class="achievement-card__desc"
+          :class="{ 'achievement-card__desc--ring': achievement.code === 'ONE_RING' }"
+      >
         {{ achievement.description }}
       </p>
 
@@ -164,20 +169,20 @@ async function submitLifeAnswer() {
         <label class="achievement-card__life-label" for="life-answer-input">Введи значення:</label>
         <div class="achievement-card__life-row">
           <input
-            id="life-answer-input"
-            v-model="lifeAnswer"
-            class="achievement-card__life-input"
-            type="text"
-            inputmode="numeric"
-            maxlength="4"
-            placeholder="??"
-            @keyup.enter="submitLifeAnswer"
+              id="life-answer-input"
+              v-model="lifeAnswer"
+              class="achievement-card__life-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              placeholder="??"
+              @keyup.enter="submitLifeAnswer"
           />
           <button
-            class="achievement-card__life-btn"
-            type="button"
-            :disabled="submittingLifeAnswer"
-            @click.stop="submitLifeAnswer"
+              class="achievement-card__life-btn"
+              type="button"
+              :disabled="submittingLifeAnswer"
+              @click.stop="submitLifeAnswer"
           >
             {{ submittingLifeAnswer ? '...' : 'ПІДТВЕРДИТИ' }}
           </button>
@@ -195,6 +200,8 @@ async function submitLifeAnswer() {
 </template>
 
 <style scoped>
+@import url('https://fonts.cdnfonts.com/css/tengwar-annatar');
+
 .achievement-card {
   position: relative;
   overflow: hidden;
@@ -339,6 +346,15 @@ async function submitLifeAnswer() {
   font-size: 13px;
   line-height: 1.52;
   color: var(--gray-light);
+}
+
+.achievement-card__desc--ring {
+  font-family: 'Tengwar Annatar', serif;
+  font-size: 13px;
+  line-height: 1.52;
+  letter-spacing: 1px;
+  color: var(--gray-light);
+  text-shadow: none;
 }
 
 .achievement-card__progress {
