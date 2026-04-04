@@ -7,6 +7,7 @@ import { usePartyStore } from '../stores/parties'
 import { useAchievementStore } from '../stores/achievements'
 import { useBlockStore } from '../stores/block'
 import { useStompClient } from './useStompClient'
+import { playNotificationSound } from './useNotificationSound'
 import type { Notification, ChatMessage, ChatEvent, AchievementUnlockEvent } from '../types'
 
 
@@ -71,6 +72,7 @@ export function useGlobalWebSocket() {
             }
           } else {
             notifStore.addNotification(notification)
+            playNotificationSound()
           }
 
           if (

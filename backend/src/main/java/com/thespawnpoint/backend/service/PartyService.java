@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -54,6 +55,7 @@ public class PartyService {
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
+    private final RatingService ratingService;
 
     @Transactional
     public PartyRequestDTO createParty(User creator, CreatePartyRequestDTO dto) {
@@ -490,6 +492,11 @@ public class PartyService {
 
     public List<RecentTeammateDTO> getRecentTeammates(User user) {
         List<Object[]> rows = partyMemberRepository.findRecentTeammateIds(user.getId());
+        List<Long> teammateIds = rows.stream()
+                .map(row -> ((Number) row[0]).longValue())
+                .toList();
+        Map<Long, Double> ratingsMap = ratingService.getVisibleRatingsMap(teammateIds);
+
         return rows.stream()
                 .map(row -> {
                     Long usrId = ((Number) row[0]).longValue();
@@ -505,6 +512,7 @@ public class PartyService {
                             .displayName(displayName)
                             .avatarUrl(avatarUrl)
                             .gamesPlayedTogether(count)
+                            .rating(ratingsMap.get(usrId))
                             .build();
                 })
                 .toList();
@@ -600,6 +608,11 @@ public class PartyService {
                 .map(p -> p.getAvatarUrl())
                 .orElse(null);
 
+        List<Long> memberUserIds = members.stream()
+                .map(m -> m.getUser().getId())
+                .toList();
+        Map<Long, Double> ratingsMap = ratingService.getVisibleRatingsMap(memberUserIds);
+
         List<PartyMemberDTO> memberDTOs = members.stream()
                 .map(m -> {
                     String avatarUrl = profileRepository.findByUserId(m.getUser().getId())
@@ -611,9 +624,15 @@ public class PartyService {
                             .avatarUrl(avatarUrl)
                             .creator(m.getUser().getId().equals(party.getCreator().getId()))
                             .joinedAt(m.getJoinedAt())
+                            .rating(ratingsMap.get(m.getUser().getId()))
                             .build();
                 })
                 .toList();
+
+        Double creatorRating = ratingsMap.get(party.getCreator().getId());
+        if (creatorRating == null) {
+            creatorRating = ratingService.getVisibleRating(party.getCreator().getId());
+        }
 
         return PartyRequestDTO.builder()
                 .id(party.getId())
@@ -639,6 +658,7 @@ public class PartyService {
                 .members(memberDTOs)
                 .chatId(party.getChat() != null ? party.getChat().getId() : null)
                 .createdAt(party.getCreatedAt())
+                .creatorRating(creatorRating)
                 .build();
     }
 
@@ -646,6 +666,8 @@ public class PartyService {
         String creatorAvatarUrl = profileRepository.findByUserId(party.getCreator().getId())
                 .map(p -> p.getAvatarUrl())
                 .orElse(null);
+
+        Double creatorRating = ratingService.getVisibleRating(party.getCreator().getId());
 
         return PartyRequestDTO.builder()
                 .id(party.getId())
@@ -671,6 +693,7 @@ public class PartyService {
                 .members(null)
                 .chatId(party.getChat() != null ? party.getChat().getId() : null)
                 .createdAt(party.getCreatedAt())
+                .creatorRating(creatorRating)
                 .build();
     }
 

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { Friend } from '../types'
 import { PUBLIC_BASE_URL } from '../config'
 import { timeAgo } from '../utils/helpers'
+import PlayerRatingBadge from './PlayerRatingBadge.vue'
 
 const props = defineProps<{
   title: string
@@ -51,7 +52,10 @@ const sortedFriends = computed(() =>
             <span class="dot" :class="friend.status === 'ONLINE' ? 'on' : 'off'"></span>
           </span>
           <span class="friend-meta">
-            <span class="friend-name">{{ friend.displayName }}</span>
+            <span class="friend-name">
+              {{ friend.displayName }}
+              <PlayerRatingBadge :rating="friend.rating" size="sm" />
+            </span>
             <span class="friend-status" :class="{ on: friend.status === 'ONLINE' }">
               <template v-if="friend.status === 'ONLINE'">● Online</template>
               <template v-else-if="friend.lastSeen">○ {{ timeAgo(friend.lastSeen) }}</template>
@@ -189,7 +193,9 @@ const sortedFriends = computed(() =>
 .dot.off { background: var(--gray); }
 
 .friend-name {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--white);
   font-size: 13px;
   font-weight: 600;

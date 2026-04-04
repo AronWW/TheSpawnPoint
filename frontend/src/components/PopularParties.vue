@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePartyStore } from '../stores/parties'
 import { skillLabel, timeAgo } from '../utils/helpers'
+import PlayerRatingBadge from './PlayerRatingBadge.vue'
 import type { Party } from '../types'
 
 const router = useRouter()
@@ -54,6 +55,7 @@ function selectParty(party: Party) {
           <div class="pp-host">
             <span class="pp-host-label">Хост:</span>
             <span class="pp-host-name">{{ party.creatorDisplayName }}</span>
+            <PlayerRatingBadge :rating="party.creatorRating" size="md" />
           </div>
 
           <p class="pp-desc">{{ party.description || 'Шукаємо гравців!' }}</p>
@@ -224,7 +226,16 @@ function selectParty(party: Party) {
   align-items: center;
   gap: 6px;
   font-size: 12px;
+  min-width: 0;
 }
+
+.pp-host :deep(.rating-value),
+.pp-host :deep(.rating-none) {
+  color: #ffffff;
+  text-shadow: none;
+  filter: none;
+}
+
 .pp-host-label {
   color: var(--gray);
   letter-spacing: 1px;
@@ -232,6 +243,10 @@ function selectParty(party: Party) {
 .pp-host-name {
   color: var(--gray-light);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .pp-desc {
@@ -330,4 +345,3 @@ function selectParty(party: Party) {
   .pp-grid { grid-template-columns: 1fr; }
 }
 </style>
-

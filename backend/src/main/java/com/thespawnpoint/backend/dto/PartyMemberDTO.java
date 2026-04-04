@@ -16,4 +16,5 @@ public class PartyMemberDTO {
     @JsonProperty("isCreator")
     private Boolean creator;
     private Instant joinedAt;
+    private Double rating;
 }

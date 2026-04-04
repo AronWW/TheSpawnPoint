@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Party } from '../types'
 import { genreColor, skillLabel, timeAgo } from '../utils/helpers'
+import PlayerRatingBadge from './PlayerRatingBadge.vue'
 defineProps<{ party: Party }>()
 defineEmits<{ (e: 'select', p: Party): void }>()
 </script>
@@ -16,7 +17,7 @@ defineEmits<{ (e: 'select', p: Party): void }>()
         </div>
         <div class="party-info">
           <div class="party-game">{{ party.gameName }}</div>
-          <div class="party-host">Хост: <span>{{ party.creatorDisplayName }}</span></div>
+          <div class="party-host">Хост: <span>{{ party.creatorDisplayName }}</span> <PlayerRatingBadge :rating="party.creatorRating" size="md" /></div>
           <div style="margin-top:4px">
             <span v-if="party.skillLevel" class="skill-badge" :class="party.skillLevel.toLowerCase()">{{ skillLabel(party.skillLevel) }}</span>
           </div>
@@ -39,3 +40,11 @@ defineEmits<{ (e: 'select', p: Party): void }>()
   </div>
 </template>
 
+<style scoped>
+.party-host :deep(.rating-value),
+.party-host :deep(.rating-none) {
+  color: #ffffff;
+  text-shadow: none;
+  filter: none;
+}
+</style>

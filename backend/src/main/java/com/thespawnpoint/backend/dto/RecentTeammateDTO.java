@@ -10,5 +10,6 @@ public class RecentTeammateDTO {
     private String displayName;
     private String avatarUrl;
     private int gamesPlayedTogether;
+    private Double rating;
 }
 

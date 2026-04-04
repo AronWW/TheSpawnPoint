@@ -34,4 +34,6 @@ public class ProfileDTO {
     private Instant lastSeen;
     private Instant createdAt;
     private PrivacySettingsDTO privacy;
+    private Double rating;
+    private Integer ratingCount;
 }

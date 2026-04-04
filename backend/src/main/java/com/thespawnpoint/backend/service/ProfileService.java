@@ -33,6 +33,7 @@ public class ProfileService {
     private final PrivacySettingsRepository privacySettingsRepository;
     private final FriendshipRepository friendshipRepository;
     private final AchievementService achievementService;
+    private final RatingService ratingService;
 
     @Value("${app.upload.max-size:2097152}")
     private long maxFileSize;
@@ -280,6 +281,8 @@ public class ProfileService {
     private ProfileDTO toDTO(Profile profile, User user) {
         String derivedStatus = deriveStatus(user);
 
+        var ratingDTO = ratingService.getUserRating(user.getId());
+
         return ProfileDTO.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
@@ -304,6 +307,8 @@ public class ProfileService {
                 .status(derivedStatus)
                 .lastSeen(user.getLastSeen())
                 .createdAt(user.getCreatedAt())
+                .rating(ratingDTO.getRating())
+                .ratingCount(ratingDTO.getRatingCount())
                 .build();
     }
 

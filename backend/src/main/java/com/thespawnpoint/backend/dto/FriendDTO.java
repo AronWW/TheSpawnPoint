@@ -15,5 +15,6 @@ public class FriendDTO {
     private String status;
     private String lastSeen;
     private Instant friendsSince;
+    private Double rating;
 }
 

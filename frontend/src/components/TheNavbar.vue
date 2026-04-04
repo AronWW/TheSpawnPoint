@@ -11,6 +11,7 @@ import { useVoiceStore } from '../stores/voice'
 import { useToast } from '../composables/useToast'
 import { notificationIcon, timeAgo } from '../utils/helpers'
 import { PUBLIC_BASE_URL } from '../config'
+import { isNotificationSoundEnabled, toggleNotificationSound } from '../composables/useNotificationSound'
 
 const router = useRouter()
 const route = useRoute()
@@ -28,6 +29,11 @@ const isAdmin = computed(() => auth.user?.role === 'ADMIN')
 const notifOpen = ref(false)
 const userMenuOpen = ref(false)
 const mobileMenuOpen = ref(false)
+const notifSoundOn = ref(isNotificationSoundEnabled())
+
+function handleToggleSound() {
+  notifSoundOn.value = toggleNotificationSound()
+}
 
 const avatarSrc = computed(() => {
   const url = auth.user?.avatarUrl
@@ -255,6 +261,15 @@ async function handleDeclineInvite(n: import('../types').Notification) {
             <div class="notif-panel-header">
               <span>СПОВІЩЕННЯ</span>
               <div class="notif-header-actions">
+                <button
+                  @click.stop="handleToggleSound"
+                  :title="notifSoundOn ? 'Вимкнути звук' : 'Увімкнути звук'"
+                  class="notif-sound-toggle"
+                  :class="{ off: !notifSoundOn }"
+                >
+                  <svg v-if="notifSoundOn" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                  <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                </button>
                 <button @click="notifStore.markAllRead" title="Позначити прочитаними">✓ Все</button>
                 <button v-if="notifStore.notifications.length" @click="notifStore.deleteAll" title="Видалити всі" class="notif-delete-all-btn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Все</button>
               </div>
@@ -328,7 +343,7 @@ async function handleDeclineInvite(n: import('../types').Notification) {
                 <span class="nav-user-name">{{ auth.displayName }}</span>
                 <span class="nav-user-hint">
                   <span class="nav-user-hint-icon">
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                   </span>
                   Мій профіль
                 </span>

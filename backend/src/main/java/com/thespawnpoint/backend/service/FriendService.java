@@ -33,6 +33,7 @@ public class FriendService {
     private final NotificationService notificationService;
     private final AchievementService achievementService;
     private final BlockService blockService;
+    private final RatingService ratingService;
 
     @Transactional
     public void sendFriendRequest(User sender, Long receiverId) {
@@ -208,21 +209,24 @@ public class FriendService {
                 .map(f -> f.getUser1().getId().equals(profileOwnerUserId) ? f.getUser2() : f.getUser1())
                 .toList();
 
+        List<Long> friendIds = friends.stream().map(User::getId).toList();
+
         Map<Long, String> avatarByUserId = new java.util.HashMap<>();
-        for (Profile p : profileRepository.findAllByUserIdIn(
-                friends.stream().map(User::getId).toList())) {
+        for (Profile p : profileRepository.findAllByUserIdIn(friendIds)) {
             avatarByUserId.putIfAbsent(p.getUser().getId(), p.getAvatarUrl());
         }
+
+        Map<Long, Double> ratingsMap = ratingService.getVisibleRatingsMap(friendIds);
 
         return friendships.stream()
                 .map(f -> {
                     User friend = f.getUser1().getId().equals(profileOwnerUserId) ? f.getUser2() : f.getUser1();
-                    return toFriendDTO(friend, f.getFriendsSince(), avatarByUserId.get(friend.getId()));
+                    return toFriendDTO(friend, f.getFriendsSince(), avatarByUserId.get(friend.getId()), ratingsMap.get(friend.getId()));
                 })
                 .toList();
     }
 
-    private FriendDTO toFriendDTO(User user, Instant friendsSince, String avatarUrl) {
+    private FriendDTO toFriendDTO(User user, Instant friendsSince, String avatarUrl, Double rating) {
         String status = user.getStatus().name();
         String lastSeen = user.getLastSeen() != null ? user.getLastSeen().toString() : null;
 
@@ -240,6 +244,7 @@ public class FriendService {
                 .status(status)
                 .lastSeen(lastSeen)
                 .friendsSince(friendsSince)
+                .rating(rating)
                 .build();
     }
 

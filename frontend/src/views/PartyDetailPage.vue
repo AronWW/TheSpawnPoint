@@ -4,12 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import InviteToPartyModal from '../components/InviteToPartyModal.vue'
 import PartyMiniChat from '../components/PartyMiniChat.vue'
 import PartyVoicePanel from '../components/PartyVoicePanel.vue'
+import RatePlayersModal from '../components/RatePlayersModal.vue'
+import PlayerRatingBadge from '../components/PlayerRatingBadge.vue'
 import { useStompClient } from '../composables/useStompClient'
 import { PUBLIC_BASE_URL } from '../config'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { usePartyStore } from '../stores/parties'
 import { useVoiceStore } from '../stores/voice'
+import { useRatingStore } from '../stores/rating'
 import type { Party } from '../types'
 import { skillLabel, timeAgo } from '../utils/helpers'
 import { useToast } from '../composables/useToast'
@@ -20,6 +23,7 @@ const auth = useAuthStore()
 const partyStore = usePartyStore()
 const chatStore = useChatStore()
 const voiceStore = useVoiceStore()
+const ratingStore = useRatingStore()
 const stomp = useStompClient()
 const toast = useToast()
 
@@ -30,6 +34,12 @@ const actionLoading = ref(false)
 const actionError = ref('')
 const showInviteModal = ref(false)
 const showSwitchConfirm = ref(false)
+const showRatingModal = ref(false)
+
+const otherMembers = computed(() => {
+  if (!auth.user || !party.value?.members) return []
+  return party.value.members.filter((m) => m.userId !== auth.user!.id)
+})
 
 let unsubParty: (() => void) | null = null
 
@@ -269,6 +279,11 @@ async function handleComplete() {
   try {
     party.value = await partyStore.completeParty(party.value.id)
     await voiceStore.syncPartyState(party.value)
+
+    const canRate = await ratingStore.canRateParty(party.value.id)
+    if (canRate && otherMembers.value.length > 0) {
+      showRatingModal.value = true
+    }
   } catch (e: unknown) {
     actionError.value = e instanceof Error ? e.message : 'Помилка'
   } finally {
@@ -356,6 +371,18 @@ watch(
       void voiceStore.syncPartyState(nextParty)
     },
     { deep: true },
+)
+
+// TODO: DEV ONLY — показувати модалку оцінки при статусі COMPLETED для тестування
+watch(
+    () => party.value?.status,
+    (newStatus, oldStatus) => {
+      if (newStatus === 'COMPLETED' && oldStatus && oldStatus !== 'COMPLETED') {
+        if (otherMembers.value.length > 0) {
+          showRatingModal.value = true
+        }
+      }
+    },
 )
 </script>
 
@@ -524,6 +551,7 @@ watch(
                         <div class="member-name-row">
                           <span v-if="party.members?.[i - 1]?.isCreator" class="member-badge">Хост</span>
                           <span class="member-name">{{ party.members?.[i - 1]?.displayName ?? 'Member' }}</span>
+                          <PlayerRatingBadge :rating="party.members?.[i - 1]?.rating ?? null" size="sm" />
                         </div>
                         <div class="member-meta">У лобі {{ timeAgo(party.members?.[i - 1]?.joinedAt ?? party.createdAt) }}</div>
                       </div>
@@ -591,6 +619,14 @@ watch(
             :party-id="party.id"
             :party-members="partyMemberIds"
             @close="showInviteModal = false"
+        />
+
+        <RatePlayersModal
+            v-if="showRatingModal"
+            :visible="showRatingModal"
+            :party-id="party.id"
+            :members="otherMembers"
+            @close="showRatingModal = false"
         />
 
         <Transition name="fade">

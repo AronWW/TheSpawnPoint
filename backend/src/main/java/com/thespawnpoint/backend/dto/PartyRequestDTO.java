@@ -41,5 +41,7 @@ public class PartyRequestDTO {
     private Long chatId;
 
     private Instant createdAt;
+
+    private Double creatorRating;
 }
 

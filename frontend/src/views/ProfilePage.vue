@@ -13,6 +13,7 @@ import { skillLabel, timeAgo } from '../utils/helpers'
 import { ALL_COUNTRIES } from '../utils/countries'
 import ProfileFriendsModal from '../components/ProfileFriendsModal.vue'
 import ReportUserModal from '../components/ReportUserModal.vue'
+import PlayerRatingBadge from '../components/PlayerRatingBadge.vue'
 import AchievementPreviewSection from '../components/AchievementPreviewSection.vue'
 
 const route = useRoute()
@@ -520,7 +521,13 @@ watch(() => route.params.userId, (newId) => {
           <div class="online-dot" :class="canSeeStatus ? statusClass : 'dot-offline'"></div>
         </div>
         <div class="va-info">
-          <div class="va-name">{{ profile.displayName }}</div>
+          <div class="va-name">
+            <span class="va-name-text">{{ profile.displayName }}</span>
+            <span class="va-rating-row">
+              <PlayerRatingBadge :rating="profile.rating" size="xl" />
+              <span v-if="profile.ratingCount" class="va-rating-count">({{ profile.ratingCount }})</span>
+            </span>
+          </div>
           <div class="va-status-row">
             <span v-if="canSeeStatus" class="va-status-text" :class="statusClass">{{ statusText }}</span>
             <span v-else class="va-status-text dot-offline">○ Офлайн</span>
@@ -962,6 +969,32 @@ watch(() => route.params.userId, (newId) => {
   background: linear-gradient(90deg, var(--yellow), rgba(245,197,24,0.3) 60%, transparent);
 }
 
+.va-rating-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  flex-shrink: 0;
+}
+.va-rating-row :deep(.rating-badge) {
+  align-items: center;
+}
+.va-rating-row :deep(.rating-star) {
+  margin-bottom: 0;
+}
+.va-rating-row :deep(.rating-value) {
+  color: #e8e8e8;
+  text-shadow: none;
+}
+.va-rating-count {
+  font-size: 20px;
+  color: var(--gray);
+  letter-spacing: 0.5px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  line-height: 1;
+}
+
 .va-ava-wrap {
   position: relative;
   flex-shrink: 0;
@@ -1014,12 +1047,20 @@ watch(() => route.params.userId, (newId) => {
   padding-bottom: 2px;
 }
 .va-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
   font-family: var(--font-display);
   font-size: 52px;
   letter-spacing: 3px;
   color: var(--yellow);
-  line-height: 1;
+  line-height: 1.1;
   margin-bottom: 8px;
+  word-break: break-word;
+}
+.va-name-text {
+  line-height: inherit;
 }
 .va-status-row {
   display: flex;
@@ -1998,6 +2039,18 @@ watch(() => route.params.userId, (newId) => {
     align-items: center;
     text-align: center;
     padding: 20px 16px 24px;
+  }
+
+  .va-name {
+    text-align: center;
+  }
+
+  .va-name {
+    justify-content: center;
+  }
+
+  .va-rating-row {
+    margin-left: 10px;
   }
 
   .va-ava-wrap {

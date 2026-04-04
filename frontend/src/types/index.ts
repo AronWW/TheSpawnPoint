@@ -26,6 +26,7 @@ export interface PartyMember {
   avatarUrl: string | null
   isCreator: boolean
   joinedAt: string
+  rating: number | null
 }
 
 export interface Party {
@@ -52,6 +53,7 @@ export interface Party {
   members: PartyMember[] | null
   chatId: number | null
   createdAt: string
+  creatorRating: number | null
 }
 
 export interface CreatePartyRequest {
@@ -128,6 +130,7 @@ export interface Friend {
   status: string
   lastSeen: string | null
   friendsSince: string
+  rating: number | null
 }
 
 export interface FriendRequest {
@@ -167,6 +170,8 @@ export interface Profile {
   lastSeen: string | null
   createdAt: string
   privacy?: PrivacySettings | null
+  rating?: number | null
+  ratingCount?: number | null
 }
 
 export type VisibilityLevel = 'ALL' | 'FRIENDS' | 'NOBODY'
@@ -459,6 +464,7 @@ export interface RecentTeammate {
   displayName: string
   avatarUrl: string | null
   gamesPlayedTogether: number
+  rating: number | null
 }
 
 export interface PlayAgainData {
@@ -504,3 +510,18 @@ export interface SavePartyPresetRequest {
   region: string | null
 }
 
+export interface IndividualRating {
+  userId: number
+  score: number
+}
+
+export interface SubmitRatingsRequest {
+  partyId: number
+  ratings: IndividualRating[]
+}
+
+export interface UserRating {
+  rating: number | null
+  ratingCount: number
+  ratingVisible: boolean
+}

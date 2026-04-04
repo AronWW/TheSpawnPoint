@@ -8,6 +8,7 @@ import { useBlockStore } from '../stores/block'
 import { timeAgo } from '../utils/helpers'
 import { PUBLIC_BASE_URL } from '../config'
 import api from '../api/axios'
+import PlayerRatingBadge from '../components/PlayerRatingBadge.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -191,7 +192,10 @@ async function openDm(email: string) {
               <span class="status-dot" :class="statusClass(friend.status)"></span>
             </router-link>
             <div class="friend-info">
-              <router-link :to="'/profile/' + friend.userId" class="friend-name">{{ friend.displayName }}</router-link>
+              <div class="friend-name-row">
+                <router-link :to="'/profile/' + friend.userId" class="friend-name">{{ friend.displayName }}</router-link>
+                <PlayerRatingBadge :rating="friend.rating" size="sm" />
+              </div>
               <div class="friend-status">{{ statusLabel(friend.status) }}</div>
               <div class="friend-since">Друзі з {{ timeAgo(friend.friendsSince) }}</div>
             </div>
@@ -503,6 +507,12 @@ async function openDm(email: string) {
 .friend-info {
   flex: 1;
   min-width: 0;
+}
+
+.friend-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .friend-name {

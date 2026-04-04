@@ -285,7 +285,29 @@ img { display: block; }
 }
 .notif-header-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+.notif-sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0 !important;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.notif-sound-toggle:hover {
+  background: rgba(245, 197, 24, 0.08);
+}
+.notif-sound-toggle.off {
+  color: var(--gray) !important;
+  opacity: 0.5;
+}
+.notif-sound-toggle.off:hover {
+  opacity: 0.8;
+  color: var(--yellow) !important;
 }
 .notif-panel-header button {
   background: none;
@@ -953,6 +975,9 @@ img { display: block; }
   color: var(--gray);
   letter-spacing: 1px;
   margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .party-host span { color: var(--gray-light); }
 

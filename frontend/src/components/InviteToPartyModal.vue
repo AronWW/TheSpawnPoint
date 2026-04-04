@@ -4,6 +4,7 @@ import { useFriendStore } from '../stores/friends'
 import { usePartyStore } from '../stores/parties'
 import api from '../api/axios'
 import { PUBLIC_BASE_URL } from '../config'
+import PlayerRatingBadge from './PlayerRatingBadge.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -200,6 +201,7 @@ watch(() => props.visible, (v) => {
               <img :src="resolveAvatar(friend.avatarUrl)" class="user-avatar" :alt="friend.displayName" />
               <div class="user-info">
                 <span class="user-name">{{ friend.displayName }}</span>
+                <PlayerRatingBadge :rating="friend.rating" size="sm" />
                 <span class="user-status" :class="friend.status.toLowerCase()">
                   {{ friend.status === 'ONLINE' ? 'Онлайн' : 'Офлайн' }}
                 </span>
