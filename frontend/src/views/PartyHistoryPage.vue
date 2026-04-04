@@ -539,6 +539,9 @@ onMounted(async () => {
   font-style: italic;
   border-left: 2px solid var(--border);
   padding-left: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hc-tags {
   display: flex;

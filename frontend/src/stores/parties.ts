@@ -22,6 +22,9 @@ export const usePartyStore = defineStore('parties', () => {
   const filterGameId = ref<number | null>(null)
   const filterPlatform = ref('')
   const filterSkillLevel = ref('')
+  const filterPlayStyle = ref('')
+  const filterLanguage = ref('')
+  const filterRegion = ref('')
   const sortBy = ref<SortOption>('newest')
 
   const searchParties = ref<Party[]>([])
@@ -38,6 +41,9 @@ export const usePartyStore = defineStore('parties', () => {
       if (filterGameId.value) params.gameId = filterGameId.value
       if (filterPlatform.value) params.platform = filterPlatform.value
       if (filterSkillLevel.value) params.skillLevel = filterSkillLevel.value
+      if (filterPlayStyle.value) params.playStyle = filterPlayStyle.value
+      if (filterLanguage.value) params.language = filterLanguage.value
+      if (filterRegion.value) params.region = filterRegion.value
 
       const { data } = await api.get<Page<Party>>('/parties', { params })
       parties.value = data.content
@@ -163,6 +169,9 @@ export const usePartyStore = defineStore('parties', () => {
     filterGameId.value = null
     filterPlatform.value = ''
     filterSkillLevel.value = ''
+    filterPlayStyle.value = ''
+    filterLanguage.value = ''
+    filterRegion.value = ''
     sortBy.value = 'newest'
   }
 
@@ -174,6 +183,9 @@ export const usePartyStore = defineStore('parties', () => {
       if (filterGameId.value) params.gameId = filterGameId.value
       if (filterPlatform.value) params.platform = filterPlatform.value
       if (filterSkillLevel.value) params.skillLevel = filterSkillLevel.value
+      if (filterPlayStyle.value) params.playStyle = filterPlayStyle.value
+      if (filterLanguage.value) params.language = filterLanguage.value
+      if (filterRegion.value) params.region = filterRegion.value
 
       const { data } = await api.get<Page<Party>>('/parties/search', { params })
       searchParties.value = data.content
@@ -350,6 +362,9 @@ export const usePartyStore = defineStore('parties', () => {
     filterGameId,
     filterPlatform,
     filterSkillLevel,
+    filterPlayStyle,
+    filterLanguage,
+    filterRegion,
     sortBy,
     filteredParties,
     fetchParties,

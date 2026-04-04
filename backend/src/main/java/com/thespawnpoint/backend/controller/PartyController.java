@@ -81,11 +81,13 @@ public class PartyController {
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) String skillLevel,
             @RequestParam(required = false) String playStyle,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String region,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "8") int size,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
-                gameId, platform, skillLevel, playStyle, null,
+                gameId, platform, skillLevel, playStyle, language, region, null,
                 PageRequest.of(page, size), user));
     }
 
@@ -100,12 +102,14 @@ public class PartyController {
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) String skillLevel,
             @RequestParam(required = false) String playStyle,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String region,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "8") int size,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
-                gameId, platform, skillLevel, playStyle, q,
+                gameId, platform, skillLevel, playStyle, language, region, q,
                 PageRequest.of(page, size), user));
     }
 

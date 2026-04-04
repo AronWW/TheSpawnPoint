@@ -53,6 +53,8 @@ public interface PartyRequestRepository extends JpaRepository<PartyRequest, Long
               AND (:skillLevel IS NULL OR pr.skill_level = :skillLevel)
               AND (:playStyle  IS NULL OR pr.play_style  = :playStyle)
               AND (:platform   IS NULL OR :platform = ANY(pr.platform))
+              AND (:language   IS NULL OR :language = ANY(pr.languages))
+              AND (:region     IS NULL OR pr.region = :region)
               AND (:q          IS NULL OR LOWER(g.name) LIKE LOWER(CONCAT('%', :q, '%'))
                                        OR LOWER(COALESCE(pr.description, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                                        OR LOWER(COALESCE(pr.title, '')) LIKE LOWER(CONCAT('%', :q, '%')))
@@ -66,6 +68,8 @@ public interface PartyRequestRepository extends JpaRepository<PartyRequest, Long
               AND (:skillLevel IS NULL OR pr.skill_level = :skillLevel)
               AND (:playStyle  IS NULL OR pr.play_style  = :playStyle)
               AND (:platform   IS NULL OR :platform = ANY(pr.platform))
+              AND (:language   IS NULL OR :language = ANY(pr.languages))
+              AND (:region     IS NULL OR pr.region = :region)
               AND (:q          IS NULL OR LOWER(g.name) LIKE LOWER(CONCAT('%', :q, '%'))
                                        OR LOWER(COALESCE(pr.description, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                                        OR LOWER(COALESCE(pr.title, '')) LIKE LOWER(CONCAT('%', :q, '%')))
@@ -76,6 +80,8 @@ public interface PartyRequestRepository extends JpaRepository<PartyRequest, Long
             @Param("skillLevel") String skillLevel,
             @Param("playStyle")  String playStyle,
             @Param("platform")   String platform,
+            @Param("language")   String language,
+            @Param("region")     String region,
             @Param("q")          String q,
             Pageable pageable
     );

@@ -4,11 +4,11 @@ import { useAchievementStore } from '../stores/achievements'
 import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
 
 const ROOM_OF_REQUIREMENT_CODE = 'ROOM_OF_REQUIREMENT'
-const EXPECTATION_SUBVERTED_CODE = 'NOT_WHAT_YOU_EXPECTED'
 const RICKROLL_URL = 'https://youtu.be/eBGIQ7ZuuiU?si=75MTowZvkXQfVzLv'
+const RICKROLL_PENDING_KEY = 'tsp_rickroll_pending'
 const SUMMON_TRIGGER_CLICKS = 9
 const SUMMON_DURATION_MS = 5200
-const OPENING_DURATION_MS = 4200
+const OPENING_DURATION_MS = 5400
 
 const emit = defineEmits<{
   (e: 'scene-lock'): void
@@ -37,6 +37,16 @@ const particleSeed = Array.from({ length: 26 }, (_, index) => {
     },
   }
 })
+
+const lightRays = Array.from({ length: 12 }, (_, i) => ({
+  id: i,
+  style: {
+    '--ray-angle': `${(i / 12) * 360}deg`,
+    '--ray-delay': `${i * 0.08}s`,
+    '--ray-length': `${60 + (i % 3) * 25}%`,
+    '--ray-opacity': `${0.15 + (i % 4) * 0.06}`,
+  },
+}))
 
 const sceneActive = computed(() => stage.value !== 'idle')
 const doorVisible = computed(() => stage.value !== 'idle')
@@ -100,7 +110,11 @@ function handleDoorClick() {
   if (!doorInteractive.value) return
 
   stage.value = 'opening'
-  void claimSecretOnce(EXPECTATION_SUBVERTED_CODE)
+
+  try {
+    localStorage.setItem(RICKROLL_PENDING_KEY, Date.now().toString())
+  } catch {  }
+
   schedule(() => {
     window.location.href = RICKROLL_URL
   }, OPENING_DURATION_MS)
@@ -150,6 +164,15 @@ onBeforeUnmount(() => {
             :tabindex="doorInteractive ? 0 : -1"
             @click.stop="handleDoorClick"
           >
+            <span v-if="isOpening" class="light-rays-container" aria-hidden="true">
+              <span
+                v-for="ray in lightRays"
+                :key="ray.id"
+                class="light-ray"
+                :style="ray.style"
+              ></span>
+            </span>
+
             <svg class="door-illustration" viewBox="0 0 260 410" aria-hidden="true">
               <defs>
                 <linearGradient id="roomSpellStroke" x1="0" y1="0" x2="0" y2="1">
@@ -172,9 +195,16 @@ onBeforeUnmount(() => {
                   <stop offset="28%" stop-color="rgba(244,214,135,0.55)" />
                   <stop offset="100%" stop-color="rgba(22,14,7,0.02)" />
                 </linearGradient>
-                <radialGradient id="roomPortalLight" cx="50%" cy="26%" r="64%">
-                  <stop offset="0%" stop-color="#fff6d6" stop-opacity="0.95" />
-                  <stop offset="40%" stop-color="#f5d68d" stop-opacity="0.42" />
+                <radialGradient id="roomPortalLight" cx="50%" cy="50%" r="56%">
+                  <stop offset="0%" stop-color="#fffae8" stop-opacity="0.98" />
+                  <stop offset="22%" stop-color="#fff6d6" stop-opacity="0.82" />
+                  <stop offset="48%" stop-color="#f5d68d" stop-opacity="0.38" />
+                  <stop offset="100%" stop-color="#0d0905" stop-opacity="0" />
+                </radialGradient>
+                <radialGradient id="roomPortalLightOpen" cx="50%" cy="50%" r="52%">
+                  <stop offset="0%" stop-color="#fffdf5" stop-opacity="1" />
+                  <stop offset="30%" stop-color="#fff5d0" stop-opacity="0.92" />
+                  <stop offset="60%" stop-color="#f5d277" stop-opacity="0.55" />
                   <stop offset="100%" stop-color="#0d0905" stop-opacity="0" />
                 </radialGradient>
                 <filter id="roomSoftGlow" x="-80%" y="-80%" width="260%" height="260%">
@@ -182,6 +212,9 @@ onBeforeUnmount(() => {
                 </filter>
                 <filter id="roomHeavyGlow" x="-120%" y="-120%" width="340%" height="340%">
                   <feGaussianBlur stdDeviation="16" />
+                </filter>
+                <filter id="roomIntenseGlow" x="-160%" y="-160%" width="420%" height="420%">
+                  <feGaussianBlur stdDeviation="24" />
                 </filter>
               </defs>
 
@@ -205,6 +238,9 @@ onBeforeUnmount(() => {
               <g class="door-built">
                 <path class="frame-outer" d="M62 357V126c0-46 27-78 68-78s68 32 68 78v231H62z" />
                 <path class="frame-inner" d="M78 345V136c0-34 20-58 52-58s52 24 52 58v209H78z" />
+
+                <ellipse class="inner-glow-bloom" cx="130" cy="210" rx="40" ry="85" />
+
                 <path class="inner-light" d="M86 337V141c0-29 17-49 44-49s44 20 44 49v196H86z" />
                 <g class="door-leaf-group">
                   <path class="door-leaf" d="M87 338V142c0-28 17-48 43-48s43 20 43 48v196H87z" />
@@ -213,15 +249,21 @@ onBeforeUnmount(() => {
                   <path class="door-panel panel-mid" d="M101 219h58v50h-58z" />
                   <path class="door-panel panel-low" d="M101 289h58v38h-58z" />
                   <circle class="door-knob" cx="156" cy="228" r="6.3" />
+                  <circle class="door-knob-highlight" cx="154" cy="226" r="2.8" />
                 </g>
               </g>
             </svg>
           </button>
+
+          <div class="door-hint-text" :class="{ 'hint-visible': stage === 'formed' }">Наважешся відкрити ?</div>
         </div>
       </Transition>
 
       <Transition name="screen-fade">
-        <div v-if="isOpening" class="screen-eclipse" aria-hidden="true"></div>
+        <div v-if="isOpening" class="screen-eclipse" aria-hidden="true">
+          <div class="eclipse-vignette"></div>
+          <div class="eclipse-center-light"></div>
+        </div>
       </Transition>
     </div>
   </div>
@@ -348,6 +390,12 @@ onBeforeUnmount(() => {
 }
 
 .magic-particle {
+  --size: 6px;
+  --duration: 4.5s;
+  --delay: 0s;
+  --orbit-x: 0px;
+  --orbit-y: 0px;
+  --drift: 18px;
   width: var(--size);
   height: var(--size);
   margin-left: calc(var(--size) / -2);
@@ -360,10 +408,13 @@ onBeforeUnmount(() => {
   animation: particle-orbit var(--duration) ease-in-out var(--delay) infinite;
 }
 
+/* ──── Door Stage ──── */
+
 .door-stage {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   pointer-events: none;
 }
 
@@ -390,18 +441,78 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
+.door-shell.formed:hover {
+  filter: drop-shadow(0 30px 38px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 40px rgba(248, 214, 129, 0.12));
+}
+
 .door-shell.summoning,
 .door-shell.formed,
 .door-shell.opening {
   opacity: 1;
   transform: translateY(0) scale(1);
-  transition: opacity 0.8s ease, transform 1.2s cubic-bezier(0.17, 0.86, 0.22, 1);
+  transition: opacity 0.8s ease, transform 1.2s cubic-bezier(0.17, 0.86, 0.22, 1), filter 0.3s ease;
 }
 
 .door-illustration {
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+
+/* ──── Light Rays (only during opening) ──── */
+
+.light-rays-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.light-ray {
+  --ray-length: 60%;
+  --ray-angle: 0deg;
+  --ray-delay: 0s;
+  --ray-opacity: 0.15;
+  position: absolute;
+  display: block;
+  width: 3px;
+  height: var(--ray-length);
+  background: linear-gradient(
+    to top,
+    rgba(255, 248, 220, 0) 0%,
+    rgba(255, 243, 190, 0.35) 30%,
+    rgba(255, 248, 220, 0.05) 100%
+  );
+  transform-origin: bottom center;
+  transform: rotate(var(--ray-angle));
+  opacity: 0;
+  filter: blur(2px);
+  animation: ray-expand 3s ease-out var(--ray-delay) forwards;
+}
+
+.door-hint-text {
+  position: absolute;
+  top: calc(50% + 200px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display), sans-serif;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: rgba(248, 214, 129, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease;
+  filter: blur(6px);
+}
+
+.door-hint-text.hint-visible {
+  opacity: 1;
+  filter: blur(0);
+  animation: hint-materialize 1s ease forwards, hint-pulse 2.8s ease-in-out 1s infinite;
 }
 
 .door-shadow {
@@ -472,10 +583,12 @@ onBeforeUnmount(() => {
 .frame-outer,
 .frame-inner,
 .inner-light,
+.inner-glow-bloom,
 .door-leaf,
 .door-leaf-sheen,
 .door-panel,
-.door-knob {
+.door-knob,
+.door-knob-highlight {
   opacity: 0;
 }
 
@@ -491,6 +604,11 @@ onBeforeUnmount(() => {
   stroke-width: 1.1;
 }
 
+.inner-glow-bloom {
+  fill: rgba(255, 248, 220, 0.06);
+  filter: url(#roomIntenseGlow);
+}
+
 .inner-light {
   fill: url(#roomPortalLight);
   filter: url(#roomSoftGlow);
@@ -501,13 +619,13 @@ onBeforeUnmount(() => {
   stroke: rgba(216, 170, 100, 0.26);
   stroke-width: 1.3;
   transform-box: fill-box;
-  transform-origin: 0% 50%;
+  transform-origin: 0 50%;
 }
 
 .door-leaf-sheen {
   fill: rgba(255, 243, 212, 0.08);
   transform-box: fill-box;
-  transform-origin: 0% 50%;
+  transform-origin: 0 50%;
 }
 
 .door-panel {
@@ -523,6 +641,12 @@ onBeforeUnmount(() => {
   filter: url(#roomSoftGlow);
   transform-origin: 156px 228px;
 }
+
+.door-knob-highlight {
+  fill: rgba(255, 248, 220, 0.45);
+}
+
+/* ──── Summoning / Formed / Opening shared materialize triggers ──── */
 
 .door-shell.summoning .door-shadow,
 .door-shell.formed .door-shadow,
@@ -540,6 +664,12 @@ onBeforeUnmount(() => {
 .door-shell.formed .frame-inner,
 .door-shell.opening .frame-inner {
   animation: materialize-fill 1.2s cubic-bezier(0.19, 0.85, 0.21, 1) 2.78s forwards;
+}
+
+.door-shell.summoning .inner-glow-bloom,
+.door-shell.formed .inner-glow-bloom,
+.door-shell.opening .inner-glow-bloom {
+  animation: inner-bloom-arrive 1.8s ease 3s forwards;
 }
 
 .door-shell.summoning .inner-light,
@@ -584,10 +714,30 @@ onBeforeUnmount(() => {
   animation: knob-arrive 0.55s ease-out 4.55s forwards;
 }
 
+.door-shell.summoning .door-knob-highlight,
+.door-shell.formed .door-knob-highlight,
+.door-shell.opening .door-knob-highlight {
+  animation: knob-arrive 0.5s ease-out 4.7s forwards;
+}
+
+/* ──── Formed state: idle glow ──── */
+
 .door-shell.formed .inner-light {
   opacity: 0.72;
   animation: portal-idle 4.6s ease-in-out infinite;
 }
+
+.door-shell.formed .inner-glow-bloom {
+  opacity: 0.35;
+  animation: bloom-idle 5.2s ease-in-out infinite;
+}
+
+.door-shell.formed .door-knob {
+  opacity: 1;
+  animation: knob-idle 2.4s ease-in-out infinite;
+}
+
+/* ──── Opening state: dramatic reveal ──── */
 
 .door-shell.opening .spell-aura-wide,
 .door-shell.opening .spell-aura-tight {
@@ -596,25 +746,71 @@ onBeforeUnmount(() => {
 
 .door-shell.opening .inner-light {
   opacity: 1;
-  animation: portal-open 2s ease forwards;
+  animation: portal-open 2.8s ease forwards;
+}
+
+.door-shell.opening .inner-glow-bloom {
+  opacity: 1;
+  animation: bloom-open 2.8s ease forwards;
 }
 
 .door-leaf-group {
   transform-box: fill-box;
-  transform-origin: 0% 50%;
+  transform-origin: 0 50%;
 }
 
 .door-shell.opening .door-leaf-group {
-  animation: door-open 2.2s cubic-bezier(0.18, 0.82, 0.14, 1) forwards;
+  animation: door-swing-open 3.2s cubic-bezier(0.12, 0.72, 0.08, 1) 0.3s forwards;
 }
+
+.door-shell.opening .door-knob {
+  opacity: 1;
+  animation: knob-turn 0.6s ease-in-out forwards;
+}
+
+/* ──── Screen eclipse (whiteout on open) ──── */
 
 .screen-eclipse {
   z-index: 5;
-  background:
-    radial-gradient(circle at center, rgba(10, 7, 5, 0.02) 0%, rgba(8, 6, 4, 0.1) 14%, rgba(6, 5, 4, 0.58) 52%, rgba(0, 0, 0, 0.97) 100%);
-  animation: eclipse-rise 3.2s ease forwards;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.eclipse-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 250, 235, 0) 0%,
+    rgba(10, 7, 5, 0.03) 20%,
+    rgba(6, 5, 4, 0.45) 50%,
+    rgba(0, 0, 0, 0.97) 100%
+  );
+  animation: eclipse-vignette-rise 4.2s ease forwards;
+}
+
+.eclipse-center-light {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 240px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 250, 235, 0.85) 0%,
+    rgba(248, 230, 170, 0.4) 35%,
+    rgba(248, 214, 129, 0.1) 65%,
+    transparent 100%
+  );
+  filter: blur(30px);
+  animation: eclipse-center-bloom 3.8s ease forwards;
+}
+
+/* ──── Transitions ──── */
+
+/* noinspection CssUnusedSymbol */
 .veil-fade-enter-active,
 .veil-fade-leave-active,
 .door-fade-enter-active,
@@ -624,6 +820,7 @@ onBeforeUnmount(() => {
   transition: opacity 0.5s ease;
 }
 
+/* noinspection CssUnusedSymbol */
 .veil-fade-enter-from,
 .veil-fade-leave-to,
 .door-fade-enter-from,
@@ -632,6 +829,8 @@ onBeforeUnmount(() => {
 .screen-fade-leave-to {
   opacity: 0;
 }
+
+/* ════════════════════ KEYFRAMES ════════════════════ */
 
 @keyframes haze-breathe {
   0%, 100% { transform: translate(-50%, -50%) scale(0.96); opacity: 0.64; }
@@ -718,26 +917,115 @@ onBeforeUnmount(() => {
   100% { opacity: 0.55; filter: brightness(1) blur(0); }
 }
 
+@keyframes inner-bloom-arrive {
+  0% { opacity: 0; }
+  100% { opacity: 0.3; }
+}
+
 @keyframes portal-idle {
   0%, 100% { transform: scale(1); filter: brightness(1); opacity: 0.62; }
   50% { transform: scale(1.03); filter: brightness(1.16); opacity: 0.86; }
 }
 
+@keyframes bloom-idle {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.06); }
+}
+
+@keyframes knob-idle {
+  0%, 100% { filter: url(#roomSoftGlow) brightness(1); }
+  50% { filter: url(#roomSoftGlow) brightness(1.3); }
+}
+
+@keyframes hint-materialize {
+  0% { opacity: 0; filter: blur(8px); transform: translateX(-50%) translateY(10px) scale(0.85); letter-spacing: 12px; }
+  40% { filter: blur(2px); }
+  100% { opacity: 1; filter: blur(0); transform: translateX(-50%) translateY(0) scale(1); letter-spacing: 4px; }
+}
+
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) translateY(0); }
+  50% { opacity: 0.9; transform: translateX(-50%) translateY(-2px); }
+}
+
+/* ──── Opening keyframes ──── */
+
 @keyframes portal-open {
   0% { opacity: 0.75; transform: scale(1); filter: blur(0) brightness(1); }
-  40% { opacity: 1; }
-  100% { opacity: 1; transform: scale(1.18); filter: blur(3px) brightness(1.45); }
+  30% { opacity: 1; filter: blur(0) brightness(1.3); }
+  60% { filter: blur(2px) brightness(1.6); }
+  100% { opacity: 1; transform: scale(1.25); filter: blur(6px) brightness(2); }
 }
 
-@keyframes door-open {
-  0% { opacity: 1; transform: perspective(900px) rotateY(0deg); }
-  70% { opacity: 0.96; }
-  100% { opacity: 0.84; transform: perspective(900px) rotateY(-105deg); }
+@keyframes bloom-open {
+  0% { opacity: 0.3; transform: scale(1); filter: url(#roomIntenseGlow); }
+  40% { opacity: 0.7; }
+  100% { opacity: 1; transform: scale(1.5); filter: url(#roomIntenseGlow) brightness(1.8); }
 }
 
-@keyframes eclipse-rise {
+@keyframes door-swing-open {
+  0% {
+    transform: perspective(1200px) rotateY(0deg);
+    opacity: 1;
+  }
+  8% {
+    transform: perspective(1200px) rotateY(2deg);
+  }
+  18% {
+    transform: perspective(1200px) rotateY(-8deg);
+  }
+  40% {
+    transform: perspective(1200px) rotateY(-45deg);
+    opacity: 1;
+  }
+  70% {
+    transform: perspective(1200px) rotateY(-82deg);
+    opacity: 0.92;
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: perspective(1200px) rotateY(-95deg);
+    opacity: 0.4;
+  }
+}
+
+@keyframes knob-turn {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(-35deg); }
+  100% { transform: rotate(-35deg); }
+}
+
+@keyframes ray-expand {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--ray-angle)) scaleY(0);
+  }
+  20% {
+    opacity: var(--ray-opacity);
+  }
+  60% {
+    opacity: var(--ray-opacity);
+    transform: rotate(var(--ray-angle)) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--ray-angle)) scaleY(1.3);
+  }
+}
+
+@keyframes eclipse-vignette-rise {
   0% { opacity: 0; }
-  35% { opacity: 0.12; }
+  25% { opacity: 0.08; }
+  60% { opacity: 0.5; }
   100% { opacity: 1; }
+}
+
+@keyframes eclipse-center-bloom {
+  0% { opacity: 0; transform: scale(0.3); }
+  30% { opacity: 0.6; transform: scale(0.8); }
+  60% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(3); filter: blur(60px); }
 }
 </style>

@@ -40,6 +40,9 @@ watch(
       () => partyStore.filterGameId,
       () => partyStore.filterPlatform,
       () => partyStore.filterSkillLevel,
+      () => partyStore.filterPlayStyle,
+      () => partyStore.filterLanguage,
+      () => partyStore.filterRegion,
     ],
     () => {
       partyStore.fetchSearchParties(0)
@@ -113,6 +116,57 @@ watch(
           <option value="XBOX">Xbox</option>
           <option value="NINTENDO">Nintendo</option>
           <option value="MOBILE">Mobile</option>
+        </select>
+
+        <select class="filter-select" v-model="partyStore.filterPlayStyle">
+          <option value="">Будь-який стиль</option>
+          <option value="CASUAL">Казуальний</option>
+          <option value="SEMI_COMPETITIVE">Напів-змагальний</option>
+          <option value="COMPETITIVE">Змагальний</option>
+        </select>
+
+        <select class="filter-select" v-model="partyStore.filterRegion">
+          <option value="">Всі регіони</option>
+          <option value="EUROPE">Європа</option>
+          <option value="NORTH_AMERICA">Пн. Америка</option>
+          <option value="SOUTH_AMERICA">Пд. Америка</option>
+          <option value="ASIA">Азія</option>
+          <option value="MIDDLE_EAST">Близький Схід</option>
+          <option value="AFRICA">Африка</option>
+          <option value="OCEANIA">Океанія</option>
+        </select>
+
+        <select class="filter-select" v-model="partyStore.filterLanguage">
+          <option value="">Всі мови</option>
+          <option value="UA">Українська</option>
+          <option value="EN">English</option>
+          <option value="PL">Polski</option>
+          <option value="DE">Deutsch</option>
+          <option value="FR">Français</option>
+          <option value="ES">Español</option>
+          <option value="PT">Português</option>
+          <option value="TR">Türkçe</option>
+          <option value="KO">한국어</option>
+          <option value="ZH">中文</option>
+          <option value="JA">日本語</option>
+          <option value="IT">Italiano</option>
+          <option value="NL">Nederlands</option>
+          <option value="SV">Svenska</option>
+          <option value="NO">Norsk</option>
+          <option value="DA">Dansk</option>
+          <option value="FI">Suomi</option>
+          <option value="CS">Čeština</option>
+          <option value="SK">Slovenčina</option>
+          <option value="HU">Magyar</option>
+          <option value="RO">Română</option>
+          <option value="BG">Български</option>
+          <option value="HR">Hrvatski</option>
+          <option value="SR">Srpski</option>
+          <option value="AR">العربية</option>
+          <option value="HI">हिन्दी</option>
+          <option value="VI">Tiếng Việt</option>
+          <option value="TH">ภาษาไทย</option>
+          <option value="ID">Bahasa Indonesia</option>
         </select>
       </div>
 

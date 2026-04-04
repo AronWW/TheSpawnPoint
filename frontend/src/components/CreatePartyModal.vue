@@ -6,6 +6,7 @@ import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
 import { usePresetStore } from '../stores/presets'
 import { useToast } from '../composables/useToast'
+import { PUBLIC_BASE_URL } from '../config'
 import SuggestGameModal from './SuggestGameModal.vue'
 import type { CreatePartyRequest } from '../types'
 
@@ -250,6 +251,12 @@ function historyStatusLabel(status: string): string {
     IN_GAME: 'В грі',
   }
   return map[status] ?? status
+}
+
+function resolveAvatar(url: string | null): string {
+  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
+  if (url.startsWith('http')) return url
+  return PUBLIC_BASE_URL + url
 }
 
 async function submit() {
@@ -520,7 +527,7 @@ function close() {
                   <img
                     v-for="m in hp.members.slice(0, 4)"
                     :key="m.userId"
-                    :src="m.avatarUrl ? (m.avatarUrl.startsWith('http') ? m.avatarUrl : m.avatarUrl) : '/avatars/default/avatar-1.png'"
+                    :src="resolveAvatar(m.avatarUrl)"
                     class="hm-avatar"
                   />
                   <span v-if="(hp.members?.length ?? 0) > 4" class="hm-more">+{{ (hp.members?.length ?? 0) - 4 }}</span>

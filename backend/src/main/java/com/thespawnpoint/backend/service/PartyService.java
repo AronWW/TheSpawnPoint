@@ -406,19 +406,23 @@ public class PartyService {
 
     public Page<PartyRequestDTO> getOpenPartiesPaged(Long gameId, String platform,
                                                      String skillLevel, String playStyle,
+                                                     String language, String region,
                                                      String q, Pageable pageable) {
-        return getOpenPartiesPaged(gameId, platform, skillLevel, playStyle, q, pageable, null);
+        return getOpenPartiesPaged(gameId, platform, skillLevel, playStyle, language, region, q, pageable, null);
     }
 
     public Page<PartyRequestDTO> getOpenPartiesPaged(Long gameId, String platform,
                                                      String skillLevel, String playStyle,
+                                                     String language, String region,
                                                      String q, Pageable pageable, User currentUser) {
 
         String platformParam = (platform != null && !platform.isBlank()) ? platform : null;
+        String languageParam = (language != null && !language.isBlank()) ? language : null;
+        String regionParam = (region != null && !region.isBlank()) ? region : null;
         String qParam = (q != null && !q.isBlank()) ? q.trim() : null;
 
         Page<PartyRequest> page = partyRequestRepository.findOpenWithFiltersPaged(
-                gameId, skillLevel, playStyle, platformParam, qParam, pageable
+                gameId, skillLevel, playStyle, platformParam, languageParam, regionParam, qParam, pageable
         );
 
         List<Long> blockedIds = (currentUser != null)

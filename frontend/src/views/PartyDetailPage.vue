@@ -30,7 +30,6 @@ const actionLoading = ref(false)
 const actionError = ref('')
 const showInviteModal = ref(false)
 const showSwitchConfirm = ref(false)
-const descExpanded = ref(false)
 
 let unsubParty: (() => void) | null = null
 
@@ -205,6 +204,11 @@ function cancelSwitch() {
 
 async function handleLeave() {
   if (!party.value) return
+
+  if (!isActive.value) {
+    await router.push('/search-parties')
+    return
+  }
 
   actionLoading.value = true
   actionError.value = ''
@@ -403,18 +407,7 @@ watch(
             </div>
 
             <div v-if="party.description" class="party-description-wrap">
-              <p class="party-description" :class="{ collapsed: !descExpanded && party.description.length > 120 }">
-                {{ descExpanded || party.description.length <= 120 ? party.description : party.description.slice(0, 120) + '...' }}
-              </p>
-              <button
-                v-if="party.description.length > 120"
-                class="desc-toggle"
-                @click="descExpanded = !descExpanded"
-              >
-                <svg v-if="!descExpanded" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-                {{ descExpanded ? 'Згорнути' : 'Розгорнути' }}
-              </button>
+              <p class="party-description">{{ party.description }}</p>
             </div>
 
             <div class="party-tags">
@@ -626,7 +619,7 @@ watch(
         </Transition>
 
         <button
-            v-if="isCreator"
+            v-if="isCreator && isActive"
             type="button"
             class="action-btn action-btn--danger action-btn--floating-close"
             :disabled="actionLoading"
@@ -804,36 +797,20 @@ watch(
   border: 1px solid var(--yellow-dim);
 }
 
-.party-description {
-  margin: 0;
-  color: var(--gray-light);
-  font-size: 15px;
-  line-height: 1.55;
-  max-width: 80ch;
-}
-
 .party-description-wrap {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.desc-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: var(--yellow-dim);
-  font-size: 12px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.15s;
-  align-self: flex-start;
-}
-.desc-toggle:hover {
-  color: var(--yellow);
+.party-description {
+  margin: 0;
+  color: var(--gray-light);
+  font-size: 15px;
+  line-height: 1.55;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .switch-overlay {

@@ -113,6 +113,8 @@ export interface PartyFilters {
   platform: string
   skillLevel: string
   playStyle: string
+  language: string
+  region: string
   search: string
 }
 
