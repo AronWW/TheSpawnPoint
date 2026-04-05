@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <div v-else class="game-screen" ref="gameScreenRef">
+    <div v-else class="game-screen">
       <div class="game-header">
         <button class="back-btn" @click="stopGame">← Назад</button>
         <span class="game-title">DOOM Shareware (Powered by js-dos)</span>
@@ -79,7 +79,6 @@ const alreadyCompleted = ref(false)
 
 const iframeRef        = ref<HTMLIFrameElement | null>(null)
 const iframeWrapperRef = ref<HTMLElement | null>(null)
-const gameScreenRef    = ref<HTMLElement | null>(null)
 const isFullscreen     = ref(false)
 const showFocusHint    = ref(true)
 
