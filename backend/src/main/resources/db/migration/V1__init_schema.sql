@@ -1,26 +1,50 @@
--- ============================================================
--- V1 — Full consolidated schema for TheSpawnPoint (production)
--- ============================================================
 
--- ------------------------------------------------------------
--- ENUM types
--- ------------------------------------------------------------
-CREATE TYPE invite_status        AS ENUM ('PENDING', 'ACCEPTED', 'DECLINED');
-CREATE TYPE suggestion_status    AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
-CREATE TYPE report_reason        AS ENUM ('TOXIC_BEHAVIOR', 'CHEATING', 'SPAM', 'HARASSMENT', 'INAPPROPRIATE_CONTENT', 'OTHER');
-CREATE TYPE report_status        AS ENUM ('OPEN', 'REVIEWED', 'DISMISSED');
-CREATE TYPE ticket_status        AS ENUM ('OPEN', 'IN_PROGRESS', 'CLOSED');
-CREATE TYPE unban_request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
-CREATE TYPE notification_type    AS ENUM (
-    'FRIEND_REQUEST', 'PARTY_INVITE', 'MESSAGE', 'SYSTEM',
-    'GAME_SUGGESTION_APPROVED', 'GAME_SUGGESTION_REJECTED',
-    'REPORT_REVIEWED', 'SUPPORT_REPLY', 'UNBAN_REQUEST_REVIEWED'
-);
+DO $$ BEGIN
+    CREATE TYPE invite_status AS ENUM ('PENDING', 'ACCEPTED', 'DECLINED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE suggestion_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE report_reason AS ENUM (
+        'TOXIC_BEHAVIOR', 'CHEATING', 'SPAM', 'HARASSMENT',
+        'INAPPROPRIATE_CONTENT', 'OTHER'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE report_status AS ENUM ('OPEN', 'REVIEWED', 'DISMISSED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE ticket_status AS ENUM ('OPEN', 'IN_PROGRESS', 'CLOSED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE unban_request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE notification_type AS ENUM (
+        'FRIEND_REQUEST', 'PARTY_INVITE', 'MESSAGE', 'SYSTEM',
+        'GAME_SUGGESTION_APPROVED', 'GAME_SUGGESTION_REJECTED',
+        'REPORT_REVIEWED', 'SUPPORT_REPLY', 'UNBAN_REQUEST_REVIEWED'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ------------------------------------------------------------
 -- users
 -- ------------------------------------------------------------
-CREATE TABLE users
+CREATE TABLE IF NOT EXISTS users
 (
     id             BIGSERIAL    PRIMARY KEY,
     display_name   VARCHAR(100) NOT NULL,
@@ -39,7 +63,7 @@ CREATE TABLE users
 -- ------------------------------------------------------------
 -- profiles
 -- ------------------------------------------------------------
-CREATE TABLE profiles
+CREATE TABLE IF NOT EXISTS profiles
 (
     user_id          BIGINT       NOT NULL PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     full_name        VARCHAR(100) NOT NULL,
@@ -71,7 +95,7 @@ CREATE TABLE profiles
 -- ------------------------------------------------------------
 -- email_verification_tokens
 -- ------------------------------------------------------------
-CREATE TABLE email_verification_tokens
+CREATE TABLE IF NOT EXISTS email_verification_tokens
 (
     id           BIGSERIAL    PRIMARY KEY,
     user_id      BIGINT       NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -83,7 +107,7 @@ CREATE TABLE email_verification_tokens
 -- ------------------------------------------------------------
 -- password_reset_tokens
 -- ------------------------------------------------------------
-CREATE TABLE password_reset_tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens
 (
     id         BIGSERIAL    PRIMARY KEY,
     token      VARCHAR(255) NOT NULL UNIQUE,
@@ -95,7 +119,7 @@ CREATE TABLE password_reset_tokens
 -- ------------------------------------------------------------
 -- games
 -- ------------------------------------------------------------
-CREATE TABLE games
+CREATE TABLE IF NOT EXISTS games
 (
     id             BIGSERIAL    PRIMARY KEY,
     name           VARCHAR(100) NOT NULL,
@@ -108,7 +132,7 @@ CREATE TABLE games
 -- ------------------------------------------------------------
 -- game_suggestions
 -- ------------------------------------------------------------
-CREATE TABLE game_suggestions
+CREATE TABLE IF NOT EXISTS game_suggestions
 (
     id             BIGSERIAL         PRIMARY KEY,
     suggested_by   BIGINT            NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -126,7 +150,7 @@ CREATE TABLE game_suggestions
 -- ------------------------------------------------------------
 -- user_games
 -- ------------------------------------------------------------
-CREATE TABLE user_games
+CREATE TABLE IF NOT EXISTS user_games
 (
     id       BIGSERIAL   PRIMARY KEY,
     user_id  BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -138,7 +162,7 @@ CREATE TABLE user_games
 -- ------------------------------------------------------------
 -- friendships
 -- ------------------------------------------------------------
-CREATE TABLE friendships
+CREATE TABLE IF NOT EXISTS friendships
 (
     id            BIGSERIAL   PRIMARY KEY,
     user_id1      BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -150,7 +174,7 @@ CREATE TABLE friendships
 -- ------------------------------------------------------------
 -- chats
 -- ------------------------------------------------------------
-CREATE TABLE chats
+CREATE TABLE IF NOT EXISTS chats
 (
     id               BIGSERIAL   PRIMARY KEY,
     title            VARCHAR(100),
@@ -164,7 +188,7 @@ CREATE TABLE chats
 -- ------------------------------------------------------------
 -- chat_participants
 -- ------------------------------------------------------------
-CREATE TABLE chat_participants
+CREATE TABLE IF NOT EXISTS chat_participants
 (
     id         BIGSERIAL   PRIMARY KEY,
     chat_id    BIGINT      NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
@@ -181,7 +205,7 @@ CREATE TABLE chat_participants
 -- ------------------------------------------------------------
 -- messages
 -- ------------------------------------------------------------
-CREATE TABLE messages
+CREATE TABLE IF NOT EXISTS messages
 (
     id          BIGSERIAL   PRIMARY KEY,
     chat_id     BIGINT      NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
@@ -197,14 +221,14 @@ CREATE TABLE messages
     reply_to_id BIGINT      REFERENCES messages (id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_msg_chat   ON messages (chat_id);
-CREATE INDEX idx_msg_sender ON messages (sender_id);
-CREATE INDEX idx_msg_reply  ON messages (reply_to_id);
+CREATE INDEX IF NOT EXISTS idx_msg_chat   ON messages (chat_id);
+CREATE INDEX IF NOT EXISTS idx_msg_sender ON messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_msg_reply  ON messages (reply_to_id);
 
 -- ------------------------------------------------------------
 -- message_reactions
 -- ------------------------------------------------------------
-CREATE TABLE message_reactions
+CREATE TABLE IF NOT EXISTS message_reactions
 (
     id         BIGSERIAL   PRIMARY KEY,
     message_id BIGINT      NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
@@ -214,12 +238,12 @@ CREATE TABLE message_reactions
     UNIQUE (message_id, user_id, emoji)
 );
 
-CREATE INDEX idx_reaction_msg ON message_reactions (message_id);
+CREATE INDEX IF NOT EXISTS idx_reaction_msg ON message_reactions (message_id);
 
 -- ------------------------------------------------------------
 -- pinned_messages
 -- ------------------------------------------------------------
-CREATE TABLE pinned_messages
+CREATE TABLE IF NOT EXISTS pinned_messages
 (
     id         BIGSERIAL   PRIMARY KEY,
     chat_id    BIGINT      NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
@@ -232,7 +256,7 @@ CREATE TABLE pinned_messages
 -- ------------------------------------------------------------
 -- party_requests
 -- ------------------------------------------------------------
-CREATE TABLE party_requests
+CREATE TABLE IF NOT EXISTS party_requests
 (
     id              BIGSERIAL   PRIMARY KEY,
     creator_id      BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -256,12 +280,12 @@ CREATE TABLE party_requests
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_party_requests_status ON party_requests (status);
+CREATE INDEX IF NOT EXISTS idx_party_requests_status ON party_requests (status);
 
 -- ------------------------------------------------------------
 -- party_members
 -- ------------------------------------------------------------
-CREATE TABLE party_members
+CREATE TABLE IF NOT EXISTS party_members
 (
     id               BIGSERIAL   PRIMARY KEY,
     party_request_id BIGINT      NOT NULL REFERENCES party_requests (id) ON DELETE CASCADE,
@@ -273,7 +297,7 @@ CREATE TABLE party_members
 -- ------------------------------------------------------------
 -- invites
 -- ------------------------------------------------------------
-CREATE TABLE invites
+CREATE TABLE IF NOT EXISTS invites
 (
     id               BIGSERIAL     PRIMARY KEY,
     sender_id        BIGINT        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -288,7 +312,7 @@ CREATE TABLE invites
 -- ------------------------------------------------------------
 -- notifications
 -- ------------------------------------------------------------
-CREATE TABLE notifications
+CREATE TABLE IF NOT EXISTS notifications
 (
     id           BIGSERIAL         PRIMARY KEY,
     user_id      BIGINT            NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -302,7 +326,7 @@ CREATE TABLE notifications
 -- ------------------------------------------------------------
 -- user_reports
 -- ------------------------------------------------------------
-CREATE TABLE user_reports
+CREATE TABLE IF NOT EXISTS user_reports
 (
     id               BIGSERIAL     PRIMARY KEY,
     reporter_id      BIGINT        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -315,12 +339,12 @@ CREATE TABLE user_reports
     reviewed_at      TIMESTAMPTZ
 );
 
-CREATE INDEX idx_reports_status ON user_reports (status);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON user_reports (status);
 
 -- ------------------------------------------------------------
 -- support_tickets
 -- ------------------------------------------------------------
-CREATE TABLE support_tickets
+CREATE TABLE IF NOT EXISTS support_tickets
 (
     id         BIGSERIAL     PRIMARY KEY,
     user_id    BIGINT        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -330,12 +354,12 @@ CREATE TABLE support_tickets
     closed_at  TIMESTAMPTZ
 );
 
-CREATE INDEX idx_tickets_status ON support_tickets (status);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets (status);
 
 -- ------------------------------------------------------------
 -- support_messages
 -- ------------------------------------------------------------
-CREATE TABLE support_messages
+CREATE TABLE IF NOT EXISTS support_messages
 (
     id        BIGSERIAL   PRIMARY KEY,
     ticket_id BIGINT      NOT NULL REFERENCES support_tickets (id) ON DELETE CASCADE,
@@ -344,12 +368,12 @@ CREATE TABLE support_messages
     sent_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_support_msg_ticket ON support_messages (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_support_msg_ticket ON support_messages (ticket_id);
 
 -- ------------------------------------------------------------
 -- unban_requests
 -- ------------------------------------------------------------
-CREATE TABLE unban_requests
+CREATE TABLE IF NOT EXISTS unban_requests
 (
     id            BIGSERIAL            PRIMARY KEY,
     user_id       BIGINT               NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -361,13 +385,13 @@ CREATE TABLE unban_requests
     reviewed_at   TIMESTAMPTZ
 );
 
-CREATE INDEX idx_unban_requests_status  ON unban_requests (status);
-CREATE INDEX idx_unban_requests_user_id ON unban_requests (user_id);
+CREATE INDEX IF NOT EXISTS idx_unban_requests_status  ON unban_requests (status);
+CREATE INDEX IF NOT EXISTS idx_unban_requests_user_id ON unban_requests (user_id);
 
 -- ------------------------------------------------------------
 -- profile_comments
 -- ------------------------------------------------------------
-CREATE TABLE profile_comments
+CREATE TABLE IF NOT EXISTS profile_comments
 (
     id              BIGSERIAL   PRIMARY KEY,
     profile_user_id BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -376,12 +400,12 @@ CREATE TABLE profile_comments
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_profile_comments_profile ON profile_comments (profile_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_profile_comments_profile ON profile_comments (profile_user_id, created_at DESC);
 
 -- ------------------------------------------------------------
 -- privacy_settings
 -- ------------------------------------------------------------
-CREATE TABLE privacy_settings
+CREATE TABLE IF NOT EXISTS privacy_settings
 (
     user_id                   BIGINT      PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     friends_visibility        VARCHAR(10) NOT NULL DEFAULT 'ALL',
@@ -396,7 +420,7 @@ CREATE TABLE privacy_settings
 -- ------------------------------------------------------------
 -- user_achievements
 -- ------------------------------------------------------------
-CREATE TABLE user_achievements
+CREATE TABLE IF NOT EXISTS user_achievements
 (
     id               BIGSERIAL    PRIMARY KEY,
     user_id          BIGINT       NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -406,13 +430,13 @@ CREATE TABLE user_achievements
     CONSTRAINT uk_user_achievement_code UNIQUE (user_id, achievement_code)
 );
 
-CREATE INDEX idx_user_achievements_user_id ON user_achievements (user_id);
-CREATE INDEX idx_user_achievements_code    ON user_achievements (achievement_code);
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_achievements_code    ON user_achievements (achievement_code);
 
 -- ------------------------------------------------------------
 -- user_blocks
 -- ------------------------------------------------------------
-CREATE TABLE user_blocks
+CREATE TABLE IF NOT EXISTS user_blocks
 (
     id         BIGSERIAL   PRIMARY KEY,
     blocker_id BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -422,13 +446,13 @@ CREATE TABLE user_blocks
     CONSTRAINT chk_no_self_block CHECK (blocker_id <> blocked_id)
 );
 
-CREATE INDEX idx_user_blocks_blocker ON user_blocks (blocker_id);
-CREATE INDEX idx_user_blocks_blocked ON user_blocks (blocked_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks (blocker_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks (blocked_id);
 
 -- ------------------------------------------------------------
 -- party_presets
 -- ------------------------------------------------------------
-CREATE TABLE party_presets
+CREATE TABLE IF NOT EXISTS party_presets
 (
     id          BIGSERIAL    PRIMARY KEY,
     user_id     BIGINT       NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -450,7 +474,7 @@ CREATE TABLE party_presets
 -- ------------------------------------------------------------
 -- player_ratings
 -- ------------------------------------------------------------
-CREATE TABLE player_ratings
+CREATE TABLE IF NOT EXISTS player_ratings
 (
     id            BIGSERIAL   PRIMARY KEY,
     party_id      BIGINT      NOT NULL REFERENCES party_requests (id) ON DELETE CASCADE,
@@ -462,7 +486,6 @@ CREATE TABLE player_ratings
     CONSTRAINT chk_not_self_rate CHECK (rater_id <> rated_user_id)
 );
 
-CREATE INDEX idx_player_ratings_rated_user ON player_ratings (rated_user_id);
-CREATE INDEX idx_player_ratings_party      ON player_ratings (party_id);
-CREATE INDEX idx_player_ratings_rater      ON player_ratings (rater_id);
-
+CREATE INDEX IF NOT EXISTS idx_player_ratings_rated_user ON player_ratings (rated_user_id);
+CREATE INDEX IF NOT EXISTS idx_player_ratings_party      ON player_ratings (party_id);
+CREATE INDEX IF NOT EXISTS idx_player_ratings_rater      ON player_ratings (rater_id);

@@ -59,6 +59,12 @@ public class AuthService {
     @Value("${app.jwt.refresh-token-expiration}")
     private long refreshTokenExpirationMs;
 
+    @Value("${app.cookies.secure:false}")
+    private boolean cookiesSecure;
+
+    @Value("${app.cookies.same-site:Lax}")
+    private String cookiesSameSite;
+
     // РЕЄСТРАЦІЯ
 
     @Transactional
@@ -356,10 +362,10 @@ public class AuthService {
     private void setAccessTokenCookie(HttpServletResponse response, String token) {
         ResponseCookie cookie = ResponseCookie.from("access_token", token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookiesSecure)
                 .path("/")
                 .maxAge(Duration.ofMillis(accessTokenExpirationMs))
-                .sameSite("Lax")
+                .sameSite(cookiesSameSite)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -367,10 +373,10 @@ public class AuthService {
     private void setRefreshTokenCookie(HttpServletResponse response, String token, long refreshMs) {
         ResponseCookie cookie = ResponseCookie.from("refresh_token", token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookiesSecure)
                 .path("/api/auth/refresh")
                 .maxAge(Duration.ofMillis(refreshMs))
-                .sameSite("Lax")
+                .sameSite(cookiesSameSite)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -378,13 +384,17 @@ public class AuthService {
     private void clearAuthCookies(HttpServletResponse response) {
         ResponseCookie accessCookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
+                .secure(cookiesSecure)
                 .path("/")
+                .sameSite(cookiesSameSite)
                 .maxAge(0)
                 .build();
 
         ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)
+                .secure(cookiesSecure)
                 .path("/api/auth/refresh")
+                .sameSite(cookiesSameSite)
                 .maxAge(0)
                 .build();
 
