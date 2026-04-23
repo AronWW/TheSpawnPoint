@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import api from '../api/axios'
+import authApi, { publicApi } from '../api/axios'
 import type { Game } from '../types'
 
 export const useGameStore = defineStore('games', () => {
@@ -16,7 +16,7 @@ export const useGameStore = defineStore('games', () => {
   async function fetchGames() {
     loading.value = true
     try {
-      const { data } = await api.get<Game[]>('/games')
+      const { data } = await publicApi.get<Game[]>('/games')
       games.value = data
     } catch {
       games.value = []
@@ -28,7 +28,7 @@ export const useGameStore = defineStore('games', () => {
   async function fetchFavorites() {
     favoritesLoading.value = true
     try {
-      const { data } = await api.get<Game[]>('/users/me/games')
+      const { data } = await authApi.get<Game[]>('/users/me/games')
       favoriteGames.value = data
       favoriteGameIds.value = new Set(data.map((g) => g.id))
     } catch {
@@ -46,7 +46,7 @@ export const useGameStore = defineStore('games', () => {
   async function addFavorite(gameId: number) {
     favoriteGameIds.value = new Set([...favoriteGameIds.value, gameId])
     try {
-      await api.post(`/users/me/games/${gameId}`)
+      await authApi.post(`/users/me/games/${gameId}`)
       await fetchFavorites()
     } catch {
       const s = new Set(favoriteGameIds.value)
@@ -60,7 +60,7 @@ export const useGameStore = defineStore('games', () => {
     s.delete(gameId)
     favoriteGameIds.value = s
     try {
-      await api.delete(`/users/me/games/${gameId}`)
+      await authApi.delete(`/users/me/games/${gameId}`)
       await fetchFavorites()
     } catch {
       favoriteGameIds.value = new Set([...favoriteGameIds.value, gameId])
@@ -77,7 +77,7 @@ export const useGameStore = defineStore('games', () => {
 
   async function fetchMySuggestionsCount() {
     try {
-      const { data } = await api.get<any[]>('/game-suggestions/my')
+      const { data } = await authApi.get<any[]>('/game-suggestions/my')
       mySuggestionsCount.value = data.length
     } catch {
       mySuggestionsCount.value = 0

@@ -39,6 +39,7 @@ public class AuthService {
     private static final SecureRandom RNG = new SecureRandom();
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
+    private static final String REFRESH_HINT_COOKIE = "has_refresh_token";
 
     private final UserRepository userRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
@@ -332,6 +333,10 @@ public class AuthService {
     // CHANGE PASSWORD
 
     public Map<String, String> changePassword(User user, ChangePasswordDTO dto) {
+        if (user == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
         if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
@@ -357,6 +362,7 @@ public class AuthService {
 
         long refreshMs = rememberMe ? JwtUtil.REMEMBER_ME_MS : refreshTokenExpirationMs;
         setRefreshTokenCookie(response, jwtUtil.generateRefreshToken(email, rememberMe), refreshMs);
+        setRefreshHintCookie(response, refreshMs);
     }
 
     private void setAccessTokenCookie(HttpServletResponse response, String token) {
@@ -398,8 +404,28 @@ public class AuthService {
                 .maxAge(0)
                 .build();
 
+        ResponseCookie refreshHintCookie = ResponseCookie.from(REFRESH_HINT_COOKIE, "")
+                .httpOnly(false)
+                .secure(cookiesSecure)
+                .path("/")
+                .sameSite(cookiesSameSite)
+                .maxAge(0)
+                .build();
+
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshHintCookie.toString());
+    }
+
+    private void setRefreshHintCookie(HttpServletResponse response, long refreshMs) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_HINT_COOKIE, "1")
+                .httpOnly(false)
+                .secure(cookiesSecure)
+                .path("/")
+                .maxAge(Duration.ofMillis(refreshMs))
+                .sameSite(cookiesSameSite)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private String extractCookie(HttpServletRequest request, String name) {

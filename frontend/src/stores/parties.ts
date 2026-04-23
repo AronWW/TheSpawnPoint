@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import api from '../api/axios'
+import authApi, { publicApi } from '../api/axios'
 import type { Party, CreatePartyRequest, SortOption, Page, PartyInvite, PlayAgainData } from '../types'
 
 interface RecentTeammateType {
@@ -45,7 +45,7 @@ export const usePartyStore = defineStore('parties', () => {
       if (filterLanguage.value) params.language = filterLanguage.value
       if (filterRegion.value) params.region = filterRegion.value
 
-      const { data } = await api.get<Page<Party>>('/parties', { params })
+      const { data } = await publicApi.get<Page<Party>>('/parties', { params })
       parties.value = data.content
       page.value = data.page?.number ?? p
       totalPages.value = data.page?.totalPages ?? 0
@@ -82,7 +82,7 @@ export const usePartyStore = defineStore('parties', () => {
   })
 
   async function createParty(dto: CreatePartyRequest): Promise<Party> {
-    const { data } = await api.post<Party>('/parties', dto)
+    const { data } = await authApi.post<Party>('/parties', dto)
     parties.value.unshift(data)
     await fetchMyParties()
     return data
@@ -90,7 +90,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function joinParty(partyId: number): Promise<Party> {
     try {
-      const { data } = await api.post<Party>(`/parties/${partyId}/join`)
+      const { data } = await authApi.post<Party>(`/parties/${partyId}/join`)
       const idx = parties.value.findIndex((p) => p.id === partyId)
       if (idx !== -1) parties.value[idx] = data
       await fetchMyParties()
@@ -102,13 +102,13 @@ export const usePartyStore = defineStore('parties', () => {
   }
 
   async function fetchParty(partyId: number): Promise<Party> {
-    const { data } = await api.get<Party>(`/parties/${partyId}`)
+    const { data } = await publicApi.get<Party>(`/parties/${partyId}`)
     return data
   }
 
   async function leaveParty(partyId: number): Promise<void> {
     try {
-      await api.post(`/parties/${partyId}/leave`)
+      await authApi.post(`/parties/${partyId}/leave`)
       parties.value = parties.value.filter((p) => p.id !== partyId)
       await fetchMyParties()
     } catch (e: any) {
@@ -119,7 +119,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function closeParty(partyId: number): Promise<void> {
     try {
-      await api.post(`/parties/${partyId}/close`)
+      await authApi.post(`/parties/${partyId}/close`)
       const idx = parties.value.findIndex((p) => p.id === partyId)
       const party = parties.value[idx]
       if (party) {
@@ -135,7 +135,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function startGame(partyId: number): Promise<Party> {
     try {
-      const { data } = await api.post<Party>(`/parties/${partyId}/start`)
+      const { data } = await authApi.post<Party>(`/parties/${partyId}/start`)
       return data
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Не вдалося почати гру'
@@ -145,7 +145,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function completeParty(partyId: number): Promise<Party> {
     try {
-      const { data } = await api.post<Party>(`/parties/${partyId}/complete`)
+      const { data } = await authApi.post<Party>(`/parties/${partyId}/complete`)
       await fetchMyParties()
       return data
     } catch (e: any) {
@@ -156,7 +156,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function kickMember(partyId: number, userId: number): Promise<Party> {
     try {
-      const { data } = await api.post<Party>(`/parties/${partyId}/kick/${userId}`)
+      const { data } = await authApi.post<Party>(`/parties/${partyId}/kick/${userId}`)
       return data
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Не вдалося кікнути гравця'
@@ -187,7 +187,7 @@ export const usePartyStore = defineStore('parties', () => {
       if (filterLanguage.value) params.language = filterLanguage.value
       if (filterRegion.value) params.region = filterRegion.value
 
-      const { data } = await api.get<Page<Party>>('/parties/search', { params })
+      const { data } = await publicApi.get<Page<Party>>('/parties/search', { params })
       searchParties.value = data.content
       searchPage.value = data.page?.number ?? page
       searchTotalPages.value = data.page?.totalPages ?? 0
@@ -205,7 +205,7 @@ export const usePartyStore = defineStore('parties', () => {
   async function fetchMyParties() {
     myPartiesLoading.value = true
     try {
-      const { data } = await api.get<Party[]>('/parties/my')
+      const { data } = await authApi.get<Party[]>('/parties/my')
       myParties.value = data
     } catch {
       myParties.value = []
@@ -222,7 +222,7 @@ export const usePartyStore = defineStore('parties', () => {
   async function fetchHistory(page = 0) {
     historyLoading.value = true
     try {
-      const { data } = await api.get<Page<Party>>('/parties/history', {
+      const { data } = await authApi.get<Page<Party>>('/parties/history', {
         params: { page, size: 10 },
       })
       historyParties.value = data.content
@@ -238,7 +238,7 @@ export const usePartyStore = defineStore('parties', () => {
   async function fetchHistoryForUser(userId: number, page = 0) {
     historyLoading.value = true
     try {
-      const { data } = await api.get<Page<Party>>(`/parties/history/${userId}`, {
+      const { data } = await authApi.get<Page<Party>>(`/parties/history/${userId}`, {
         params: { page, size: 10 },
       })
       historyParties.value = data.content
@@ -258,7 +258,7 @@ export const usePartyStore = defineStore('parties', () => {
   async function fetchRecentTeammates() {
     recentTeammatesLoading.value = true
     try {
-      const { data } = await api.get<RecentTeammateType[]>('/parties/recent-teammates')
+      const { data } = await authApi.get<RecentTeammateType[]>('/parties/recent-teammates')
       recentTeammates.value = data
     } catch {
       recentTeammates.value = []
@@ -292,33 +292,33 @@ export const usePartyStore = defineStore('parties', () => {
   const respondedInvites = ref<Map<number, 'accepted' | 'declined' | 'cancelled' | 'expired'>>(new Map())
 
   async function sendInvite(partyId: number, userId: number): Promise<PartyInvite> {
-    const { data } = await api.post<PartyInvite>(`/parties/${partyId}/invite/${userId}`)
+    const { data } = await authApi.post<PartyInvite>(`/parties/${partyId}/invite/${userId}`)
     return data
   }
 
   async function acceptInvite(inviteId: number): Promise<void> {
-    await api.post(`/parties/invites/${inviteId}/accept`)
+    await authApi.post(`/parties/invites/${inviteId}/accept`)
     respondedInvites.value.set(inviteId, 'accepted')
     pendingInvite.value = null
     incomingInvites.value = incomingInvites.value.filter((i) => i.inviteId !== inviteId)
   }
 
   async function declineInvite(inviteId: number): Promise<void> {
-    await api.post(`/parties/invites/${inviteId}/decline`)
+    await authApi.post(`/parties/invites/${inviteId}/decline`)
     respondedInvites.value.set(inviteId, 'declined')
     pendingInvite.value = null
     incomingInvites.value = incomingInvites.value.filter((i) => i.inviteId !== inviteId)
   }
 
   async function cancelInvite(inviteId: number): Promise<void> {
-    await api.delete(`/parties/invites/${inviteId}`)
+    await authApi.delete(`/parties/invites/${inviteId}`)
     outgoingInvites.value = outgoingInvites.value.filter((i) => i.inviteId !== inviteId)
     partyInvites.value = partyInvites.value.filter((i) => i.inviteId !== inviteId)
   }
 
   async function fetchIncomingInvites(): Promise<void> {
     try {
-      const { data } = await api.get<PartyInvite[]>('/parties/invites/incoming')
+      const { data } = await authApi.get<PartyInvite[]>('/parties/invites/incoming')
       incomingInvites.value = data
     } catch {
       incomingInvites.value = []
@@ -327,7 +327,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function fetchOutgoingInvites(): Promise<void> {
     try {
-      const { data } = await api.get<PartyInvite[]>('/parties/invites/outgoing')
+      const { data } = await authApi.get<PartyInvite[]>('/parties/invites/outgoing')
       outgoingInvites.value = data
     } catch {
       outgoingInvites.value = []
@@ -336,7 +336,7 @@ export const usePartyStore = defineStore('parties', () => {
 
   async function fetchPartyInvites(partyId: number): Promise<void> {
     try {
-      const { data } = await api.get<PartyInvite[]>(`/parties/${partyId}/invites`)
+      const { data } = await authApi.get<PartyInvite[]>(`/parties/${partyId}/invites`)
       partyInvites.value = data
     } catch {
       partyInvites.value = []

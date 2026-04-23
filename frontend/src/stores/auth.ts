@@ -1,7 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import api from '../api/axios'
+import { authApi, publicApi } from '../api/axios'
 import type { UserMe, Profile } from '../types'
+
+type MeGuestResponse = {
+  authenticated: false
+  user: null
+}
+
+type MeAuthResponse = UserMe & {
+  authenticated: true
+}
+
+type MeResponse = MeGuestResponse | MeAuthResponse
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserMe | null>(null)
@@ -9,18 +20,77 @@ export const useAuthStore = defineStore('auth', () => {
   const initialized = ref(false)
   const onlineCount = ref(0)
   const myProfile = ref<Profile | null>(null)
-  let _initPromise: Promise<void> | null = null
+  let initPromise: Promise<void> | null = null
 
   const isLoggedIn = computed(() => user.value !== null)
   const displayName = computed(() => user.value?.displayName ?? '')
 
+  function clearAuthState() {
+    user.value = null
+    myProfile.value = null
+  }
+
+  function hasRefreshHintCookie(): boolean {
+    if (typeof document === 'undefined') return false
+    return document.cookie
+      .split(';')
+      .some((part) => part.trim().startsWith('has_refresh_token=1'))
+  }
+
+  function clearRefreshHintCookie() {
+    if (typeof document === 'undefined') return
+    document.cookie = 'has_refresh_token=; Max-Age=0; Path=/'
+  }
+
+  async function requestMe(): Promise<MeResponse> {
+    const { data } = await authApi.get<MeResponse>('/auth/me')
+    return data
+  }
+
+  function applyMeResponse(data: MeResponse): UserMe | null {
+    if (!data.authenticated) {
+      return null
+    }
+
+    const { authenticated: _authenticated, ...userData } = data
+    user.value = userData as UserMe
+    return user.value
+  }
+
   async function fetchMe() {
     loading.value = true
+
     try {
-      const { data } = await api.get<UserMe>('/auth/me')
-      user.value = data
-    } catch {
-      user.value = null
+      const meData = await requestMe()
+      const currentUser = applyMeResponse(meData)
+
+      if (currentUser) {
+        return currentUser
+      }
+
+      if (!hasRefreshHintCookie()) {
+        clearAuthState()
+        return null
+      }
+
+      try {
+        await authApi.post('/auth/refresh')
+        const refreshedMeData = await requestMe()
+        const restoredUser = applyMeResponse(refreshedMeData)
+
+        if (restoredUser) {
+          return restoredUser
+        }
+      } catch {
+        clearRefreshHintCookie()
+
+      }
+
+      clearAuthState()
+      return null
+    } catch (error: unknown) {
+      clearAuthState()
+      return null
     } finally {
       loading.value = false
       initialized.value = true
@@ -33,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function markBanned(reason?: string | null) {
     if (!user.value) return
+
     user.value = {
       ...user.value,
       banned: true,
@@ -41,70 +112,75 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function init() {
-    if (!_initPromise) {
-      _initPromise = fetchMe()
+    if (!initPromise) {
+      initPromise = fetchMe().then(() => {})
     }
-    return _initPromise
+    return initPromise
   }
 
   async function login(email: string, password: string, rememberMe: boolean = false) {
-    const { data } = await api.post('/auth/login', { email, password, rememberMe })
+    const { data } = await authApi.post<UserMe>('/auth/login', { email, password, rememberMe })
     user.value = data
+    initialized.value = true
     return data
   }
 
   async function register(displayName: string, email: string, password: string) {
-    const { data } = await api.post('/auth/register', { displayName, email, password })
+    const { data } = await publicApi.post('/auth/register', { displayName, email, password })
     return data
   }
 
   async function verifyEmail(email: string, code: string) {
-    const { data } = await api.post('/auth/verify-email', { email, code })
+    const { data } = await publicApi.post<UserMe>('/auth/verify-email', { email, code })
     user.value = data
+    initialized.value = true
     return data
   }
 
   async function resendVerification(email: string) {
-    const { data } = await api.post('/auth/resend-verification', { email })
+    const { data } = await publicApi.post('/auth/resend-verification', { email })
     return data
   }
 
   async function forgotPassword(email: string) {
-    const { data } = await api.post('/auth/forgot-password', { email })
+    const { data } = await publicApi.post('/auth/forgot-password', { email })
     return data
   }
 
   async function resetPassword(token: string, newPassword: string) {
-    const { data } = await api.post('/auth/reset-password', { token, newPassword })
+    const { data } = await publicApi.post('/auth/reset-password', { token, newPassword })
     return data
   }
 
   async function changePassword(currentPassword: string, newPassword: string) {
-    const { data } = await api.put('/auth/change-password', { currentPassword, newPassword })
+    const { data } = await authApi.put('/auth/change-password', { currentPassword, newPassword })
     return data
   }
 
   async function logout() {
     try {
-      await api.post('/auth/logout')
+      await authApi.post('/auth/logout')
     } finally {
       user.value = null
       myProfile.value = null
+      initialized.value = true
     }
   }
 
   async function fetchOnlineCount() {
     try {
-      const { data } = await api.get<{ count: number }>('/users/online-count')
+      const { data } = await publicApi.get<{ count: number }>('/users/online-count')
       onlineCount.value = data.count
     } catch {
+
     }
   }
 
   async function fetchMyProfile() {
     if (myProfile.value) return myProfile.value
+
     try {
-      const { data } = await api.get<Profile>('/profile/me')
+      const { data } = await authApi.get<Profile>('/profile/me')
       myProfile.value = data
       return data
     } catch {
@@ -113,10 +189,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    user, loading, isLoggedIn, displayName, initialized, onlineCount, myProfile,
-    fetchMe, init, login, register, verifyEmail, resendVerification,
-    forgotPassword, resetPassword, changePassword, logout, refreshUser, markBanned,
-    fetchOnlineCount, fetchMyProfile,
+    user,
+    loading,
+    isLoggedIn,
+    displayName,
+    initialized,
+    onlineCount,
+    myProfile,
+    fetchMe,
+    init,
+    login,
+    register,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
+    changePassword,
+    logout,
+    refreshUser,
+    markBanned,
+    fetchOnlineCount,
+    fetchMyProfile,
   }
 })
-

@@ -232,5 +232,25 @@ function goToParty() {
 .online-dot-icon {
   flex-shrink: 0;
 }
+
+@media (max-width: 480px) {
+  .hero-card-label {
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 7px 14px;
+  }
+
+  .tag {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .hero-card-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+  }
+}
 </style>
 

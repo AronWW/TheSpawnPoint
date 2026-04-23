@@ -1,6 +1,6 @@
 <template>
   <div class="how-section">
-    <div class="section-head" style="border:none;padding-bottom:0;margin-bottom:0">
+    <div class="section-head how-head">
       <div class="section-title">ЯК ЦЕ ПРАЦЮЄ</div>
     </div>
     <div class="how-grid">
@@ -41,7 +41,25 @@
   margin-bottom: 20px;
 }
 
+.how-head {
+  border: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
 .how-section {
   padding-bottom: 80px;
+}
+
+@media (max-width: 768px) {
+  .how-section {
+    padding-bottom: 56px;
+  }
+}
+
+@media (max-width: 480px) {
+  .how-section {
+    padding-bottom: 44px;
+  }
 }
 </style>

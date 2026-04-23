@@ -55,6 +55,12 @@ function toggleNotif() {
 }
 
 function toggleUserMenu() {
+  if (window.innerWidth <= 768) {
+    userMenuOpen.value = false
+    notifOpen.value = false
+    router.push(profileLink.value)
+    return
+  }
   userMenuOpen.value = !userMenuOpen.value
   notifOpen.value = false
 }

@@ -97,7 +97,7 @@ function selectParty(party: Party) {
 
 <style scoped>
 .popular-parties {
-  margin-bottom: 48px;
+  margin-bottom: 24px;
 }
 
 .view-all-btn {
@@ -111,6 +111,10 @@ function selectParty(party: Party) {
   transition: all 0.15s;
   display: inline-block;
 }
+.view-all-btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
 .view-all-btn:hover {
   background: var(--yellow);
   color: var(--black);
@@ -119,7 +123,7 @@ function selectParty(party: Party) {
 
 .pp-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
@@ -133,6 +137,10 @@ function selectParty(party: Party) {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+.pp-card:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
 }
 .pp-card::before {
   content: '';
@@ -156,7 +164,7 @@ function selectParty(party: Party) {
 .pp-card-cover {
   position: relative;
   width: 100%;
-  height: 100px;
+  height: 112px;
   overflow: hidden;
   background: var(--dark);
   flex-shrink: 0;
@@ -214,10 +222,10 @@ function selectParty(party: Party) {
 }
 
 .pp-body {
-  padding: 12px 14px 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   flex: 1;
 }
 
@@ -250,7 +258,7 @@ function selectParty(party: Party) {
 }
 
 .pp-desc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--gray);
   line-height: 1.4;
   font-style: italic;
@@ -297,6 +305,7 @@ function selectParty(party: Party) {
   align-items: center;
   flex-wrap: wrap;
   margin-top: auto;
+  row-gap: 8px;
 }
 
 .pp-tag {
@@ -335,13 +344,76 @@ function selectParty(party: Party) {
   border: 2px dashed var(--border);
 }
 
-@media (max-width: 1200px) {
-  .pp-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 900px) {
+@media (min-width: 560px) {
   .pp-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 550px) {
-  .pp-grid { grid-template-columns: 1fr; }
+
+@media (min-width: 980px) {
+  .pp-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .pp-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .section-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .view-all-btn {
+    letter-spacing: 2px;
+    padding: 8px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .view-all-btn {
+    width: 100%;
+    text-align: center;
+    padding: 10px 12px;
+    letter-spacing: 2px;
+  }
+
+  .pp-card-cover { height: 106px; }
+
+  .pp-body {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .pp-game-name {
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  .pp-host {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .pp-desc {
+    font-size: 11px;
+    -webkit-line-clamp: 3;
+  }
+
+  .pp-slots-row { gap: 8px; }
+
+  .pp-tag {
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .pp-card-cover { height: 92px; }
+  .pp-body { padding: 10px; }
+  .pp-game-name { font-size: 14px; }
+  .pp-host-label { display: none; }
+  .pp-tag { letter-spacing: 0.8px; }
+  .pp-slots-text { font-size: 10px; }
+  .pp-time { font-size: 9px; }
 }
 </style>

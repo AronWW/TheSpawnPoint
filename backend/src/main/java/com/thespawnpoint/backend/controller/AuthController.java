@@ -1,6 +1,11 @@
 package com.thespawnpoint.backend.controller;
 
-import com.thespawnpoint.backend.dto.*;
+import com.thespawnpoint.backend.dto.ChangePasswordDTO;
+import com.thespawnpoint.backend.dto.ForgotPasswordDTO;
+import com.thespawnpoint.backend.dto.LoginDTO;
+import com.thespawnpoint.backend.dto.RegisterDTO;
+import com.thespawnpoint.backend.dto.ResetPasswordDTO;
+import com.thespawnpoint.backend.dto.VerifyEmailDTO;
 import com.thespawnpoint.backend.entity.user.Profile;
 import com.thespawnpoint.backend.entity.user.User;
 import com.thespawnpoint.backend.repository.ProfileRepository;
@@ -27,7 +32,11 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterDTO dto) {
         authService.register(dto);
-        return ResponseEntity.ok(Map.of("message", "Реєстрація успішна, перевірте email"));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", "Реєстрація успішна, перевірте email");
+
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/verify-email")
@@ -49,29 +58,32 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal User user) {
+        Map<String, Object> body = new LinkedHashMap<>();
+
         if (user == null) {
-            return ResponseEntity.status(401).body(Map.of("message", "Unauthenticated"));
+            body.put("authenticated", false);
+            body.put("user", null);
+            return ResponseEntity.ok(body);
         }
 
         String avatarUrl = profileRepository.findByUserId(user.getId())
                 .map(Profile::getAvatarUrl)
                 .orElse(null);
 
-        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("authenticated", true);
         body.put("id", user.getId());
         body.put("email", user.getEmail());
         body.put("displayName", user.getDisplayName());
         body.put("emailVerified", user.isEmailVerified());
         body.put("role", user.getRole().name());
         body.put("status", user.getStatus().name());
-        body.put("lastSeen", user.getLastSeen() != null ? user.getLastSeen().toString() : "");
+        body.put("lastSeen", user.getLastSeen() != null ? user.getLastSeen().toString() : null);
         body.put("avatarUrl", avatarUrl);
         body.put("banned", user.isBanned());
         body.put("banReason", user.getBanReason());
 
         return ResponseEntity.ok(body);
     }
-
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(HttpServletRequest request,

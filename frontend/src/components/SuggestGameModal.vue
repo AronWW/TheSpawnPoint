@@ -180,5 +180,39 @@ async function submit() {
   padding: 30px 0;
   text-align: center;
 }
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: 12px;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .modal-box {
+    margin-top: 18px;
+    padding: 20px 16px;
+    max-height: calc(100svh - 36px);
+  }
+
+  .modal-box h3 {
+    font-size: 1.25rem;
+    letter-spacing: 1.5px;
+  }
+
+  .row-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-btn {
+    width: 100%;
+    min-height: 42px;
+  }
+}
 </style>
 

@@ -157,6 +157,7 @@ img { display: block; }
   text-shadow: 0 0 20px rgba(245,197,24,0.4);
   flex-shrink: 0;
   line-height: 1;
+  margin-top: 5px;
 }
 .nav-logo span { color: var(--white); opacity: 0.6; }
 
@@ -439,6 +440,7 @@ img { display: block; }
 .hero {
   padding-top: 64px;
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -504,6 +506,10 @@ img { display: block; }
   width: 100%;
 }
 
+.hero-inner > div {
+  min-width: 0;
+}
+
 .hero-kicker {
   display: inline-flex;
   align-items: center;
@@ -527,20 +533,20 @@ img { display: block; }
 
 .hero-title {
   font-family: var(--font-display);
-  font-size: clamp(72px, 8vw, 110px);
+  font-size: clamp(56px, 10vw, 110px);
   line-height: 0.9;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   color: var(--white);
   margin-bottom: 12px;
 }
 .hero-title .accent {
   color: var(--yellow);
   display: block;
-  text-shadow: 0 0 40px rgba(245,197,24,0.3), 4px 4px 0 rgba(0,0,0,0.8);
-  -webkit-text-stroke: 1px rgba(245,197,24,0.5);
+  text-shadow: 0 0 56px rgba(245,197,24,0.36), 4px 4px 0 rgba(0,0,0,0.82);
+  -webkit-text-stroke: 1px rgba(245,197,24,0.58);
 }
 .hero-title .shadow-word {
-  text-shadow: 3px 3px 0 #000, 6px 6px 0 rgba(0,0,0,0.4);
+  text-shadow: 4px 4px 0 #000, 7px 7px 0 rgba(0,0,0,0.48);
 }
 
 .hero-sub {
@@ -627,6 +633,7 @@ img { display: block; }
   border: 2px solid var(--border);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
 }
 .hero-card::before {
   content: 'LIVE';
@@ -764,6 +771,11 @@ img { display: block; }
   padding: 0 64px 80px;
   position: relative;
   z-index: 2;
+}
+
+.home-main {
+  display: grid;
+  gap: 56px;
 }
 
 /* ============================================================
@@ -1909,8 +1921,17 @@ img { display: block; }
 }
 
 @media (max-width: 1100px) {
-  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
-  .hero-card  { max-width: 480px; }
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 56px 40px 40px;
+  }
+  .hero-card {
+    width: min(100%, 560px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  }
+  .main { padding: 0 40px 64px; }
+  .home-main { gap: 48px; }
 }
 @media (max-width: 860px) {
   .auth-container {
@@ -1923,11 +1944,192 @@ img { display: block; }
   .navbar { padding: 0 16px; }
   .nav-links { display: none; }
   .nav-divider { display: none; }
-  .hero-inner { padding: 60px 24px 40px; }
+  .hero-inner {
+    gap: 24px;
+    padding: 52px 20px 32px;
+  }
   .main { padding: 0 24px 60px; }
+  .home-main { gap: 40px; }
+  .hero-title { font-size: clamp(42px, 12vw, 56px); }
+  .hero-sub {
+    font-size: 14px;
+    margin-bottom: 28px;
+    max-width: 100%;
+    line-height: 1.55;
+  }
+  .hero-cta-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .hero-cta-row .btn-primary,
+  .hero-cta-row .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+  .btn-primary,
+  .btn-secondary {
+    font-size: 16px;
+    letter-spacing: 2px;
+    padding: 12px 20px;
+  }
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 32px;
+    padding-top: 20px;
+  }
+  .stat-item {
+    text-align: center;
+    padding: 8px 6px;
+    border: 1px solid var(--border);
+    background: rgba(245, 197, 24, 0.03);
+  }
+  .stat-num { font-size: 30px; }
+  .stat-label { letter-spacing: 1px; }
+  .home-main .section-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .home-main .section-title {
+    font-size: 26px;
+    letter-spacing: 2px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .home-main .section-count {
+    letter-spacing: 1px;
+    padding: 4px 10px;
+  }
+  .how-section {
+    margin-top: 64px;
+    padding-top: 64px;
+  }
+  .how-item { padding: 32px 24px; }
+  .how-num { font-size: 64px; }
   .footer { padding: 24px; flex-direction: column; gap: 12px; text-align: center; }
   .how-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .auth-form-panel { padding: 36px 24px; }
   .auth-form-title { font-size: 28px; }
 }
+
+@media (max-width: 480px) {
+  .hero-inner { padding: 40px 16px 28px; }
+  .main { padding: 0 16px 48px; }
+  .home-main { gap: 34px; }
+  .speed-lines { opacity: 0.45; }
+  .hero-kicker {
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+  .hero-kicker::before,
+  .hero-kicker::after {
+    max-width: 24px;
+  }
+  .hero-title { font-size: clamp(40px, 13vw, 48px); }
+  .hero-sub {
+    font-size: 13px;
+    padding-left: 10px;
+    border-left-width: 2px;
+    margin-bottom: 22px;
+  }
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .hero-stats .stat-item:nth-child(3) { grid-column: 1 / -1; }
+  .stat-item {
+    text-align: center;
+    padding: 8px 6px;
+  }
+  .stat-num { font-size: 26px; }
+  .stat-label { font-size: 11px; }
+  .hero-card::before { display: none; }
+  .hero-card-header,
+  .hero-card-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .card-game-name { font-size: 18px; }
+  .members-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .member-avatar,
+  .members-empty {
+    width: 34px;
+    height: 34px;
+  }
+  .join-btn,
+  .btn-primary,
+  .btn-secondary {
+    letter-spacing: 2px;
+    font-size: 15px;
+    padding: 12px 18px;
+  }
+  .home-main .section-title {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
+  .how-section {
+    margin-top: 56px;
+    padding: 56px 0 24px;
+  }
+  .how-item { padding: 28px 20px; }
+  .how-num { font-size: 56px; }
+  .how-title { font-size: 20px; }
+  .how-desc { font-size: 13px; }
+}
+
+@media (max-width: 360px) {
+  .hero-inner { padding: 32px 12px 24px; }
+  .main { padding: 0 12px 40px; }
+  .home-main { gap: 28px; }
+  .speed-lines { display: none; }
+  .hero-title { font-size: clamp(36px, 13vw, 42px); }
+  .hero-sub { font-size: 12px; }
+  .hero-kicker { letter-spacing: 1.5px; }
+  .join-btn,
+  .btn-primary,
+  .btn-secondary {
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .home-main .section-title {
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+  .home-main .section-title::before {
+    width: 6px;
+    height: 22px;
+  }
+  .hero-card-header,
+  .hero-card-body {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .how-item { padding: 24px 16px; }
+  .how-num { font-size: 46px; }
+  .how-title { font-size: 18px; }
+  .how-desc { font-size: 12px; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .pp-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .pp-card:hover::before,
+  .pp-card:hover .pp-cover-img {
+    opacity: 0;
+    transform: none;
+    filter: brightness(0.7);
+  }
+}
+

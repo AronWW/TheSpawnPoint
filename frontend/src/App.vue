@@ -25,8 +25,8 @@ async function handleBannedEvent(event: Event) {
   await auth.refreshUser()
 }
 
-onMounted(() => {
-  auth.init()
+onMounted(async () => {
+  await auth.init()
   voice.init()
   window.addEventListener('auth:banned', handleBannedEvent)
 })

@@ -151,7 +151,7 @@ onMounted(async () => {
 <style scoped>
 .fav-page {
   padding-top: 64px;
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--black);
 }
 .fav-container {
@@ -175,6 +175,13 @@ onMounted(async () => {
   gap: 10px;
   flex-shrink: 0;
 }
+.back-btn:focus-visible,
+.action-btn:focus-visible,
+.heart-btn:focus-visible,
+.filter-search:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
 .back-btn:hover {
   background: var(--yellow);
   color: var(--black);
@@ -184,11 +191,13 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   margin-bottom: 28px;
+  flex-wrap: wrap;
 }
 
 .filter-search-wrap {
   position: relative;
   flex: 1;
+  min-width: 220px;
   display: flex;
   align-items: center;
 }
@@ -214,8 +223,8 @@ onMounted(async () => {
 
 .fav-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
 }
 
 .fav-card {
@@ -227,6 +236,7 @@ onMounted(async () => {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 100%;
 }
 .fav-card::before {
   content: '';
@@ -303,7 +313,7 @@ onMounted(async () => {
 .fav-card-cover {
   position: relative;
   width: 100%;
-  height: 140px;
+  height: 148px;
   overflow: hidden;
   background: var(--dark);
   flex-shrink: 0;
@@ -471,26 +481,307 @@ onMounted(async () => {
   background: var(--yellow-dim);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
+  .fav-container {
+    padding: 34px 40px 70px;
+  }
+
   .fav-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   }
 }
-@media (max-width: 600px) {
-  .fav-grid {
-    grid-template-columns: 1fr;
+
+@media (max-width: 900px) {
+  .fav-container {
+    padding: 28px 28px 64px;
   }
+
+  .section-head {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    gap: 12px;
+  }
+
+  .section-title {
+    font-size: 28px;
+    letter-spacing: 2px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .section-count {
+    letter-spacing: 1px;
+    padding: 4px 10px;
+  }
+
+  .fav-filters {
+    margin-bottom: 20px;
+  }
+
+  .fav-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .fav-card-cover {
+    height: 132px;
+  }
+
+  .fav-card-body {
+    padding: 12px 14px 14px;
+  }
+
+  .fav-game-name {
+    font-size: 18px;
+    letter-spacing: 1.5px;
+  }
+
+  .fav-find-btn {
+    opacity: 1;
+    font-size: 10px;
+  }
+
+  .heart-btn {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
   .fav-container {
     padding: 24px 20px 60px;
   }
+
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
   .back-btn {
     width: 100%;
     justify-content: center;
-    font-size: 13px;
-    padding: 10px 16px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 11px 16px;
   }
+
+  .fav-filters {
+    gap: 10px;
+  }
+
+  .filter-search-wrap {
+    min-width: 100%;
+  }
+
+  .filter-search {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .fav-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .fav-card {
+    display: grid;
+    grid-template-columns: 104px 1fr;
+    min-height: 124px;
+  }
+
+  .fav-card-cover {
+    width: 104px;
+    height: 100%;
+  }
+
+  .fav-card-body {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .fav-game-name {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  .fav-meta-row {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .fav-genre {
+    font-size: 9px;
+    letter-spacing: 1.2px;
+    padding: 2px 8px;
+  }
+
+  .fav-year,
+  .fav-party-size {
+    font-size: 11px;
+  }
+
+  .fav-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .fav-find-btn {
+    opacity: 0.92;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
   .heart-btn {
-    opacity: 1;
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .heart-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .empty-state {
+    padding: 56px 16px;
+  }
+
+  .empty-state h3 {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+
+  .action-btn {
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    padding: 11px 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .fav-container {
+    padding: 20px 14px 48px;
+  }
+
+  .section-title {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
+
+  .section-title svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .fav-card {
+    grid-template-columns: 90px 1fr;
+    min-height: 112px;
+  }
+
+  .fav-card-cover {
+    width: 90px;
+  }
+
+  .fav-card-body {
+    padding: 9px 10px;
+  }
+
+  .fav-game-name {
+    font-size: 15px;
+    letter-spacing: 0.8px;
+  }
+
+  .fav-cover-ph svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .fav-find-btn {
+    opacity: 0.86;
+  }
+
+  .empty-state {
+    padding: 48px 12px;
+  }
+
+  .empty-state h3 {
+    font-size: 20px;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 360px) {
+  .fav-container {
+    padding: 16px 12px 40px;
+  }
+
+  .section-title {
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+
+  .back-btn,
+  .action-btn {
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  .fav-card {
+    grid-template-columns: 78px 1fr;
+    min-height: 104px;
+  }
+
+  .fav-card-cover {
+    width: 78px;
+  }
+
+  .fav-card-body {
+    padding: 8px;
+    gap: 5px;
+  }
+
+  .fav-genre {
+    font-size: 8px;
+    letter-spacing: 0.8px;
+  }
+
+  .fav-year,
+  .fav-party-size {
+    font-size: 10px;
+  }
+
+  .fav-find-btn {
+    font-size: 8px;
+    letter-spacing: 0.8px;
+  }
+
+  .heart-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .heart-svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .empty-state h3 {
+    font-size: 18px;
+  }
+
+  .empty-state p {
+    font-size: 12px;
   }
 }
 </style>

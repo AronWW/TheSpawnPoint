@@ -1,11 +1,12 @@
 package com.thespawnpoint.backend.config;
 
-import com.thespawnpoint.backend.security.JwtFilter;
 import com.thespawnpoint.backend.security.BanAccessFilter;
+import com.thespawnpoint.backend.security.JwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -43,18 +44,21 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/avatars/**").permitAll()
                         .requestMatchers("/group-avatars/**").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}/stats").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/profile/{userId}/comments").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/achievements/users/{userId}").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/achievements/users/{userId}/preview").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/online-count").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/ratings/user/**").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/ratings/users").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/games", "/api/games/search", "/api/games/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/parties", "/api/parties/search", "/api/parties/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/profile/{userId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/profile/{userId}/stats").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/profile/{userId}/comments").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/achievements/users/{userId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/achievements/users/{userId}/preview").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/online-count").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ratings/user/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ratings/users").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
 import { genreColor } from '../utils/helpers'
-import api from '../api/axios'
+import { publicApi } from '../api/axios'
 import type { Game, Page } from '../types'
 import SuggestGameModal from '../components/SuggestGameModal.vue'
 
@@ -34,7 +34,7 @@ async function fetchPage(p = 0) {
     if (search.value.trim()) params.q = search.value.trim()
     if (selectedGenre.value) params.genre = selectedGenre.value
 
-    const { data } = await api.get<Page<Game>>('/games/search', { params })
+    const { data } = await publicApi.get<Page<Game>>('/games/search', { params })
     games.value = data.content
     page.value = data.page?.number ?? data.number ?? 0
     totalPages.value = data.page?.totalPages ?? data.totalPages ?? 0
@@ -198,6 +198,7 @@ onMounted(async () => {
 .games-page {
   padding-top: 64px;
   min-height: 100vh;
+  min-height: 100svh;
   background: var(--black);
 }
 
@@ -259,7 +260,7 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   margin-bottom: 28px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .filter-search-wrap {
@@ -356,7 +357,7 @@ onMounted(async () => {
 .games-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .g-card {
@@ -367,6 +368,7 @@ onMounted(async () => {
   overflow: hidden;
   transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
   position: relative;
+  min-height: 140px;
 }
 .g-card::after {
   content: '';
@@ -509,6 +511,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 40px;
   padding-top: 28px;
@@ -529,13 +532,263 @@ onMounted(async () => {
 .page-btn.active { border-color: var(--yellow); color: var(--black); background: var(--yellow); }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-@media (max-width: 900px) {
-  .games-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+@media (max-width: 1200px) {
+  .games-container { padding: 34px 40px 70px; }
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
 }
+
+@media (max-width: 900px) {
+  .games-container { padding: 28px 28px 64px; }
+
+  .section-head {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+  }
+
+  .section-title {
+    font-size: 28px;
+    letter-spacing: 2px;
+  }
+
+  .games-filters {
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .filter-search-wrap,
+  .filter-select {
+    min-height: 42px;
+  }
+
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+  .g-card-right { padding: 14px 16px; }
+  .g-name {
+    font-size: 19px;
+    letter-spacing: 1.5px;
+  }
+
+  .g-find-btn {
+    opacity: 1;
+    font-size: 10px;
+  }
+
+  .heart-btn {
+    opacity: 1;
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (max-width: 768px) {
+  .games-container { padding: 24px 20px 58px; }
+
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .fav-page-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 11px 14px;
+  }
+
+  .games-filters {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .filter-search-wrap,
+  .filter-select {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .filter-search,
+  .filter-select {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .games-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .g-card {
+    min-height: 132px;
+  }
+
+  .g-card-left {
+    width: 106px;
+  }
+
+  .g-card-right {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .g-name {
+    font-size: 18px;
+    letter-spacing: 1.3px;
+  }
+
+  .g-meta-row {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .g-party-size { font-size: 11px; }
+
+  .g-find-btn {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--yellow);
+  }
+
+  .pagination {
+    margin-top: 28px;
+    padding-top: 20px;
+    gap: 8px;
+  }
+
+  .page-btn {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+  }
+}
+
 @media (max-width: 600px) {
-  .games-grid { grid-template-columns: 1fr; }
-  .games-container { padding: 24px 20px 60px; }
-  .fav-page-btn { width: 100%; justify-content: center; font-size: 13px; padding: 10px 16px; }
-  .heart-btn { opacity: 1; }
+  .section-title {
+    font-size: 24px;
+    gap: 10px;
+  }
+
+  .section-count {
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 3px 9px;
+  }
+
+  .g-card {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    min-height: 118px;
+  }
+
+  .g-card-left { width: 90px; }
+
+  .g-cover-ph {
+    min-height: 118px;
+  }
+
+  .g-card-right {
+    padding: 10px 12px;
+  }
+
+  .g-name {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  .g-genre {
+    font-size: 9px;
+    letter-spacing: 1.3px;
+    padding: 2px 8px;
+  }
+
+  .g-year,
+  .g-party-size { font-size: 11px; }
+
+  .heart-btn {
+    width: 36px;
+    height: 36px;
+    top: 8px;
+    right: 8px;
+  }
+
+  .heart-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .fav-page-btn {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .page-btn {
+    min-width: 38px;
+    padding: 8px 10px;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+}
+
+@media (max-width: 420px) {
+  .games-container {
+    padding: 20px 14px 48px;
+  }
+
+  .section-title {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
+
+  .g-card {
+    grid-template-columns: 78px 1fr;
+    min-height: 108px;
+  }
+
+  .g-card-left { width: 78px; }
+
+  .g-cover-ph { min-height: 108px; }
+
+  .g-card-right {
+    padding: 9px 10px;
+    gap: 5px;
+  }
+
+  .g-name {
+    font-size: 15px;
+    letter-spacing: 0.8px;
+  }
+
+  .g-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .g-find-btn {
+    opacity: 0.9;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .empty-state {
+    padding: 56px 16px;
+  }
+
+  .empty-state h3 {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+
+  .suggest-game-footer {
+    font-size: 13px;
+    padding-top: 18px;
+  }
 }
 </style>

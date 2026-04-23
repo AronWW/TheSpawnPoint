@@ -671,4 +671,66 @@ a.friend-name:hover {
   padding: 4px 10px;
   border: 1px solid var(--border);
 }
+
+@media (max-width: 768px) {
+  .friends-page {
+    padding-top: 56px;
+  }
+  .friends-container {
+    padding: 24px 20px 80px;
+  }
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .friends-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .friends-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .friends-tab {
+    white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .friends-container {
+    padding: 16px 12px 80px;
+  }
+  .friend-card {
+    padding: 12px;
+    gap: 12px;
+  }
+  .friend-avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .friend-name {
+    font-size: 14px;
+  }
+  .friend-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .btn-accept, .btn-danger, .friend-badge, .pending-badge {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .search-input {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .empty-state h3 {
+    font-size: 20px;
+  }
+}
 </style>
