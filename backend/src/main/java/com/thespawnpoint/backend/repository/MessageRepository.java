@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,27 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     @Query("SELECT COUNT(m) FROM Message m WHERE m.chat = :chat AND m.sender <> :user AND m.read = false AND m.deleted = false")
     int countUnreadInChat(@Param("chat") Chat chat, @Param("user") User user);
+
+    @Query("""
+            SELECT COUNT(m) FROM Message m
+            WHERE m.chat = :chat
+              AND m.deleted = false
+              AND m.system = false
+              AND m.sender IS NOT NULL
+              AND m.sender <> :user
+              AND m.sentAt >= :joinedAt
+              AND (
+                    :lastReadMessageId IS NULL
+                    OR m.sentAt > :lastReadSentAt
+                    OR (m.sentAt = :lastReadSentAt AND m.id > :lastReadMessageId)
+                  )
+            """)
+    int countUnreadAfterCursor(
+            @Param("chat") Chat chat,
+            @Param("user") User user,
+            @Param("joinedAt") Instant joinedAt,
+            @Param("lastReadMessageId") Long lastReadMessageId,
+            @Param("lastReadSentAt") Instant lastReadSentAt);
 
     @Modifying
     @Query("UPDATE Message m SET m.read = true WHERE m.chat = :chat AND m.sender <> :reader AND m.read = false")

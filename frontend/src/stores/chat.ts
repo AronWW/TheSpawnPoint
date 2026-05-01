@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import api from '../api/axios'
 import { useStompClient } from '../composables/useStompClient'
 import { useAuthStore } from './auth'
-import type { ChatItem, ChatMessage, ChatEvent, PinnedMessageInfo, ReactionInfo } from '../types'
+import type { ChatItem, ChatMessage, ChatEvent, PinnedMessageInfo, ReactionInfo, MessageReadByUser } from '../types'
 
 export const useChatStore = defineStore('chat', () => {
   const chats = ref<ChatItem[]>([])
@@ -161,6 +161,19 @@ export const useChatStore = defineStore('chat', () => {
     stomp.publish('/app/chat.toggleReaction', { messageId, emoji })
   }
 
+  function markReadUpTo(chatId: number, messageId: number) {
+    const stomp = useStompClient()
+    stomp.publish('/app/chat.readUpTo', { chatId, messageId })
+
+    const chat = chats.value.find(c => c.id === chatId)
+    if (chat) chat.unreadCount = 0
+  }
+
+  async function fetchMessageReadBy(messageId: number): Promise<MessageReadByUser[]> {
+    const { data } = await api.get<MessageReadByUser[]>(`/chats/messages/${messageId}/read-by`)
+    return data
+  }
+
   function setReplyingTo(msg: ChatMessage | null) {
     replyingTo.value = msg
     editingMessage.value = null
@@ -254,20 +267,11 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function onIncomingMessage(msg: ChatMessage) {
-    const stomp = useStompClient()
     const auth = useAuthStore()
     const isOwnMessage = msg.senderEmail === auth.user?.email
 
     if (activeChat.value && msg.chatId === activeChat.value.id) {
       messages.value = [...messages.value, msg]
-
-      if (!isOwnMessage) {
-        if (activeChat.value.isGroup) {
-          stomp.publish('/app/chat.readGroup', { chatId: activeChat.value.id })
-        } else if (activeChat.value.partnerEmail) {
-          stomp.publish('/app/chat.read', { senderEmail: activeChat.value.partnerEmail })
-        }
-      }
     }
 
     const chatIdx = chats.value.findIndex((c) => c.id === msg.chatId)
@@ -277,7 +281,7 @@ export const useChatStore = defineStore('chat', () => {
         ...existing,
         lastMessage: msg.content,
         lastMessageAt: msg.sentAt,
-        unreadCount: (!activeChat.value || activeChat.value.id !== msg.chatId)
+        unreadCount: (!isOwnMessage && (!activeChat.value || activeChat.value.id !== msg.chatId))
           ? existing.unreadCount + 1
           : existing.unreadCount,
       }
@@ -342,6 +346,16 @@ export const useChatStore = defineStore('chat', () => {
         const { chatId } = event.payload
         const chat = chats.value.find(c => c.id === chatId)
         if (chat) chat.archived = true
+        break
+      }
+      case 'CHAT_READ_UP_TO': {
+        const { chatId, readerEmail, messageId } = event.payload as { chatId: number; readerEmail: string; messageId: number }
+        messages.value = messages.value.map((m) => {
+          if (m.chatId === chatId && m.id <= messageId && m.senderEmail !== readerEmail) {
+            return { ...m, read: true }
+          }
+          return m
+        })
         break
       }
       case 'MEMBER_REMOVED':
@@ -513,6 +527,8 @@ export const useChatStore = defineStore('chat', () => {
     deleteMessage,
     editMessageAction,
     toggleReaction,
+    markReadUpTo,
+    fetchMessageReadBy,
     setReplyingTo,
     setEditingMessage,
     archiveChat,

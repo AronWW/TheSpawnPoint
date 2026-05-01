@@ -55,4 +55,8 @@ public class ChatParticipant {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_read_message_id")
+    private Message lastReadMessage;
 }

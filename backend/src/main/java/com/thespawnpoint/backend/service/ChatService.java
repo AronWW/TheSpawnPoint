@@ -95,6 +95,14 @@ public class ChatService {
 
         Chat chat = self().getOrCreateDmChat(sender, recipient);
 
+        chatParticipantRepository.findByChatIdAndUserId(chat.getId(), sender.getId())
+                .ifPresent(cp -> {
+                    if (cp.getDeletedAt() != null) {
+                        cp.setDeletedAt(null);
+                        chatParticipantRepository.save(cp);
+                    }
+                });
+
         chatParticipantRepository.findByChatIdAndUserId(chat.getId(), recipient.getId())
                 .ifPresent(cp -> {
                     if (cp.getDeletedAt() != null) {
@@ -157,10 +165,6 @@ public class ChatService {
 
         Chat chat = chatRepository.findDmChat(currentUser, partner)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
-
-        if (page == 0) {
-            self().markAsReadAndNotify(currentUser, partner.getEmail());
-        }
 
         List<MessageDTO> messages = messageRepository
                 .findByChatOrderBySentAtDesc(chat, PageRequest.of(page, size))
@@ -516,10 +520,6 @@ public class ChatService {
             throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
         }
 
-        if (page == 0) {
-            self().markGroupAsRead(user, chatId);
-        }
-
         List<MessageDTO> messages = messageRepository
                 .findByChatOrderBySentAtDesc(chat, PageRequest.of(page, size))
                 .stream()
@@ -535,7 +535,9 @@ public class ChatService {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
 
-        messageRepository.markAsReadInChat(chat, reader);
+        if (!chatParticipantRepository.existsByChatIdAndUserId(chatId, reader.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
 
         List<ChatParticipant> participants = chatParticipantRepository.findByChatId(chatId);
         for (ChatParticipant cp : participants) {
@@ -549,8 +551,40 @@ public class ChatService {
         }
     }
 
+    @Transactional
+    public void markChatAsReadUpTo(User reader, Long chatId, Long messageId) {
+        ChatParticipant participant = chatParticipantRepository.findByChatIdAndUserId(chatId, reader.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat"));
+
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Message not found"));
+
+        if (!message.getChat().getId().equals(chatId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Message does not belong to this chat");
+        }
+
+        if (message.getSentAt().isBefore(participant.getJoinedAt())) {
+            return;
+        }
+
+        Message currentCursor = participant.getLastReadMessage();
+        if (currentCursor != null && !isAfter(message, currentCursor)) {
+            return;
+        }
+
+        participant.setLastReadMessage(message);
+        chatParticipantRepository.save(participant);
+
+        broadcastChatEvent(chatId, "CHAT_READ_UP_TO",
+                Map.of("chatId", chatId, "readerEmail", reader.getEmail(), "messageId", messageId));
+    }
+
     @Transactional(readOnly = true)
     public void sendGroupTypingIndicator(User sender, Long chatId) {
+        if (!chatParticipantRepository.existsByChatIdAndUserId(chatId, sender.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
+
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("senderEmail", sender.getEmail());
         payload.put("displayName", sender.getDisplayName());
@@ -630,6 +664,10 @@ public class ChatService {
     public void toggleReaction(User user, Long messageId, String emoji) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Message not found"));
+
+        if (!chatParticipantRepository.existsByChatIdAndUserId(message.getChat().getId(), user.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
 
         if (message.isDeleted()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot react to a deleted message");
@@ -832,6 +870,39 @@ public class ChatService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<MessageReadByDTO> getMessageReadBy(User requester, Long messageId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Message not found"));
+
+        if (message.getSender() == null || !message.getSender().getId().equals(requester.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only the message author can view read receipts");
+        }
+
+        if (!chatParticipantRepository.existsByChatIdAndUserId(message.getChat().getId(), requester.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
+
+        return chatParticipantRepository.findReadersForMessage(
+                        message.getChat(),
+                        requester,
+                        message.getSentAt(),
+                        messageId)
+                .stream()
+                .map(cp -> {
+                    String avatarUrl = profileRepository.findByUserId(cp.getUser().getId())
+                            .map(p -> p.getAvatarUrl())
+                            .orElse(null);
+                    return MessageReadByDTO.builder()
+                            .userId(cp.getUser().getId())
+                            .displayName(cp.getUser().getDisplayName())
+                            .email(cp.getUser().getEmail())
+                            .avatarUrl(avatarUrl)
+                            .build();
+                })
+                .toList();
+    }
+
     private void sendSystemMessage(Chat chat, String content) {
         Message saved = messageRepository.save(Message.builder()
                 .chat(chat)
@@ -882,10 +953,10 @@ public class ChatService {
             lastMessageAt = lm.getSentAt();
         }
 
-        int unread = messageRepository.countUnreadInChat(chat, currentUser);
-
         ChatParticipant currentCp = chatParticipantRepository.findByChatIdAndUserId(chat.getId(), currentUser.getId())
                 .orElse(null);
+
+        int unread = countUnreadForParticipant(chat, currentUser, currentCp);
 
         boolean archived = currentCp != null && currentCp.isArchived();
         boolean pinned = currentCp != null && currentCp.isPinned();
@@ -1002,6 +1073,28 @@ public class ChatService {
             return null;
         }
         return replyTo;
+    }
+
+    private int countUnreadForParticipant(Chat chat, User currentUser, ChatParticipant participant) {
+        if (participant == null || participant.getDeletedAt() != null) {
+            return 0;
+        }
+
+        Message cursor = participant.getLastReadMessage();
+        return messageRepository.countUnreadAfterCursor(
+                chat,
+                currentUser,
+                participant.getJoinedAt(),
+                cursor != null ? cursor.getId() : null,
+                cursor != null ? cursor.getSentAt() : null);
+    }
+
+    private boolean isAfter(Message candidate, Message reference) {
+        int sentAtCompare = candidate.getSentAt().compareTo(reference.getSentAt());
+        if (sentAtCompare != 0) {
+            return sentAtCompare > 0;
+        }
+        return candidate.getId() > reference.getId();
     }
 
     private List<ReactionDTO> buildReactionsForMessage(Long messageId) {

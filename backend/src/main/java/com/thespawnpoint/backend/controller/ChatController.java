@@ -7,6 +7,7 @@ import com.thespawnpoint.backend.exception.WebSocketExceptionHandler;
 import com.thespawnpoint.backend.repository.UserRepository;
 import com.thespawnpoint.backend.service.ChatService;
 import com.thespawnpoint.backend.service.CloudinaryImageService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -169,6 +170,13 @@ public class ChatController extends WebSocketExceptionHandler {
         return ResponseEntity.ok(chatService.getPinnedMessages(currentUser, chatId));
     }
 
+    @GetMapping("/api/chats/messages/{messageId}/read-by")
+    public ResponseEntity<List<MessageReadByDTO>> getMessageReadBy(
+            @PathVariable Long messageId,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(chatService.getMessageReadBy(currentUser, messageId));
+    }
+
     @DeleteMapping("/api/chats/group/{chatId}/members/{userId}")
     public ResponseEntity<Void> removeGroupMember(
             @PathVariable Long chatId,
@@ -216,7 +224,7 @@ public class ChatController extends WebSocketExceptionHandler {
     }
 
     @MessageMapping("/chat.send")
-    public void sendMessage(@Payload SendMessageDTO dto, Principal principal) {
+    public void sendMessage(@Payload @Valid SendMessageDTO dto, Principal principal) {
         User sender = getPrincipalUser(principal);
         chatService.sendMessage(sender, dto.getRecipientEmail(), dto.getContent(), dto.getReplyToId());
         log.debug("Message from {} to {}", sender.getEmail(), dto.getRecipientEmail());
@@ -235,7 +243,7 @@ public class ChatController extends WebSocketExceptionHandler {
     }
 
     @MessageMapping("/chat.sendGroup")
-    public void sendGroupMessage(@Payload SendGroupMessageDTO dto, Principal principal) {
+    public void sendGroupMessage(@Payload @Valid SendGroupMessageDTO dto, Principal principal) {
         User sender = getPrincipalUser(principal);
         chatService.sendGroupMessage(sender, dto.getChatId(), dto.getContent(), dto.getReplyToId());
         log.debug("Group message from {} to chat {}", sender.getEmail(), dto.getChatId());
@@ -251,6 +259,11 @@ public class ChatController extends WebSocketExceptionHandler {
     public void markGroupRead(@Payload Map<String, Object> payload, Principal principal) {
         Long chatId = ((Number) payload.get("chatId")).longValue();
         chatService.markGroupAsRead(getPrincipalUser(principal), chatId);
+    }
+
+    @MessageMapping("/chat.readUpTo")
+    public void markReadUpTo(@Payload @Valid ReadUpToDTO dto, Principal principal) {
+        chatService.markChatAsReadUpTo(getPrincipalUser(principal), dto.getChatId(), dto.getMessageId());
     }
 
     @MessageMapping("/chat.deleteMessage")

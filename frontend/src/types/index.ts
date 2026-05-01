@@ -310,6 +310,13 @@ export interface PinnedMessageInfo {
   pinnedAt: string
 }
 
+export interface MessageReadByUser {
+  userId: number
+  displayName: string
+  email: string
+  avatarUrl: string | null
+}
+
 export interface ChatEvent {
   type: string
   chatId: number

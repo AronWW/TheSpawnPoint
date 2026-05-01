@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
@@ -10,7 +10,7 @@ import GroupChatSettingsModal from './GroupChatSettingsModal.vue'
 import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
 import ChatEmptyStateSecret from './ChatEmptyStateSecret.vue'
 import { useAchievementStore } from '../stores/achievements'
-import type { ChatMessage, PinnedMessageInfo } from '../types'
+import type { ChatMessage, PinnedMessageInfo, MessageReadByUser } from '../types'
 
 const router = useRouter()
 const chatStore = useChatStore()
@@ -19,6 +19,7 @@ const stomp = useStompClient()
 const achievementStore = useAchievementStore()
 
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+const DEFAULT_AVATAR_URL = `${PUBLIC_BASE_URL}/avatars/default/avatar-1.png`
 
 const showGroupSettings = ref(false)
 
@@ -33,9 +34,16 @@ const shouldRenderSecretPlaceholder = computed(() => (
 ))
 
 function resolveAvatar(url: string | null): string {
-  if (!url) return PUBLIC_BASE_URL + '/avatars/default/avatar-1.png'
-  if (url.startsWith('http')) return url
-  return PUBLIC_BASE_URL + url
+  const value = url?.trim()
+  if (!value) return DEFAULT_AVATAR_URL
+  if (/^(https?:)?\/\//.test(value) || value.startsWith('data:') || value.startsWith('blob:')) return value
+  return PUBLIC_BASE_URL + (value.startsWith('/') ? value : `/${value}`)
+}
+
+function onAvatarError(event: Event) {
+  const target = event.target as HTMLImageElement | null
+  if (!target || target.src === DEFAULT_AVATAR_URL) return
+  target.src = DEFAULT_AVATAR_URL
 }
 
 const messageInput = ref('')
@@ -44,6 +52,32 @@ const typingTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const contextMenu = ref<{ show: boolean; x: number; y: number; msg: ChatMessage | null }>({
   show: false, x: 0, y: 0, msg: null
+})
+const contextMenuEl = ref<HTMLElement | null>(null)
+const contextMenuRect = ref({ left: 0, right: 0, top: 0, bottom: 0, height: 0 })
+
+const readByPreview = ref<{
+  messageId: number | null
+  loading: boolean
+  users: MessageReadByUser[]
+}>({
+  messageId: null,
+  loading: false,
+  users: [],
+})
+
+const readByPanel = ref<{
+  show: boolean
+  loading: boolean
+  users: MessageReadByUser[]
+  error: string
+  msg: ChatMessage | null
+}>({
+  show: false,
+  loading: false,
+  users: [],
+  error: '',
+  msg: null,
 })
 
 const showSearch = ref(false)
@@ -220,16 +254,6 @@ function onTyping() {
   typingTimeout.value = setTimeout(() => { typingTimeout.value = null }, 2000)
 }
 
-watch(() => chatStore.activeChat?.id, (newId) => {
-  if (newId && chatStore.activeChat) {
-    if (chatStore.activeChat.isGroup) {
-      stomp.publish('/app/chat.readGroup', { chatId: chatStore.activeChat.id })
-    } else if (chatStore.activeChat.partnerEmail) {
-      stomp.publish('/app/chat.read', { senderEmail: chatStore.activeChat.partnerEmail })
-    }
-  }
-})
-
 function onScroll() {
   const el = messagesContainer.value
   if (!el) return
@@ -288,8 +312,8 @@ function statusText(s: string) {
 }
 
 const contextMenuStyle = computed(() => {
-  const menuW = 210
-  const menuH = 200
+  const menuW = 220
+  const menuH = 260
   let x = contextMenu.value.x
   let y = contextMenu.value.y
 
@@ -306,14 +330,113 @@ const contextMenuStyle = computed(() => {
   return { top: y + 'px', left: x + 'px' }
 })
 
+const readByPanelStyle = computed(() => {
+  const panelW = 300
+  const rect = contextMenuRect.value
+
+  let x = rect.left - panelW
+  if (x < 8) {
+    x = rect.right
+  }
+  if (x + panelW > window.innerWidth - 8) {
+    x = window.innerWidth - panelW - 8
+  }
+  if (x < 8) x = 8
+
+  let y = rect.bottom
+  if (y > window.innerHeight - 8) y = window.innerHeight - 8
+  if (y < 120) y = 120
+
+  return { top: `${y}px`, left: `${x}px` }
+})
+
+const readByPreviewAvatars = computed(() => readByPreview.value.users.slice(0, 3))
+
+const readByPreviewText = computed(() => {
+  if (readByPreview.value.loading) return 'ЗАВАНТАЖЕННЯ'
+  const count = readByPreview.value.users.length
+  if (count === 1) return '1 ПЕРЕГЛЯД'
+  return `${count} ПЕРЕГЛЯДИ`
+})
+
+let readObserver: IntersectionObserver | null = null
+let readMarkTimer: ReturnType<typeof setTimeout> | null = null
+const visibleReadCandidates = new Set<number>()
+const lastMarkedByChat = new Map<number, number>()
+
 function openContextMenu(event: MouseEvent, msg: ChatMessage) {
   if (msg.deleted || msg.system) return
   event.preventDefault()
   contextMenu.value = { show: true, x: event.clientX, y: event.clientY, msg }
+  readByPanel.value = { show: false, loading: false, users: [], error: '', msg: null }
+  nextTick(updateContextMenuRect)
+  if (isOwnMessage(msg.senderEmail)) {
+    void loadReadByPreview(msg)
+  } else {
+    readByPreview.value = { messageId: null, loading: false, users: [] }
+  }
 }
 
 function closeContextMenu() {
   contextMenu.value = { show: false, x: 0, y: 0, msg: null }
+  readByPreview.value = { messageId: null, loading: false, users: [] }
+  readByPanel.value = { show: false, loading: false, users: [], error: '', msg: null }
+}
+
+async function loadReadByPreview(msg: ChatMessage) {
+  readByPreview.value = { messageId: msg.id, loading: true, users: [] }
+  try {
+    const users = await chatStore.fetchMessageReadBy(msg.id)
+    if (readByPreview.value.messageId === msg.id) {
+      readByPreview.value = { messageId: msg.id, loading: false, users }
+    }
+  } catch {
+    if (readByPreview.value.messageId === msg.id) {
+      readByPreview.value = { messageId: msg.id, loading: false, users: [] }
+    }
+  }
+}
+
+async function openReadByPanel(msg: ChatMessage) {
+  readByPanel.value = {
+    show: true,
+    loading: true,
+    users: readByPreview.value.messageId === msg.id ? readByPreview.value.users : [],
+    error: '',
+    msg,
+  }
+  await nextTick()
+  updateContextMenuRect()
+
+  try {
+    const users = await chatStore.fetchMessageReadBy(msg.id)
+    if (readByPanel.value.msg?.id === msg.id) {
+      readByPanel.value = { show: true, loading: false, users, error: '', msg }
+      readByPreview.value = { messageId: msg.id, loading: false, users }
+    }
+  } catch {
+    if (readByPanel.value.msg?.id === msg.id) {
+      readByPanel.value = {
+        show: true,
+        loading: false,
+        users: [],
+        error: 'Не вдалося завантажити перегляди',
+        msg,
+      }
+    }
+  }
+}
+
+function updateContextMenuRect() {
+  const rect = contextMenuEl.value?.getBoundingClientRect()
+  if (!rect) return
+  contextMenuRect.value = {
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    bottom: rect.bottom,
+    height: rect.height,
+  }
 }
 
 function onReply(msg: ChatMessage) {
@@ -411,16 +534,82 @@ function onWindowClick() {
   closeContextMenu()
   emojiPickerMsg.value = null
   showPinnedList.value = false
+  readByPanel.value = { show: false, loading: false, users: [], error: '', msg: null }
+}
+
+function setupReadObserver() {
+  readObserver?.disconnect()
+  visibleReadCandidates.clear()
+
+  const container = messagesContainer.value
+  if (!container || !chatStore.activeChat) return
+
+  readObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const id = Number((entry.target as HTMLElement).dataset.msgId)
+      if (!id) continue
+      if (entry.isIntersecting) {
+        visibleReadCandidates.add(id)
+      } else {
+        visibleReadCandidates.delete(id)
+      }
+    }
+    scheduleReadMark()
+  }, {
+    root: container,
+    threshold: 0.6,
+  })
+
+  container.querySelectorAll<HTMLElement>('[data-msg-id]').forEach((el) => {
+    readObserver?.observe(el)
+  })
+}
+
+function scheduleReadMark() {
+  if (readMarkTimer) clearTimeout(readMarkTimer)
+  readMarkTimer = setTimeout(markLowestVisibleAsRead, 250)
+}
+
+function markLowestVisibleAsRead() {
+  const chatId = chatStore.activeChat?.id
+  if (!chatId || visibleReadCandidates.size === 0) return
+
+  const visibleIds = [...visibleReadCandidates]
+  const visibleMessages = chatStore.messages
+    .filter(m => visibleIds.includes(m.id))
+    .sort((a, b) => {
+      const timeDiff = new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+      return timeDiff !== 0 ? timeDiff : a.id - b.id
+    })
+  const message = visibleMessages[visibleMessages.length - 1]
+
+  if (!message) return
+
+  const lastMarked = lastMarkedByChat.get(chatId) ?? 0
+  if (message.id <= lastMarked) return
+
+  lastMarkedByChat.set(chatId, message.id)
+  chatStore.markReadUpTo(chatId, message.id)
 }
 
 watch(() => chatStore.editingMessage, (msg) => {
   if (msg) messageInput.value = msg.content
 })
 
+watch(() => [chatStore.activeChat?.id, chatStore.messages.length], () => {
+  nextTick(setupReadObserver)
+})
+
 onMounted(() => {
   if (!achievementStore.hasLoadedMyAchievements && !achievementStore.loading) {
     void achievementStore.fetchMyAchievements()
   }
+  nextTick(setupReadObserver)
+})
+
+onBeforeUnmount(() => {
+  readObserver?.disconnect()
+  if (readMarkTimer) clearTimeout(readMarkTimer)
 })
 </script>
 
@@ -652,6 +841,7 @@ onMounted(() => {
     <Teleport to="body">
       <div
         v-if="contextMenu.show && contextMenu.msg"
+        ref="contextMenuEl"
         class="msg-context-menu"
         :style="contextMenuStyle"
         @click.stop
@@ -664,6 +854,45 @@ onMounted(() => {
         </button>
         <div class="ctx-divider"></div>
         <button v-if="isOwnMessage(contextMenu.msg!.senderEmail) || (isGroup && canDeleteAny)" class="ctx-item ctx-danger" @click="onDeleteMsg(contextMenu.msg!)">ВИДАЛИТИ</button>
+        <template v-if="isOwnMessage(contextMenu.msg!.senderEmail)">
+          <div class="ctx-divider"></div>
+          <button class="ctx-item ctx-read-by" @click.stop="openReadByPanel(contextMenu.msg!)">
+            <span class="ctx-read-checks">✓✓</span>
+            <span class="ctx-read-label">{{ readByPreviewText }}</span>
+            <span v-if="readByPreviewAvatars.length" class="ctx-read-avatars">
+              <span
+                v-for="user in readByPreviewAvatars"
+                :key="user.userId"
+                class="ctx-read-avatar"
+              >
+                <img :src="resolveAvatar(user.avatarUrl)" alt="" @error="onAvatarError" />
+              </span>
+            </span>
+          </button>
+        </template>
+      </div>
+
+      <div
+        v-if="readByPanel.show && contextMenu.msg && readByPanel.msg?.id === contextMenu.msg.id"
+        class="read-by-panel"
+        :style="readByPanelStyle"
+        @click.stop
+      >
+        <div class="read-by-title">ПРОЧИТАЛИ</div>
+        <div v-if="readByPanel.loading" class="read-by-state">Завантаження...</div>
+        <div v-else-if="readByPanel.error" class="read-by-state read-by-error">{{ readByPanel.error }}</div>
+        <div v-else-if="readByPanel.users.length === 0" class="read-by-state">Ще ніхто не прочитав</div>
+        <div v-else class="read-by-list">
+          <div v-for="user in readByPanel.users" :key="user.userId" class="read-by-user">
+            <div class="read-by-avatar">
+              <img :src="resolveAvatar(user.avatarUrl)" alt="" @error="onAvatarError" />
+            </div>
+            <div class="read-by-info">
+              <div class="read-by-name">{{ user.displayName }}</div>
+              <div class="read-by-meta"><span>✓✓</span> прочитано</div>
+            </div>
+          </div>
+        </div>
       </div>
     </Teleport>
 
@@ -1191,6 +1420,11 @@ onMounted(() => {
   border: 2px solid var(--border);
   border-top: 3px solid var(--yellow);
   min-width: 200px;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  box-sizing: border-box;
   box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,197,24,0.05);
   padding: 6px 0;
   animation: ctxMenuIn 0.12s ease-out;
@@ -1238,6 +1472,160 @@ onMounted(() => {
   height: 1px;
   background: var(--border);
   margin: 4px 12px;
+}
+.ctx-read-by {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  background: linear-gradient(90deg, rgba(245,197,24,0.05), transparent);
+}
+.ctx-read-by:hover {
+  background: linear-gradient(90deg, rgba(245,197,24,0.1), var(--panel-light));
+}
+.ctx-read-checks {
+  color: var(--yellow);
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: -2px;
+  text-shadow: 0 0 8px rgba(245,197,24,0.22);
+}
+.ctx-read-label {
+  flex: 1;
+  min-width: 0;
+}
+.ctx-read-avatars {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.ctx-read-avatar {
+  width: 23px;
+  height: 23px;
+  margin-left: -7px;
+  border: 2px solid var(--panel);
+  background: var(--dark);
+  color: var(--yellow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 10px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.ctx-read-avatar:first-child {
+  margin-left: 0;
+}
+.ctx-read-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.read-by-panel {
+  position: fixed;
+  z-index: 9998;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-top: 3px solid var(--yellow);
+  border-right-color: rgba(245,197,24,0.28);
+  box-shadow: 0 16px 46px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(245,197,24,0.04);
+  transform: translateY(-100%);
+  animation: readByPanelIn 0.12s ease-out;
+  transform-origin: right bottom;
+}
+@keyframes readByPanelIn {
+  from { opacity: 0; transform: translateY(-100%) scale(0.96); }
+  to { opacity: 1; transform: translateY(-100%) scale(1); }
+}
+.read-by-title {
+  flex-shrink: 0;
+  padding: 11px 13px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 2.5px;
+}
+.read-by-state {
+  flex-shrink: 0;
+  padding: 20px 16px;
+  color: var(--gray);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.read-by-error {
+  color: var(--red);
+}
+.read-by-list {
+  max-height: 552px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.read-by-user {
+  min-height: 54px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 15px;
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.read-by-user:hover {
+  background: var(--panel-light);
+  border-left-color: var(--yellow-dim);
+}
+.read-by-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--dark);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+.read-by-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.read-by-info {
+  min-width: 0;
+}
+.read-by-name {
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.read-by-meta {
+  margin-top: 2px;
+  color: var(--gray);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+.read-by-meta span {
+  color: var(--yellow-dim);
+  letter-spacing: -2px;
+  margin-right: 5px;
 }
 
 .chat-reply-bar {

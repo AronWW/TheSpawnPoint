@@ -63,8 +63,8 @@ async function ensureChatLoaded() {
 
   try {
     await chatStore.openGroupChatById(props.chatId)
-    stomp.publish('/app/chat.readGroup', { chatId: props.chatId })
     scrollToBottom(true)
+    markLatestVisibleRead()
   } catch {
     initError.value = 'Не вдалося завантажити чат лобі'
   } finally {
@@ -96,6 +96,14 @@ function sendMessage() {
 
   pendingOwnScroll.value = true
   messageInput.value = ''
+}
+
+function markLatestVisibleRead() {
+  const msgs = visibleMessages.value
+  const lastMessage = msgs[msgs.length - 1]
+  if (lastMessage) {
+    chatStore.markReadUpTo(props.chatId, lastMessage.id)
+  }
 }
 
 function onTyping() {
@@ -133,6 +141,7 @@ watch(() => visibleMessages.value, (msgs) => {
   }
 
   scrollToBottom()
+  markLatestVisibleRead()
 }, { deep: false })
 
 onMounted(() => {
