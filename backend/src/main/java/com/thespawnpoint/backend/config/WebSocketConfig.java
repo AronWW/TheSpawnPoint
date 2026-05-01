@@ -2,7 +2,9 @@ package com.thespawnpoint.backend.config;
 
 import com.thespawnpoint.backend.security.WebSocketAuthInterceptor;
 import com.thespawnpoint.backend.security.WebSocketHandshakeInterceptor;
+import com.thespawnpoint.backend.security.WebSocketRateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -14,6 +16,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Map;
 
 @Configuration
@@ -22,9 +25,10 @@ import java.util.Map;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+    private final WebSocketRateLimitInterceptor webSocketRateLimitInterceptor;
     private final WebSocketHandshakeInterceptor handshakeInterceptor;
 
-    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}")
+    @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
     @Override
@@ -36,7 +40,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        String[] origins = java.util.Arrays.stream(allowedOrigins.split(","))
+        String[] origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toArray(String[]::new);
@@ -59,7 +63,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(webSocketAuthInterceptor);
+        registration.interceptors(webSocketAuthInterceptor, webSocketRateLimitInterceptor);
     }
 }
 

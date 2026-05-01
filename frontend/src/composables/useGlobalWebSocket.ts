@@ -8,6 +8,7 @@ import { useAchievementStore } from '../stores/achievements'
 import { useBlockStore } from '../stores/block'
 import { useStompClient } from './useStompClient'
 import { playNotificationSound } from './useNotificationSound'
+import { useToast } from './useToast'
 import type { Notification, ChatMessage, ChatEvent, AchievementUnlockEvent } from '../types'
 
 
@@ -20,6 +21,7 @@ export function useGlobalWebSocket() {
   const achievementStore = useAchievementStore()
   const blockStore = useBlockStore()
   const stomp = useStompClient()
+  const toast = useToast()
 
   let teardowns: (() => void)[] = []
   let isSubscribed = false
@@ -135,6 +137,23 @@ export function useGlobalWebSocket() {
             }
           }
         } catch { }
+      })
+    )
+
+    teardowns.push(
+      stomp.subscribe('/user/queue/errors', (frame) => {
+        try {
+          const payload = JSON.parse(frame.body) as { error?: string; message?: string }
+          const fallback = payload.error === 'SPAM_DETECTED'
+            ? 'Не спамте, будь ласка.'
+            : payload.error === 'RATE_LIMITED'
+              ? 'Не надсилайте повідомлення так швидко!'
+              : 'Сталася помилка чату.'
+
+          toast.show(payload.message || fallback, 'error')
+        } catch {
+          toast.show('Сталася помилка чату.', 'error')
+        }
       })
     )
 

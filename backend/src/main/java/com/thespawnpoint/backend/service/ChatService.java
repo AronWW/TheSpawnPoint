@@ -41,6 +41,7 @@ public class ChatService {
     private final CloudinaryImageService cloudinaryImageService;
     private final BlockService blockService;
     private final AchievementService achievementService;
+    private final RateLimitingService rateLimitingService;
 
     private ChatService self() {
         return applicationContext.getBean(ChatService.class);
@@ -63,7 +64,20 @@ public class ChatService {
     }
 
     @Transactional
-    public MessageDTO sendMessage(User sender, String recipientEmail, String content, Long replyToId) {
+    public void sendMessage(User sender, String recipientEmail, String content, Long replyToId) {
+
+        if (rateLimitingService.isSpamDuplicate(sender.getId(), content)) {
+            messagingTemplate.convertAndSendToUser(
+                    sender.getEmail(),
+                    "/queue/errors",
+                    Map.of(
+                            "error", "SPAM_DETECTED",
+                            "message", "Не спамте, будь ласка."
+                    )
+            );
+            return;
+        }
+
         User recipient = userRepository.findByEmail(recipientEmail)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Recipient not found"));
 
@@ -104,8 +118,9 @@ public class ChatService {
         messagingTemplate.convertAndSendToUser(sender.getEmail(), "/queue/messages", dto);
 
         achievementService.syncMessageMilestones(sender);
-        return dto;
     }
+
+
 
     public void sendTypingIndicator(User sender, String recipientEmail) {
         Long chatId = getChatIdIfExists(sender, recipientEmail);
@@ -243,22 +258,11 @@ public class ChatService {
 
         int remaining = chatParticipantRepository.countByChatId(chatId);
         if (remaining == 0) {
-
-            List<String> emails = chatParticipantRepository.findByChatId(chatId).stream()
-                    .map(cp -> cp.getUser().getEmail())
-                    .collect(Collectors.toList());
-
             partyRequestRepository.findByChatId(chatId).ifPresent(party -> {
                 party.setChat(null);
                 partyRequestRepository.save(party);
             });
-
             chatRepository.deleteById(chatId);
-
-            ChatEventDTO event = new ChatEventDTO("CHAT_DELETED", chatId, Map.of("chatId", chatId));
-            for (String email : emails) {
-                messagingTemplate.convertAndSendToUser(email, "/queue/chat-events", event);
-            }
         }
     }
 
@@ -459,7 +463,19 @@ public class ChatService {
     }
 
     @Transactional
-    public MessageDTO sendGroupMessage(User sender, Long chatId, String content, Long replyToId) {
+    public void sendGroupMessage(User sender, Long chatId, String content, Long replyToId) {
+        if (rateLimitingService.isSpamDuplicate(sender.getId(), content)) {
+            messagingTemplate.convertAndSendToUser(
+                    sender.getEmail(),
+                    "/queue/errors",
+                    Map.of(
+                            "error", "SPAM_DETECTED",
+                            "message", "Не спамте, будь ласка."
+                    )
+            );
+            return;
+        }
+
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
 
@@ -489,7 +505,6 @@ public class ChatService {
         }
 
         achievementService.syncMessageMilestones(sender);
-        return dto;
     }
 
     @Transactional
@@ -693,18 +708,12 @@ public class ChatService {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
 
-        log.info("deleteChatForUser: chatId={}, isGroup={}, partyLinked={}, userId={}",
-                chatId, chat.getIsGroup(), chat.getPartyLinked(), user.getId());
-
         if (!chatParticipantRepository.existsByChatIdAndUserId(chatId, user.getId())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Chat not found");
         }
 
         if (Boolean.TRUE.equals(chat.getIsGroup())) {
             var partyOpt = partyRequestRepository.findByChatId(chatId);
-            log.info("deleteChatForUser: partyOpt present={}, status={}",
-                    partyOpt.isPresent(),
-                    partyOpt.map(p -> p.getStatus().name()).orElse("N/A"));
 
             if (partyOpt.isPresent()) {
                 var party = partyOpt.get();
@@ -723,21 +732,11 @@ public class ChatService {
 
             int remaining = chatParticipantRepository.countByChatId(chatId);
             if (remaining == 0) {
-                List<String> emails = chatParticipantRepository.findByChatId(chatId).stream()
-                        .map(cp -> cp.getUser().getEmail())
-                        .collect(Collectors.toList());
-
                 partyOpt.ifPresent(party -> {
                     party.setChat(null);
                     partyRequestRepository.save(party);
                 });
-
                 chatRepository.deleteById(chatId);
-
-                ChatEventDTO event = new ChatEventDTO("CHAT_DELETED", chatId, Map.of("chatId", chatId));
-                for (String email : emails) {
-                    messagingTemplate.convertAndSendToUser(email, "/queue/chat-events", event);
-                }
             }
         } else {
             ChatParticipant cp = chatParticipantRepository.findByChatIdAndUserId(chatId, user.getId())
