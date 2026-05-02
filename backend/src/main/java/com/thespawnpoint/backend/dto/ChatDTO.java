@@ -26,6 +26,7 @@ public class ChatDTO {
     private Long partyId;
     private String groupAvatarUrl;
 
+    private Long partnerUserId;
     private String partnerEmail;
     private String partnerDisplayName;
     private String partnerAvatarUrl;
@@ -37,6 +38,7 @@ public class ChatDTO {
     private String lastMessage;
     private Instant lastMessageAt;
     private int unreadCount;
+    private Long lastReadMessageId;
 
     @Builder.Default
     private boolean archived = false;

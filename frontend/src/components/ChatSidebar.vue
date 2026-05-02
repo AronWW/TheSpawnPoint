@@ -13,14 +13,22 @@ const emit = defineEmits<{
   (e: 'select', chat: ChatItem): void
 }>()
 
-const props = defineProps<{ search: string }>()
+const props = defineProps<{ search: string; collapsed?: boolean }>()
 
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+const DEFAULT_AVATAR_URL = `${PUBLIC_BASE_URL}/avatars/default/avatar-1.png`
 
-function resolveAvatar(url: string | null): string {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return PUBLIC_BASE_URL + url
+function resolveAvatar(url: string | null, fallback = ''): string {
+  const value = url?.trim()
+  if (!value) return fallback
+  if (/^(https?:)?\/\//.test(value) || value.startsWith('data:') || value.startsWith('blob:')) return value
+  return PUBLIC_BASE_URL + (value.startsWith('/') ? value : `/${value}`)
+}
+
+function onAvatarError(event: Event) {
+  const target = event.target as HTMLImageElement | null
+  if (!target || target.src === DEFAULT_AVATAR_URL) return
+  target.src = DEFAULT_AVATAR_URL
 }
 
 function chatAvatarUrl(chat: ChatItem): string | null {
@@ -28,8 +36,7 @@ function chatAvatarUrl(chat: ChatItem): string | null {
     if (chat.groupAvatarUrl) return resolveAvatar(chat.groupAvatarUrl)
     return null
   }
-  if (!chat.partnerAvatarUrl) return null
-  return resolveAvatar(chat.partnerAvatarUrl)
+  return resolveAvatar(chat.partnerAvatarUrl, DEFAULT_AVATAR_URL)
 }
 
 const ctxMenu = ref<{ show: boolean; x: number; y: number; chat: ChatItem | null }>({
@@ -201,7 +208,7 @@ function onWindowClick() {
         @contextmenu="openCtxMenu($event, chat)"
       >
         <div class="chat-sidebar-avatar">
-          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" @error="onAvatarError" />
           <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           <span class="chat-status-dot" :class="statusDotClass(chat)">
             <svg v-if="chat.chatType === 'GAME'" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 11h4M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
@@ -244,7 +251,7 @@ function onWindowClick() {
         @contextmenu="openCtxMenu($event, chat)"
       >
         <div class="chat-sidebar-avatar">
-          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+          <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" @error="onAvatarError" />
           <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           <span class="chat-status-dot" :class="statusDotClass(chat)">
             <svg v-if="chat.chatType === 'GAME'" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 11h4M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
@@ -280,7 +287,7 @@ function onWindowClick() {
         <svg :style="{ transform: chatStore.showArchived ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
 
-      <template v-if="chatStore.showArchived">
+      <template v-if="chatStore.showArchived || props.collapsed">
         <div
           v-for="chat in filteredArchivedChats"
           :key="'arch-' + chat.id"
@@ -290,7 +297,7 @@ function onWindowClick() {
           @contextmenu="openCtxMenu($event, chat)"
         >
           <div class="chat-sidebar-avatar">
-            <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" />
+            <img v-if="chatAvatarUrl(chat)" :src="chatAvatarUrl(chat)!" alt="" class="chat-avatar-img" @error="onAvatarError" />
             <span v-else class="chat-avatar-letter" :class="{ group: chat.chatType === 'GROUP', game: chat.chatType === 'GAME' }">{{ chatAvatarLetter(chat) }}</span>
           </div>
           <div class="chat-sidebar-info">

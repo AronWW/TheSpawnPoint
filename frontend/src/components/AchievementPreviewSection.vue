@@ -6,6 +6,11 @@ defineProps<{
   preview: AchievementPreview
   isOwnProfile: boolean
 }>()
+
+const emit = defineEmits<{
+  openCollection: []
+  openPicker: []
+}>()
 </script>
 
 <template>
@@ -17,9 +22,22 @@ defineProps<{
           Відкрито {{ preview.unlockedCount }} з {{ preview.totalCount }}
         </p>
       </div>
-      <router-link to="/achievements" class="achievement-preview-link" v-if="isOwnProfile">
-        УСІ ДОСЯГНЕННЯ →
-      </router-link>
+      <div class="achievement-preview-actions">
+        <router-link v-if="isOwnProfile" to="/achievements" class="achievement-preview-link">
+          УСІ ДОСЯГНЕННЯ
+        </router-link>
+        <button v-else class="achievement-preview-link" type="button" @click="emit('openCollection')">
+          УСІ ДОСЯГНЕННЯ
+        </button>
+        <button
+          v-if="isOwnProfile"
+          class="achievement-preview-link achievement-preview-link--muted"
+          type="button"
+          @click="emit('openPicker')"
+        >
+          НАЛАШТУВАТИ
+        </button>
+      </div>
     </div>
 
     <div v-if="preview.items.length" class="achievement-preview-grid">
@@ -29,14 +47,6 @@ defineProps<{
         :achievement="achievement"
         compact
       />
-    </div>
-
-    <div v-else class="achievement-preview-empty">
-      <span class="achievement-preview-empty__icon">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-      </span>
-      <p v-if="isOwnProfile">У тебе ще немає відкритих досягнень. Саме час почати колекцію.</p>
-      <p v-else>У цього гравця ще немає відкритих досягнень для показу.</p>
     </div>
   </section>
 </template>
@@ -60,6 +70,12 @@ defineProps<{
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+.achievement-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .achievement-preview-link {
   color: var(--yellow);
   font-family: var(--font-display);
@@ -67,30 +83,26 @@ defineProps<{
   font-size: 11px;
   border: 1px solid rgba(245, 197, 24, 0.22);
   padding: 10px 12px;
+  background: transparent;
+  cursor: pointer;
 }
 .achievement-preview-link:hover {
   border-color: var(--yellow);
   background: rgba(245, 197, 24, 0.08);
 }
+.achievement-preview-link--muted {
+  color: var(--gray-light);
+  border-color: var(--border);
+}
+.achievement-preview-link--muted:hover {
+  color: var(--white);
+  border-color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+}
 .achievement-preview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-}
-.achievement-preview-empty {
-  min-height: 150px;
-  border: 1px dashed rgba(245, 197, 24, 0.18);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  text-align: center;
-  color: var(--gray-light);
-  background: rgba(255,255,255,0.02);
-}
-.achievement-preview-empty__icon {
-  font-size: 28px;
-  display: block;
-  margin-bottom: 12px;
 }
 @media (max-width: 900px) {
   .achievement-preview-grid {
@@ -100,6 +112,9 @@ defineProps<{
 @media (max-width: 640px) {
   .achievement-preview-header {
     flex-direction: column;
+  }
+  .achievement-preview-actions {
+    justify-content: flex-start;
   }
 }
 </style>

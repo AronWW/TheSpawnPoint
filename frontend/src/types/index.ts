@@ -204,6 +204,7 @@ export interface Achievement {
   targetProgress: number | null
   progressPercent: number | null
   showProgress: boolean
+  featuredPosition: number | null
 }
 
 export interface AchievementPreview {
@@ -211,6 +212,8 @@ export interface AchievementPreview {
   unlockedCount: number
   items: Achievement[]
 }
+
+export type AchievementCollection = AchievementPreview
 
 export interface AchievementUnlockEvent {
   code: string
@@ -257,7 +260,9 @@ export interface ChatItem {
   lastMessage: string | null
   lastMessageAt: string | null
   unreadCount: number
+  lastReadMessageId: number | null
 
+  partnerUserId: number | null
   partnerEmail: string | null
   partnerDisplayName: string | null
   partnerAvatarUrl: string | null
@@ -292,6 +297,22 @@ export interface ChatMessage {
   replyToContent: string | null
   replyToSenderName: string | null
   reactions: ReactionInfo[]
+  attachments: MessageAttachment[]
+  previewText: string
+}
+
+export interface MessageAttachment {
+  id: number
+  position: number
+  mediaType: 'IMAGE' | 'GIF' | 'VIDEO' | 'AUDIO' | 'TEXT_FILE' | 'PDF' | 'FILE'
+  url: string
+  resourceType: 'image' | 'video' | 'raw'
+  originalFilename: string | null
+  contentType: string | null
+  sizeBytes: number
+  width: number | null
+  height: number | null
+  durationSeconds: number | null
 }
 
 export interface ReactionInfo {

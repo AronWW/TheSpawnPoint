@@ -37,4 +37,7 @@ public class UserAchievement {
     @CreationTimestamp
     @Column(name = "unlocked_at", nullable = false, updatable = false)
     private Instant unlockedAt;
+
+    @Column(name = "featured_position")
+    private Integer featuredPosition;
 }

@@ -25,9 +25,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,15 +61,20 @@ public class AchievementService {
         ensureAchievementsVisible(targetUserId, requester);
 
         List<AchievementDTO> all = buildAchievementList(targetUserId);
-        List<AchievementDTO> items = all.stream()
+        List<AchievementDTO> featured = all.stream()
                 .filter(AchievementDTO::isUnlocked)
-                .sorted(Comparator.comparing(AchievementDTO::getUnlockedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .filter(item -> item.getFeaturedPosition() != null)
+                .sorted(Comparator.comparing(AchievementDTO::getFeaturedPosition))
                 .limit(4)
                 .toList();
 
-        if (items.isEmpty() && requester != null && requester.getId().equals(targetUserId)) {
-            items = all.stream().limit(4).toList();
-        }
+        List<AchievementDTO> items = featured.isEmpty()
+                ? all.stream()
+                        .filter(AchievementDTO::isUnlocked)
+                        .sorted(Comparator.comparing(AchievementDTO::getUnlockedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                        .limit(4)
+                        .toList()
+                : featured;
 
         int unlockedCount = (int) all.stream().filter(AchievementDTO::isUnlocked).count();
 
@@ -76,6 +83,54 @@ public class AchievementService {
                 .unlockedCount(unlockedCount)
                 .items(items)
                 .build();
+    }
+
+    public AchievementPreviewDTO getAchievementCollectionForUser(Long targetUserId, User requester) {
+        ensureAchievementsVisible(targetUserId, requester);
+
+        List<AchievementDTO> all = buildAchievementList(targetUserId);
+        List<AchievementDTO> items = all.stream()
+                .filter(AchievementDTO::isUnlocked)
+                .sorted(Comparator.comparingInt(AchievementDTO::getOrder))
+                .toList();
+
+        return AchievementPreviewDTO.builder()
+                .totalCount(all.size())
+                .unlockedCount(items.size())
+                .items(items)
+                .build();
+    }
+
+    @Transactional
+    public AchievementPreviewDTO updateFeaturedAchievements(User user, List<String> codes) {
+        syncCalculatedAchievements(user);
+
+        List<String> orderedCodes = normalizeFeaturedCodes(codes);
+        for (String code : orderedCodes) {
+            achievementCatalog.findByCode(code)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Achievement not found"));
+        }
+
+        if (!orderedCodes.isEmpty()) {
+            List<UserAchievement> unlockedRows = userAchievementRepository.findByUserIdAndAchievementCodeIn(user.getId(), orderedCodes);
+            if (unlockedRows.size() != orderedCodes.size()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Only unlocked achievements can be featured");
+            }
+
+            userAchievementRepository.clearFeaturedPositions(user.getId());
+
+            Map<String, UserAchievement> unlockedByCode = unlockedRows.stream()
+                    .collect(Collectors.toMap(UserAchievement::getAchievementCode, item -> item));
+
+            for (int i = 0; i < orderedCodes.size(); i++) {
+                unlockedByCode.get(orderedCodes.get(i)).setFeaturedPosition(i);
+            }
+            userAchievementRepository.saveAll(unlockedRows);
+        } else {
+            userAchievementRepository.clearFeaturedPositions(user.getId());
+        }
+
+        return getAchievementPreviewForUser(user.getId(), user);
     }
 
     @Transactional
@@ -270,9 +325,33 @@ public class AchievementService {
                             .targetProgress(progress.targetProgress())
                             .progressPercent(progress.progressPercent())
                             .showProgress(progress.showProgress())
+                            .featuredPosition(unlocked != null ? unlocked.getFeaturedPosition() : null)
                             .build();
                 })
                 .toList();
+    }
+
+    private List<String> normalizeFeaturedCodes(List<String> codes) {
+        if (codes == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Achievement codes are required");
+        }
+        if (codes.size() > 4) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "You can feature up to 4 achievements");
+        }
+
+        Set<String> uniqueCodes = new LinkedHashSet<>();
+        for (String code : codes) {
+            if (code == null || code.isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Achievement code cannot be blank");
+            }
+            uniqueCodes.add(code.trim());
+        }
+
+        if (uniqueCodes.size() != codes.size()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Featured achievements must be unique");
+        }
+
+        return List.copyOf(uniqueCodes);
     }
 
     private UserProgressSnapshot loadProgressSnapshot(Long userId) {

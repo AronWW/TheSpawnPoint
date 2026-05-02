@@ -15,6 +15,8 @@ import ProfileFriendsModal from '../components/ProfileFriendsModal.vue'
 import ReportUserModal from '../components/ReportUserModal.vue'
 import PlayerRatingBadge from '../components/PlayerRatingBadge.vue'
 import AchievementPreviewSection from '../components/AchievementPreviewSection.vue'
+import AchievementCollectionModal from '../components/AchievementCollectionModal.vue'
+import FeaturedAchievementPickerModal from '../components/FeaturedAchievementPickerModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,9 +42,12 @@ const error = ref('')
 const addingFriend = ref(false)
 const showReport = ref(false)
 const showFriendsModal = ref(false)
+const showAchievementCollection = ref(false)
+const showFeaturedPicker = ref(false)
 const profileFriends = ref<Friend[]>([])
 const showGamesCount = ref(6)
 const blockingUser = ref(false)
+const savingFeaturedAchievements = ref(false)
 
 const isBlockedByMe = computed(() =>
     profile.value ? blockStore.isBlockedByMe(profile.value.userId) : false
@@ -257,9 +262,13 @@ const canComment = computed(() => {
 })
 const canSeeAchievements = computed(() => {
   if (isOwnProfile.value) return true
-  return profile.value?.privacy?.achievementsVisibility !== 'HIDDEN'
+  return profile.value?.privacy?.achievementsVisibility !== 'NOBODY'
 })
 const achievementPreview = computed(() => achievementStore.profilePreview)
+const achievementCollection = computed(() => achievementStore.profileCollection)
+const achievementCollectionTitle = computed(() =>
+    profile.value ? `Досягнення ${profile.value.displayName}` : 'Досягнення'
+)
 const isFriend = computed(() =>
     profile.value ? friendStore.friends.some(f => f.userId === profile.value!.userId) : false
 )
@@ -390,7 +399,10 @@ async function fetchProfile(userId: string | string[]) {
   loading.value = true
   error.value = ''
   showGamesCount.value = 6
+  showAchievementCollection.value = false
+  showFeaturedPicker.value = false
   achievementStore.clearProfilePreview()
+  achievementStore.clearProfileCollection()
   try {
     const { data } = await api.get<Profile>(`/profile/${id}`)
     profile.value = data
@@ -474,6 +486,37 @@ function openFriendsSection() {
     return
   }
   showFriendsModal.value = true
+}
+
+async function openAchievementCollection() {
+  if (!profile.value) return
+  showAchievementCollection.value = true
+  try {
+    await achievementStore.fetchCollectionForUser(profile.value.userId)
+  } catch {
+    showAchievementCollection.value = false
+    achievementStore.clearProfileCollection()
+  }
+}
+
+async function openFeaturedPicker() {
+  if (!isOwnProfile.value) return
+  if (!achievementStore.hasLoadedMyAchievements && !achievementStore.loading) {
+    await achievementStore.fetchMyAchievements()
+  }
+  showFeaturedPicker.value = true
+}
+
+async function saveFeaturedAchievements(codes: string[]) {
+  if (!profile.value) return
+  savingFeaturedAchievements.value = true
+  try {
+    await achievementStore.saveFeaturedAchievements(codes)
+    await achievementStore.fetchPreviewForUser(profile.value.userId)
+    showFeaturedPicker.value = false
+  } finally {
+    savingFeaturedAchievements.value = false
+  }
 }
 
 onMounted(async () => {
@@ -687,6 +730,8 @@ watch(() => route.params.userId, (newId) => {
             v-if="canSeeAchievements && achievementPreview && achievementPreview.unlockedCount > 0"
             :preview="achievementPreview"
             :is-own-profile="isOwnProfile"
+            @open-collection="openAchievementCollection"
+            @open-picker="openFeaturedPicker"
           />
 
 
@@ -871,6 +916,22 @@ watch(() => route.params.userId, (newId) => {
         :friends="profileFriends"
         @close="showFriendsModal = false"
         @open-profile="goToFriendProfile"
+      />
+
+      <AchievementCollectionModal
+        v-if="showAchievementCollection"
+        :title="achievementCollectionTitle"
+        :collection="achievementCollection"
+        :loading="achievementStore.collectionLoading"
+        @close="showAchievementCollection = false"
+      />
+
+      <FeaturedAchievementPickerModal
+        v-if="showFeaturedPicker && isOwnProfile"
+        :achievements="achievementStore.myAchievements"
+        :saving="savingFeaturedAchievements"
+        @close="showFeaturedPicker = false"
+        @save="saveFeaturedAchievements"
       />
     </div>
   </div>

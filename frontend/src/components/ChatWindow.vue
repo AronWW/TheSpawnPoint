@@ -10,7 +10,7 @@ import GroupChatSettingsModal from './GroupChatSettingsModal.vue'
 import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
 import ChatEmptyStateSecret from './ChatEmptyStateSecret.vue'
 import { useAchievementStore } from '../stores/achievements'
-import type { ChatMessage, PinnedMessageInfo, MessageReadByUser } from '../types'
+import type { ChatMessage, PinnedMessageInfo, MessageReadByUser, MessageAttachment } from '../types'
 
 const router = useRouter()
 const chatStore = useChatStore()
@@ -24,13 +24,13 @@ const DEFAULT_AVATAR_URL = `${PUBLIC_BASE_URL}/avatars/default/avatar-1.png`
 const showGroupSettings = ref(false)
 
 
-const ROOM_OF_REQUIREMENT_CODE = 'ROOM_OF_REQUIREMENT'
+const NOT_WHAT_YOU_EXPECTED_CODE = 'NOT_WHAT_YOU_EXPECTED'
 
 const secretPlaceholderLocked = ref(false)
 
 const shouldRenderSecretPlaceholder = computed(() => (
   achievementStore.hasLoadedMyAchievements
-    && (secretPlaceholderLocked.value || !achievementStore.hasAchievement(ROOM_OF_REQUIREMENT_CODE))
+    && (secretPlaceholderLocked.value || !achievementStore.hasAchievement(NOT_WHAT_YOU_EXPECTED_CODE))
 ))
 
 function resolveAvatar(url: string | null): string {
@@ -48,7 +48,44 @@ function onAvatarError(event: Event) {
 
 const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
+const initialChatScrollDone = ref(false)
 const typingTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const selectedFiles = ref<SelectedFilePreview[]>([])
+const uploadError = ref('')
+const uploadingMessage = ref(false)
+const dragDepth = ref(0)
+const selectedPreview = ref<SelectedFilePreview | null>(null)
+const attachmentPreview = ref<MessageAttachment | null>(null)
+const textPreviewAttachment = ref<MessageAttachment | null>(null)
+const textPreviewContent = ref('')
+const textPreviewLoading = ref(false)
+const textPreviewError = ref('')
+const deleteConfirmMessage = ref<ChatMessage | null>(null)
+
+type PreviewKind = 'IMAGE' | 'GIF' | 'VIDEO' | 'AUDIO' | 'TEXT_FILE' | 'PDF' | 'FILE'
+
+interface SelectedFilePreview {
+  file: File
+  url: string | null
+  kind: PreviewKind
+  error: string | null
+  durationSeconds: number | null
+  textPreview: string | null
+}
+
+const MAX_SELECTED_FILES = 5
+const MAX_TOTAL_SIZE = 100 * 1024 * 1024
+const FILE_LIMITS: Record<PreviewKind, number> = {
+  IMAGE: 10 * 1024 * 1024,
+  GIF: 20 * 1024 * 1024,
+  VIDEO: 100 * 1024 * 1024,
+  AUDIO: 30 * 1024 * 1024,
+  TEXT_FILE: 10 * 1024 * 1024,
+  PDF: 10 * 1024 * 1024,
+  FILE: 10 * 1024 * 1024,
+}
+const MAX_TEXT_PREVIEW_CHARS = 200000
 
 const contextMenu = ref<{ show: boolean; x: number; y: number; msg: ChatMessage | null }>({
   show: false, x: 0, y: 0, msg: null
@@ -103,6 +140,18 @@ const emojiPickerStyle = computed(() => {
 
 const isGroup = computed(() => chatStore.activeChat?.isGroup ?? false)
 const activeChatId = computed(() => chatStore.activeChat?.id ?? 0)
+const dragOverlayVisible = computed(() => dragDepth.value > 0)
+const canDropFiles = computed(() => !!chatStore.activeChat && !chatStore.editingMessage && !uploadingMessage.value)
+const dropOverlayTitle = computed(() => {
+  if (chatStore.editingMessage) return 'Редагування повідомлення'
+  if (uploadingMessage.value) return 'Файли вже надсилаються'
+  return 'Відпустіть файли'
+})
+const dropOverlayText = computed(() => {
+  if (chatStore.editingMessage) return 'Файли не можна додавати під час редагування повідомлення.'
+  if (uploadingMessage.value) return 'Дочекайтесь завершення поточного завантаження.'
+  return `Додайте до ${MAX_SELECTED_FILES} файлів у прев'ю перед відправкою.`
+})
 
 const myRole = computed(() => {
   const chat = chatStore.activeChat
@@ -163,6 +212,8 @@ watch(() => chatStore.activeChat?.id, (newId) => {
   currentPinIndex.value = -1
   showPinnedList.value = false
   showGroupSettings.value = false
+  clearSelectedFiles()
+  uploadError.value = ''
   if (newId) {
     secretPlaceholderLocked.value = false
   }
@@ -206,22 +257,97 @@ function scrollToBottom(force = false) {
   })
 }
 
-watch(() => chatStore.messages.length, () => scrollToBottom())
-watch(() => chatStore.activeChat, () => {
-  nextTick(() => scrollToBottom(true))
+function scrollElementIntoMessages(targetEl: Element, behavior: ScrollBehavior = 'smooth') {
+  const el = messagesContainer.value
+  if (!el) return
+
+  const target = targetEl as HTMLElement
+  const containerRect = el.getBoundingClientRect()
+  const targetRect = target.getBoundingClientRect()
+  const centeredTop = el.scrollTop
+    + targetRect.top
+    - containerRect.top
+    - (el.clientHeight - targetRect.height) / 2
+
+  el.scrollTo({
+    top: Math.max(0, centeredTop),
+    behavior,
+  })
+}
+
+function scrollToReadPosition() {
+  nextTick(() => {
+    const el = messagesContainer.value
+    if (!el) return
+
+    const lastReadId = chatStore.activeChat?.lastReadMessageId
+    if (!lastReadId) {
+      el.scrollTop = el.scrollHeight
+      initialChatScrollDone.value = true
+      return
+    }
+
+    const readIndex = chatStore.messages.findIndex(message => message.id === lastReadId)
+    const target = readIndex >= 0
+      ? chatStore.messages[Math.min(readIndex + 1, chatStore.messages.length - 1)]
+      : null
+
+    const targetEl = target
+      ? el.querySelector(`[data-msg-id="${target.id}"]`)
+      : el.querySelector(`[data-msg-id="${lastReadId}"]`)
+
+    if (targetEl) {
+      scrollElementIntoMessages(targetEl, 'auto')
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
+    initialChatScrollDone.value = true
+  })
+}
+
+watch(() => chatStore.messages.length, (length) => {
+  if (!length) return
+  if (!initialChatScrollDone.value) {
+    scrollToReadPosition()
+    return
+  }
+  scrollToBottom()
 })
 
-function sendMessage() {
+watch(() => chatStore.activeChat?.id, () => {
+  initialChatScrollDone.value = false
+})
+
+async function sendMessage() {
   const text = messageInput.value.trim()
-  if (!text || !chatStore.activeChat) return
+  const files = selectedFiles.value.filter(item => !item.error).map(item => item.file)
+  if ((!text && files.length === 0) || !chatStore.activeChat || uploadingMessage.value) return
 
   if (chatStore.editingMessage) {
+    if (!text) return
     chatStore.editMessageAction(chatStore.editingMessage.id, text)
     messageInput.value = ''
     return
   }
 
   const replyToId = chatStore.replyingTo?.id ?? null
+
+  if (files.length > 0) {
+    uploadError.value = ''
+    uploadingMessage.value = true
+    try {
+      await chatStore.sendMessageWithAttachments(chatStore.activeChat.id, text, files, replyToId)
+      messageInput.value = ''
+      clearSelectedFiles()
+      chatStore.setReplyingTo(null)
+      scrollToBottom(true)
+    } catch (e: any) {
+      uploadError.value = e?.response?.data?.message || 'Не вдалося надіслати файли'
+    } finally {
+      uploadingMessage.value = false
+    }
+    return
+  }
 
   if (isGroup.value) {
     stomp.publish('/app/chat.sendGroup', {
@@ -239,6 +365,332 @@ function sendMessage() {
   messageInput.value = ''
   chatStore.setReplyingTo(null)
   scrollToBottom(true)
+}
+
+function openFilePicker() {
+  if (chatStore.editingMessage || uploadingMessage.value) return
+  fileInput.value?.click()
+}
+
+function onFilesSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  uploadError.value = ''
+  addSelectedFiles(files)
+  input.value = ''
+}
+
+function addSelectedFiles(files: File[]) {
+  if (!files.length) return
+
+  const slots = MAX_SELECTED_FILES - selectedFiles.value.length
+  if (slots <= 0) {
+    uploadError.value = `Можна додати максимум ${MAX_SELECTED_FILES} файлів`
+    return
+  }
+
+  if (files.length > slots) {
+    uploadError.value = `Додано тільки ${slots} з ${files.length} файлів. Ліміт - ${MAX_SELECTED_FILES}.`
+  }
+
+  const next = files.slice(0, slots).map(createSelectedPreview)
+  const totalSize = [...selectedFiles.value, ...next].reduce((sum, item) => sum + item.file.size, 0)
+  if (totalSize > MAX_TOTAL_SIZE) {
+    next.forEach(revokePreviewUrl)
+    uploadError.value = 'Сумарний розмір файлів не має перевищувати 100 MB'
+    return
+  }
+
+  selectedFiles.value = [...selectedFiles.value, ...next]
+  next.forEach((item) => {
+    if (item.kind === 'TEXT_FILE' && item.file.size <= 256 * 1024) {
+      readTextPreview(item)
+    }
+  })
+}
+
+function dataTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) return false
+  return Array.from(dataTransfer.types || []).includes('Files')
+}
+
+function setDragDropEffect(event: DragEvent) {
+  if (!event.dataTransfer) return
+  event.dataTransfer.dropEffect = canDropFiles.value ? 'copy' : 'none'
+}
+
+function resetFileDragState() {
+  dragDepth.value = 0
+}
+
+function onChatDragEnter(event: DragEvent) {
+  if (!dataTransferHasFiles(event.dataTransfer)) return
+  event.preventDefault()
+  event.stopPropagation()
+  dragDepth.value += 1
+  setDragDropEffect(event)
+}
+
+function onChatDragOver(event: DragEvent) {
+  if (!dataTransferHasFiles(event.dataTransfer)) return
+  event.preventDefault()
+  event.stopPropagation()
+  setDragDropEffect(event)
+}
+
+function onChatDragLeave(event: DragEvent) {
+  if (!dataTransferHasFiles(event.dataTransfer)) return
+  event.preventDefault()
+  event.stopPropagation()
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+}
+
+function onChatDrop(event: DragEvent) {
+  if (!dataTransferHasFiles(event.dataTransfer)) return
+  event.preventDefault()
+  event.stopPropagation()
+  resetFileDragState()
+
+  const files = Array.from(event.dataTransfer?.files || [])
+  if (!files.length) return
+
+  if (chatStore.editingMessage) {
+    uploadError.value = 'Файли не можна додавати під час редагування повідомлення'
+    return
+  }
+
+  if (uploadingMessage.value) {
+    uploadError.value = 'Дочекайтесь завершення поточного завантаження'
+    return
+  }
+
+  uploadError.value = ''
+  addSelectedFiles(files)
+}
+
+function readTextPreview(item: SelectedFilePreview) {
+  const reader = new FileReader()
+  reader.onload = () => {
+    const text = String(reader.result || '')
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .slice(0, 4)
+      .join('\n')
+      .slice(0, 400)
+    selectedFiles.value = selectedFiles.value.map(entry =>
+      entry === item ? { ...entry, textPreview: text } : entry
+    )
+  }
+  reader.readAsText(item.file)
+}
+
+function createSelectedPreview(file: File): SelectedFilePreview {
+  const kind = detectPreviewKind(file)
+  const limit = FILE_LIMITS[kind]
+  const error = file.size > limit ? `Файл завеликий: максимум ${formatBytes(limit)}` : null
+  const needsUrl = kind === 'IMAGE' || kind === 'GIF' || kind === 'VIDEO' || kind === 'AUDIO'
+
+  return {
+    file,
+    kind,
+    error,
+    url: needsUrl ? URL.createObjectURL(file) : null,
+    durationSeconds: null,
+    textPreview: null,
+  }
+}
+
+function detectPreviewKind(file: File): PreviewKind {
+  const type = file.type.toLowerCase()
+  const name = file.name.toLowerCase()
+  if (type === 'image/gif' || name.endsWith('.gif')) return 'GIF'
+  if (type.startsWith('image/')) return 'IMAGE'
+  if (type.startsWith('video/')) return 'VIDEO'
+  if (type.startsWith('audio/')) return 'AUDIO'
+  if (type === 'application/pdf' || name.endsWith('.pdf')) return 'PDF'
+  if (
+    type.startsWith('text/')
+    || type === 'application/json'
+    || name.endsWith('.txt')
+    || name.endsWith('.md')
+    || name.endsWith('.log')
+    || name.endsWith('.csv')
+    || name.endsWith('.json')
+    || name.endsWith('.xml')
+  ) return 'TEXT_FILE'
+  return 'FILE'
+}
+
+function removeSelectedFile(index: number) {
+  const item = selectedFiles.value[index]
+  if (item) revokePreviewUrl(item)
+  selectedFiles.value = selectedFiles.value.filter((_, i) => i !== index)
+  uploadError.value = ''
+}
+
+function clearSelectedFiles() {
+  selectedFiles.value.forEach(revokePreviewUrl)
+  selectedFiles.value = []
+}
+
+function revokePreviewUrl(item: SelectedFilePreview) {
+  if (item.url) URL.revokeObjectURL(item.url)
+}
+
+function onPreviewMetadata(index: number, event: Event) {
+  const target = event.target as HTMLMediaElement | null
+  const duration = target?.duration
+  if (!duration || !Number.isFinite(duration)) return
+  const item = selectedFiles.value[index]
+  if (!item) return
+  selectedFiles.value = selectedFiles.value.map((entry, i) =>
+    i === index ? { ...entry, durationSeconds: duration } : entry
+  )
+}
+
+function mediaDisplayStyle(attachment: MessageAttachment, compact = false): Record<string, string> {
+  const sourceWidth = attachment.width && attachment.width > 0 ? attachment.width : 320
+  const sourceHeight = attachment.height && attachment.height > 0 ? attachment.height : 240
+  const ratio = Math.min(Math.max(sourceWidth / sourceHeight, 0.3), 4)
+  const maxWidth = compact ? 230 : attachment.mediaType === 'VIDEO' ? 480 : 420
+  const maxHeight = compact ? 190 : 360
+
+  let displayWidth = Math.min(sourceWidth, maxWidth)
+  let displayHeight = displayWidth / ratio
+
+  if (displayHeight > maxHeight) {
+    displayHeight = maxHeight
+    displayWidth = displayHeight * ratio
+  }
+
+  return {
+    width: `${Math.round(displayWidth)}px`,
+    aspectRatio: `${sourceWidth} / ${sourceHeight}`,
+  }
+}
+
+function attachmentGroupClass(count: number): Record<string, boolean> {
+  return {
+    multi: count > 1,
+    [`count-${Math.min(count, MAX_SELECTED_FILES)}`]: true,
+  }
+}
+
+function openSelectedPreview(item: SelectedFilePreview) {
+  if (!item.url) return
+  if (item.kind !== 'IMAGE' && item.kind !== 'GIF' && item.kind !== 'VIDEO') return
+  selectedPreview.value = item
+}
+
+function openAttachmentPreview(attachment: MessageAttachment) {
+  if (!isVisualAttachment(attachment) && !isVideoAttachment(attachment)) return
+  attachmentPreview.value = attachment
+}
+
+async function openTextAttachment(attachment: MessageAttachment) {
+  textPreviewAttachment.value = attachment
+  textPreviewContent.value = ''
+  textPreviewError.value = ''
+  textPreviewLoading.value = true
+
+  try {
+    const response = await fetch(attachment.url)
+    if (!response.ok) throw new Error('Failed to load text file')
+
+    const text = await response.text()
+    textPreviewContent.value = text.length > MAX_TEXT_PREVIEW_CHARS
+      ? `${text.slice(0, MAX_TEXT_PREVIEW_CHARS)}\n\n...`
+      : text
+  } catch {
+    textPreviewError.value = 'РќРµ РІРґР°Р»РѕСЃСЏ РІС–РґРєСЂРёС‚Рё С‚РµРєСЃС‚РѕРІРёР№ С„Р°Р№Р». Р№РѕРіРѕ РјРѕР¶РЅР° СЃРєР°С‡Р°С‚Рё.'
+  } finally {
+    textPreviewLoading.value = false
+  }
+}
+
+function closeMediaPreview() {
+  selectedPreview.value = null
+  attachmentPreview.value = null
+}
+
+function closeTextPreview() {
+  textPreviewAttachment.value = null
+  textPreviewContent.value = ''
+  textPreviewError.value = ''
+  textPreviewLoading.value = false
+}
+
+function isVisualAttachment(attachment: MessageAttachment): boolean {
+  return attachment.mediaType === 'IMAGE' || attachment.mediaType === 'GIF'
+}
+
+function isVideoAttachment(attachment: MessageAttachment): boolean {
+  return attachment.mediaType === 'VIDEO'
+}
+
+function isAudioAttachment(attachment: MessageAttachment): boolean {
+  return attachment.mediaType === 'AUDIO'
+}
+
+function isPdfAttachment(attachment: MessageAttachment): boolean {
+  return attachment.mediaType === 'PDF'
+}
+
+function fileExtension(filename: string | null | undefined): string {
+  const name = filename?.trim().toLowerCase()
+  if (!name) return ''
+  const clean = name.split(/[\\/]/).pop() || ''
+  const dot = clean.lastIndexOf('.')
+  if (dot < 0 || dot === clean.length - 1) return ''
+  return clean.slice(dot + 1)
+}
+
+function readableFileType(filename: string | null | undefined, contentType: string | null | undefined, fallback = 'FILE'): string {
+  const ext = fileExtension(filename)
+  const type = contentType?.toLowerCase() || ''
+
+  if (ext === 'pdf' || type === 'application/pdf') return 'PDF'
+  if (ext === 'json' || type === 'application/json') return 'JSON'
+  if (ext === 'csv' || type === 'text/csv') return 'CSV'
+  if (ext === 'md' || type === 'text/markdown') return 'MD'
+  if (ext === 'xml' || type === 'application/xml' || type === 'text/xml') return 'XML'
+  if (ext === 'txt' || ext === 'log' || type === 'text/plain') return 'TXT'
+  if (/^[a-z0-9]{1,5}$/.test(ext)) return ext.toUpperCase()
+  return fallback
+}
+
+function attachmentTypeLabel(attachment: MessageAttachment): string {
+  if (attachment.mediaType === 'PDF') return 'PDF'
+  if (attachment.mediaType === 'TEXT_FILE') {
+    return readableFileType(attachment.originalFilename, attachment.contentType, 'TXT')
+  }
+  return readableFileType(attachment.originalFilename, attachment.contentType, 'FILE')
+}
+
+function selectedFileTypeLabel(item: SelectedFilePreview): string {
+  if (item.kind === 'PDF') return 'PDF'
+  if (item.kind === 'TEXT_FILE') return readableFileType(item.file.name, item.file.type, 'TXT')
+  return readableFileType(item.file.name, item.file.type, item.kind === 'FILE' ? 'FILE' : item.kind)
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
+}
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || !Number.isFinite(seconds)) return ''
+  const total = Math.round(seconds)
+  const mins = Math.floor(total / 60)
+  const secs = total % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 function onTyping() {
@@ -281,6 +733,13 @@ function getSenderAvatarUrl(email: string | null): string {
 
 function navigateToProfile(email: string | null) {
   const userId = getSenderUserId(email)
+  if (userId) router.push(`/profile/${userId}`)
+}
+
+async function navigateToPartnerProfile() {
+  const chat = chatStore.activeChat
+  if (!chat || chat.isGroup) return
+  const userId = chat.partnerUserId ?? await chatStore.resolvePartnerUserId(chat.id)
   if (userId) router.push(`/profile/${userId}`)
 }
 
@@ -328,6 +787,26 @@ const contextMenuStyle = computed(() => {
   if (y < 8) y = 8
 
   return { top: y + 'px', left: x + 'px' }
+})
+
+const activeMediaPreview = computed(() => {
+  if (selectedPreview.value?.url) {
+    return {
+      kind: selectedPreview.value.kind,
+      url: selectedPreview.value.url,
+      title: selectedPreview.value.file.name,
+    }
+  }
+
+  if (attachmentPreview.value) {
+    return {
+      kind: attachmentPreview.value.mediaType,
+      url: attachmentPreview.value.url,
+      title: attachmentPreview.value.originalFilename || attachmentPreview.value.mediaType,
+    }
+  }
+
+  return null
 })
 
 const readByPanelStyle = computed(() => {
@@ -451,8 +930,18 @@ function onEdit(msg: ChatMessage) {
 }
 
 function onDeleteMsg(msg: ChatMessage) {
-  chatStore.deleteMessage(msg.id)
   closeContextMenu()
+  deleteConfirmMessage.value = msg
+}
+
+function cancelDeleteMessage() {
+  deleteConfirmMessage.value = null
+}
+
+function confirmDeleteMessage() {
+  if (!deleteConfirmMessage.value) return
+  chatStore.deleteMessage(deleteConfirmMessage.value.id)
+  deleteConfirmMessage.value = null
 }
 
 function onPinMsg(msg: ChatMessage) {
@@ -524,7 +1013,7 @@ function scrollToMessage(msgId: number) {
   if (!el) return
   const msgEl = el.querySelector(`[data-msg-id="${msgId}"]`)
   if (msgEl) {
-    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    scrollElementIntoMessages(msgEl)
     msgEl.classList.add('highlight-msg')
     setTimeout(() => msgEl.classList.remove('highlight-msg'), 2000)
   }
@@ -535,6 +1024,10 @@ function onWindowClick() {
   emojiPickerMsg.value = null
   showPinnedList.value = false
   readByPanel.value = { show: false, loading: false, users: [], error: '', msg: null }
+}
+
+function onWindowKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') resetFileDragState()
 }
 
 function setupReadObserver() {
@@ -604,26 +1097,61 @@ onMounted(() => {
   if (!achievementStore.hasLoadedMyAchievements && !achievementStore.loading) {
     void achievementStore.fetchMyAchievements()
   }
+  window.addEventListener('keydown', onWindowKeydown)
+  window.addEventListener('blur', resetFileDragState)
+  window.addEventListener('drop', resetFileDragState)
+  window.addEventListener('dragend', resetFileDragState)
   nextTick(setupReadObserver)
 })
 
 onBeforeUnmount(() => {
   readObserver?.disconnect()
   if (readMarkTimer) clearTimeout(readMarkTimer)
+  window.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('blur', resetFileDragState)
+  window.removeEventListener('drop', resetFileDragState)
+  window.removeEventListener('dragend', resetFileDragState)
+  clearSelectedFiles()
 })
 </script>
 
 <template>
-  <div class="chat-window" v-if="chatStore.activeChat" @click="onWindowClick">
+  <div
+    class="chat-window"
+    v-if="chatStore.activeChat"
+    @click="onWindowClick"
+    @dragenter="onChatDragEnter"
+    @dragover="onChatDragOver"
+    @dragleave="onChatDragLeave"
+    @drop="onChatDrop"
+  >
+    <div
+      v-if="dragOverlayVisible"
+      class="chat-drop-overlay"
+      :class="{ blocked: !canDropFiles }"
+      @click.stop
+    >
+      <div class="chat-drop-panel">
+        <div class="chat-drop-icon">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="chat-drop-title">{{ dropOverlayTitle }}</div>
+        <div class="chat-drop-text">{{ dropOverlayText }}</div>
+      </div>
+    </div>
 
     <div class="chat-window-header">
-      <div class="cw-avatar" :class="{ group: chatType === 'GROUP', game: chatType === 'GAME' }">
-        <img v-if="!isGroup && chatStore.activeChat?.partnerAvatarUrl" :src="resolveAvatar(chatStore.activeChat.partnerAvatarUrl)" alt="" class="cw-avatar-img" />
-        <img v-else-if="isGroup && chatStore.activeChat?.groupAvatarUrl" :src="resolveAvatar(chatStore.activeChat.groupAvatarUrl)" alt="" class="cw-avatar-img" />
+      <div class="cw-avatar" :class="{ group: chatType === 'GROUP', game: chatType === 'GAME' }" @click.stop="navigateToPartnerProfile">
+        <img v-if="!isGroup" :src="resolveAvatar(chatStore.activeChat?.partnerAvatarUrl ?? null)" alt="" class="cw-avatar-img" @error="onAvatarError" />
+        <img v-else-if="isGroup && chatStore.activeChat?.groupAvatarUrl" :src="resolveAvatar(chatStore.activeChat.groupAvatarUrl)" alt="" class="cw-avatar-img" @error="onAvatarError" />
         <span v-else class="cw-letter">{{ chatTitle.charAt(0).toUpperCase() }}</span>
       </div>
       <div class="cw-header-info">
-        <div class="cw-name">
+        <div class="cw-name" @click.stop="navigateToPartnerProfile">
           <span v-if="chatType === 'GAME'" class="cw-type-badge cw-type-game" title="Ігровий чат">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4"/><path d="M8 9v4"/><circle cx="17" cy="12" r="1"/><circle cx="20" cy="9" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>
           </span>
@@ -752,6 +1280,7 @@ onBeforeUnmount(() => {
             alt=""
             class="chat-msg-avatar"
             @click.stop="navigateToProfile(msg.senderEmail)"
+            @error="onAvatarError"
           />
           <div class="chat-msg-bubble">
             <button
@@ -776,7 +1305,94 @@ onBeforeUnmount(() => {
               {{ msg.senderName }}
             </a>
 
-            <div class="chat-msg-text" :class="{ 'deleted-text': msg.deleted }">
+            <div
+              v-if="!msg.deleted && msg.attachments?.length"
+              class="chat-attachments"
+              :class="attachmentGroupClass(msg.attachments.length)"
+            >
+              <div
+                v-for="attachment in msg.attachments"
+                :key="attachment.id"
+                class="chat-attachment"
+                :class="`type-${attachment.mediaType.toLowerCase()}`"
+              >
+                <button
+                  v-if="isVisualAttachment(attachment)"
+                  type="button"
+                  class="attachment-visual"
+                  :style="mediaDisplayStyle(attachment, msg.attachments.length > 1)"
+                  @click.stop="openAttachmentPreview(attachment)"
+                >
+                  <img :src="attachment.url" :alt="attachment.originalFilename || attachment.mediaType" loading="lazy" />
+                  <span v-if="attachment.mediaType === 'GIF'" class="attachment-badge">GIF</span>
+                </button>
+
+                <div
+                  v-else-if="isVideoAttachment(attachment)"
+                  class="attachment-video-wrap"
+                  :style="mediaDisplayStyle(attachment, msg.attachments.length > 1)"
+                >
+                  <video :src="attachment.url" controls preload="metadata"></video>
+                  <span v-if="attachment.durationSeconds" class="attachment-badge">{{ formatDuration(attachment.durationSeconds) }}</span>
+                </div>
+
+                <div v-else-if="isAudioAttachment(attachment)" class="attachment-audio">
+                  <div class="attachment-file-icon">♪</div>
+                  <div class="attachment-file-body">
+                    <div class="attachment-file-name">{{ attachment.originalFilename || 'Audio' }}</div>
+                    <div class="attachment-file-meta">
+                      {{ formatBytes(attachment.sizeBytes) }}
+                      <span v-if="attachment.durationSeconds">• {{ formatDuration(attachment.durationSeconds) }}</span>
+                    </div>
+                    <audio :src="attachment.url" controls preload="metadata"></audio>
+                  </div>
+                </div>
+
+                <button
+                  v-else-if="attachment.mediaType === 'TEXT_FILE'"
+                  type="button"
+                  class="attachment-file"
+                  @click.stop="openTextAttachment(attachment)"
+                >
+                  <div class="attachment-file-icon">{{ attachmentTypeLabel(attachment) }}</div>
+                  <div class="attachment-file-body">
+                    <div class="attachment-file-name">{{ attachment.originalFilename || 'Text file' }}</div>
+                    <div class="attachment-file-meta">{{ attachmentTypeLabel(attachment) }} • {{ formatBytes(attachment.sizeBytes) }}</div>
+                  </div>
+                </button>
+
+                <a
+                  v-else-if="isPdfAttachment(attachment)"
+                  :href="attachment.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="attachment-file"
+                >
+                  <div class="attachment-file-icon">PDF</div>
+                  <div class="attachment-file-body">
+                    <div class="attachment-file-name">{{ attachment.originalFilename || 'PDF document' }}</div>
+                    <div class="attachment-file-meta">PDF • {{ formatBytes(attachment.sizeBytes) }}</div>
+                  </div>
+                </a>
+
+                <a
+                  v-else
+                  :href="attachment.url"
+                  target="_blank"
+                  rel="noopener"
+                  :download="attachment.originalFilename || undefined"
+                  class="attachment-file"
+                >
+                  <div class="attachment-file-icon">{{ attachmentTypeLabel(attachment) }}</div>
+                  <div class="attachment-file-body">
+                    <div class="attachment-file-name">{{ attachment.originalFilename || 'File' }}</div>
+                    <div class="attachment-file-meta">{{ attachmentTypeLabel(attachment) }} • {{ formatBytes(attachment.sizeBytes) }}</div>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <div v-if="msg.deleted || msg.content" class="chat-msg-text" :class="{ 'deleted-text': msg.deleted }">
               {{ msg.content }}
             </div>
 
@@ -913,7 +1529,74 @@ onBeforeUnmount(() => {
       <button class="edit-cancel" @click="cancelEdit">✕</button>
     </div>
 
+    <div v-if="selectedFiles.length || uploadError" class="chat-selected-files" @click.stop>
+      <div v-if="selectedFiles.length" class="selected-files-grid">
+        <div
+          v-for="(item, index) in selectedFiles"
+          :key="item.file.name + item.file.size + index"
+          class="selected-file-card"
+          :class="{ invalid: item.error }"
+        >
+          <button type="button" class="selected-file-remove" @click="removeSelectedFile(index)">×</button>
+
+          <button
+            v-if="item.kind === 'IMAGE' || item.kind === 'GIF'"
+            type="button"
+            class="selected-file-media selected-file-media-button"
+            @click="openSelectedPreview(item)"
+          >
+            <img v-if="item.url" :src="item.url" :alt="item.file.name" />
+            <span v-if="item.kind === 'GIF'" class="attachment-badge">GIF</span>
+          </button>
+
+          <button
+            v-else-if="item.kind === 'VIDEO'"
+            type="button"
+            class="selected-file-media selected-file-media-button"
+            @click="openSelectedPreview(item)"
+          >
+            <video v-if="item.url" :src="item.url" muted preload="metadata" @loadedmetadata="onPreviewMetadata(index, $event)"></video>
+            <span v-if="item.durationSeconds" class="attachment-badge">{{ formatDuration(item.durationSeconds) }}</span>
+          </button>
+
+          <div v-else-if="item.kind === 'AUDIO'" class="selected-file-generic">
+            <div class="selected-file-icon">♪</div>
+            <audio v-if="item.url" :src="item.url" preload="metadata" @loadedmetadata="onPreviewMetadata(index, $event)"></audio>
+          </div>
+
+          <div v-else class="selected-file-generic" :class="{ text: item.kind === 'TEXT_FILE' }">
+            <pre v-if="item.kind === 'TEXT_FILE' && item.textPreview" class="selected-text-preview">{{ item.textPreview }}</pre>
+            <div v-else class="selected-file-icon">{{ selectedFileTypeLabel(item) }}</div>
+          </div>
+
+          <div class="selected-file-info">
+            <div class="selected-file-name">{{ item.file.name }}</div>
+            <div class="selected-file-meta">{{ selectedFileTypeLabel(item) }} • {{ formatBytes(item.file.size) }}<span v-if="item.durationSeconds"> • {{ formatDuration(item.durationSeconds) }}</span></div>
+            <div v-if="item.error" class="selected-file-error">{{ item.error }}</div>
+          </div>
+        </div>
+      </div>
+      <div v-if="uploadError" class="chat-upload-error">{{ uploadError }}</div>
+    </div>
+
     <div class="chat-input-bar">
+      <input
+        ref="fileInput"
+        type="file"
+        multiple
+        class="chat-file-input"
+        accept="image/*,video/*,audio/*,.txt,.md,.log,.csv,.json,.xml,.pdf,application/pdf"
+        @change="onFilesSelected"
+      />
+      <button
+        type="button"
+        class="chat-attach-btn"
+        :disabled="!!chatStore.editingMessage || uploadingMessage || selectedFiles.length >= 5"
+        title="Attach files"
+        @click.stop="openFilePicker"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
       <input
         v-model="messageInput"
         @keydown.enter.prevent="sendMessage"
@@ -923,17 +1606,87 @@ onBeforeUnmount(() => {
         :placeholder="chatStore.editingMessage ? 'Редагувати повідомлення...' : 'Написати повідомлення...'"
         maxlength="5000"
       />
-      <button class="chat-send-btn" @click="sendMessage" :disabled="!messageInput.trim()">
-        {{ chatStore.editingMessage ? 'ЗБЕРЕГТИ' : 'НАДІСЛАТИ' }}
+      <button class="chat-send-btn" @click="sendMessage" :disabled="uploadingMessage || (!messageInput.trim() && selectedFiles.length === 0)">
+        {{ uploadingMessage ? 'НАДСИЛАННЯ...' : (chatStore.editingMessage ? 'ЗБЕРЕГТИ' : 'НАДІСЛАТИ') }}
       </button>
     </div>
   </div>
 
-  <ChatEmptyStateSecret v-else-if="shouldRenderSecretPlaceholder" @scene-lock="secretPlaceholderLocked = true" />
+  <ChatEmptyStateSecret
+    v-else-if="shouldRenderSecretPlaceholder"
+    @scene-lock="secretPlaceholderLocked = true"
+    @scene-unlock="secretPlaceholderLocked = false"
+  />
 
   <div class="chat-window chat-placeholder" v-else>
     <ChatEmptyStateBase />
   </div>
+
+  <Teleport to="body">
+    <div v-if="activeMediaPreview" class="media-preview-overlay" @click="closeMediaPreview">
+      <div class="media-preview-dialog" @click.stop>
+        <button type="button" class="preview-close-btn" @click="closeMediaPreview">×</button>
+        <video
+          v-if="activeMediaPreview.kind === 'VIDEO'"
+          :src="activeMediaPreview.url"
+          controls
+          autoplay
+          class="media-preview-video"
+        ></video>
+        <img
+          v-else
+          :src="activeMediaPreview.url"
+          :alt="activeMediaPreview.title"
+          class="media-preview-image"
+        />
+        <div class="media-preview-title">{{ activeMediaPreview.title }}</div>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div v-if="textPreviewAttachment" class="text-preview-overlay" @click="closeTextPreview">
+      <div class="text-preview-dialog" @click.stop>
+        <div class="text-preview-head">
+          <div class="text-preview-title">
+            {{ textPreviewAttachment.originalFilename || 'Text file' }}
+          </div>
+          <div class="text-preview-actions">
+            <a
+              :href="textPreviewAttachment.url"
+              :download="textPreviewAttachment.originalFilename || undefined"
+              class="text-preview-download"
+            >
+              DOWNLOAD
+            </a>
+            <button type="button" class="preview-close-btn inline" @click="closeTextPreview">×</button>
+          </div>
+        </div>
+        <div v-if="textPreviewLoading" class="text-preview-state">Loading...</div>
+        <div v-else-if="textPreviewError" class="text-preview-state error">{{ textPreviewError }}</div>
+        <pre v-else class="text-preview-content">{{ textPreviewContent }}</pre>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div v-if="deleteConfirmMessage" class="delete-confirm-overlay" @click.self="cancelDeleteMessage">
+      <div class="delete-confirm-dialog">
+        <div class="delete-confirm-title">Видалити повідомлення?</div>
+        <div class="delete-confirm-message">
+          Ви впевнені, що хочете видалити це повідомлення? Цю дію не можна буде скасувати.
+        </div>
+        <div class="delete-confirm-actions">
+          <button type="button" class="delete-confirm-btn cancel" @click="cancelDeleteMessage">
+            СКАСУВАТИ
+          </button>
+          <button type="button" class="delete-confirm-btn danger" @click="confirmDeleteMessage">
+            ВИДАЛИТИ
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 
   <GroupChatSettingsModal
     v-if="showGroupSettings && chatStore.activeChat"
@@ -943,6 +1696,586 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+
+.chat-window {
+  position: relative;
+}
+
+.chat-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(245,197,24,0.08), rgba(0,0,0,0.18)),
+    rgba(10,10,11,0.72);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
+.chat-drop-panel {
+  width: min(460px, 88vw);
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--yellow-dim);
+  border-top: 3px solid var(--yellow);
+  background: rgba(17,17,20,0.92);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(245,197,24,0.05);
+  color: var(--yellow);
+  text-align: center;
+  padding: 28px;
+}
+
+.chat-drop-icon {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid rgba(245,197,24,0.24);
+  background: linear-gradient(135deg, rgba(245,197,24,0.14), rgba(245,197,24,0.04));
+  box-shadow: 0 0 22px rgba(245,197,24,0.1);
+}
+
+.chat-drop-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--yellow);
+}
+
+.chat-drop-text {
+  max-width: 320px;
+  color: var(--gray-light);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0.4px;
+}
+
+.chat-drop-overlay.blocked {
+  background:
+    linear-gradient(135deg, rgba(192,57,43,0.1), rgba(0,0,0,0.2)),
+    rgba(10,10,11,0.76);
+}
+
+.chat-drop-overlay.blocked .chat-drop-panel {
+  border-color: rgba(192,57,43,0.55);
+  border-top-color: var(--red);
+  color: var(--red);
+}
+
+.chat-drop-overlay.blocked .chat-drop-icon {
+  border-color: rgba(192,57,43,0.32);
+  background: linear-gradient(135deg, rgba(192,57,43,0.16), rgba(192,57,43,0.04));
+  box-shadow: 0 0 22px rgba(192,57,43,0.1);
+}
+
+.chat-drop-overlay.blocked .chat-drop-title {
+  color: var(--red);
+}
+
+.chat-file-input {
+  display: none;
+}
+
+.chat-attach-btn {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  color: var(--gray-light);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chat-attach-btn:hover:not(:disabled) {
+  border-color: var(--yellow-dim);
+  color: var(--yellow);
+  background: var(--panel-light);
+}
+
+.chat-attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-selected-files {
+  border-top: 2px solid var(--border);
+  background: var(--panel);
+  padding: 10px 14px;
+}
+
+.selected-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 148px);
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.selected-file-card {
+  position: relative;
+  width: 148px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.selected-file-card.invalid {
+  border-color: var(--red-dim);
+}
+
+.selected-file-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(0,0,0,0.35);
+  background: rgba(0,0,0,0.7);
+  color: var(--white);
+  cursor: pointer;
+}
+
+.selected-file-media {
+  position: relative;
+  height: 104px;
+  background: var(--dark);
+}
+
+.selected-file-media-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
+}
+
+.selected-file-media-button:hover img,
+.selected-file-media-button:hover video {
+  filter: brightness(1.08);
+}
+
+.selected-file-media img,
+.selected-file-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #050505;
+}
+
+.selected-file-generic {
+  height: 104px;
+  display: grid;
+  place-items: center;
+  background: var(--dark);
+}
+
+.selected-file-generic.text {
+  place-items: stretch;
+  padding: 8px;
+}
+
+.selected-text-preview {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--gray-light);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.selected-file-icon {
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+.selected-file-info {
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+
+.selected-file-name {
+  color: var(--white);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected-file-meta {
+  margin-top: 3px;
+  color: var(--gray);
+  font-size: 11px;
+}
+
+.selected-file-error,
+.chat-upload-error {
+  margin-top: 5px;
+  color: #ffb4b4;
+  font-size: 11px;
+}
+
+.chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.chat-attachments.multi {
+  max-width: min(100%, 500px);
+}
+
+.chat-attachments.count-2 {
+  max-width: min(100%, 468px);
+}
+
+.chat-attachments.count-3,
+.chat-attachments.count-4,
+.chat-attachments.count-5 {
+  max-width: min(100%, 500px);
+}
+
+.chat-attachment {
+  min-width: 0;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.attachment-visual,
+.attachment-video-wrap {
+  position: relative;
+  display: block;
+  max-width: min(100%, calc(100vw - 96px));
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.attachment-visual {
+  padding: 0;
+  cursor: zoom-in;
+  font: inherit;
+}
+
+.attachment-visual:hover img {
+  filter: brightness(1.06);
+}
+
+.attachment-visual img,
+.attachment-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: transparent;
+  border-radius: 3px;
+}
+
+.attachment-video-wrap video {
+  object-fit: contain;
+  background: #000;
+}
+
+.attachment-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  background: rgba(0,0,0,0.72);
+  color: var(--yellow);
+  border: 1px solid rgba(245,197,24,0.25);
+  font-size: 10px;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+
+.attachment-audio,
+.attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(320px, calc(100vw - 96px));
+  min-width: 0;
+  padding: 10px;
+  border: 0;
+  background: rgba(255,255,255,0.035);
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.attachment-file-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--dark);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.attachment-file-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.attachment-file-name {
+  color: var(--white);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-file-meta {
+  margin-top: 3px;
+  color: var(--gray);
+  font-size: 11px;
+}
+
+.attachment-audio audio {
+  width: 100%;
+  height: 32px;
+  margin-top: 8px;
+}
+
+.media-preview-overlay,
+.text-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.media-preview-dialog {
+  position: relative;
+  max-width: min(92vw, 1100px);
+  max-height: 88vh;
+  display: grid;
+  gap: 10px;
+  place-items: center;
+}
+
+.media-preview-image,
+.media-preview-video {
+  display: block;
+  max-width: min(92vw, 1100px);
+  max-height: 82vh;
+  object-fit: contain;
+  background: #050505;
+}
+
+.media-preview-title {
+  max-width: min(92vw, 900px);
+  color: var(--gray-light);
+  font-size: 12px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-close-btn {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.82);
+  color: var(--white);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.preview-close-btn.inline {
+  position: static;
+  width: 30px;
+  height: 30px;
+}
+
+.text-preview-dialog {
+  width: min(860px, 92vw);
+  max-height: 86vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.65);
+}
+
+.text-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.text-preview-title {
+  min-width: 0;
+  color: var(--white);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.text-preview-download {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-decoration: none;
+}
+
+.text-preview-content,
+.text-preview-state {
+  min-height: 220px;
+  max-height: calc(86vh - 56px);
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  color: var(--gray-light);
+  background: var(--dark);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.text-preview-state {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-body);
+}
+
+.text-preview-state.error {
+  color: #ffb4b4;
+}
+
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.delete-confirm-dialog {
+  width: min(420px, 92vw);
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-top: 3px solid var(--red);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+
+.delete-confirm-title {
+  padding: 22px 26px 0;
+  color: var(--red);
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 2px;
+}
+
+.delete-confirm-message {
+  padding: 12px 26px 0;
+  color: var(--gray-light);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.3px;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 22px 26px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.delete-confirm-btn {
+  padding: 9px 18px;
+  border: 2px solid var(--border);
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.delete-confirm-btn.cancel {
+  color: var(--gray-light);
+}
+
+.delete-confirm-btn.cancel:hover {
+  color: var(--white);
+  border-color: var(--gray);
+  background: rgba(255,255,255,0.03);
+}
+
+.delete-confirm-btn.danger {
+  color: var(--red);
+  border-color: rgba(192,57,43,0.45);
+}
+
+.delete-confirm-btn.danger:hover {
+  border-color: var(--red);
+  background: rgba(192,57,43,0.12);
+  box-shadow: 0 0 12px rgba(192,57,43,0.16);
+}
 
 .cw-avatar.group .cw-letter {
   background: linear-gradient(135deg, rgba(41, 128, 185, 0.2), rgba(41, 128, 185, 0.08));
@@ -1056,6 +2389,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-window-header { display: flex; align-items: center; gap: 14px; }
+.cw-avatar { display: block; color: inherit; text-decoration: none; }
 .cw-header-info { flex: 1; min-width: 0; }
 .cw-name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; color: var(--white); letter-spacing: 0.5px; }
 .cw-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -1982,7 +3316,16 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.chat-msg { position: relative; }
+.chat-msg {
+  position: relative;
+  max-width: min(68%, 560px);
+}
+
+.chat-msg-bubble {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 
 .chat-msg.has-avatar {
   display: flex;
@@ -1990,7 +3333,7 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 .chat-msg.has-avatar .chat-msg-bubble {
-  max-width: calc(70% - 42px);
+  max-width: 100%;
 }
 .chat-msg-avatar {
   width: 32px;

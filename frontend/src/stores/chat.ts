@@ -5,6 +5,11 @@ import { useStompClient } from '../composables/useStompClient'
 import { useAuthStore } from './auth'
 import type { ChatItem, ChatMessage, ChatEvent, PinnedMessageInfo, ReactionInfo, MessageReadByUser } from '../types'
 
+interface UserSearchItem {
+  id: number
+  email: string
+}
+
 export const useChatStore = defineStore('chat', () => {
   const chats = ref<ChatItem[]>([])
   const activeChat = ref<ChatItem | null>(null)
@@ -62,6 +67,9 @@ export const useChatStore = defineStore('chat', () => {
 
   async function openChat(chat: ChatItem) {
     activeChat.value = chat
+    if (!chat.isGroup && !chat.partnerUserId) {
+      void resolvePartnerUserId(chat.id)
+    }
     messages.value = []
     page.value = 0
     hasMore.value = true
@@ -73,6 +81,29 @@ export const useChatStore = defineStore('chat', () => {
     const found = chats.value.find((c) => c.id === chat.id)
     if (found) found.unreadCount = 0
     await fetchPinnedMessages(chat.id)
+  }
+
+  async function resolvePartnerUserId(chatId: number): Promise<number | null> {
+    const chat = chats.value.find(c => c.id === chatId) ?? activeChat.value
+    if (!chat || chat.isGroup) return null
+    if (chat.partnerUserId) return chat.partnerUserId
+    if (!chat.partnerEmail) return null
+
+    try {
+      const { data } = await api.get<UserSearchItem[]>('/users/search', {
+        params: { q: chat.partnerEmail },
+      })
+      const partner = data.find(user => user.email === chat.partnerEmail) ?? data[0]
+      if (!partner?.id) return null
+
+      chat.partnerUserId = partner.id
+      const listed = chats.value.find(c => c.id === chat.id)
+      if (listed) listed.partnerUserId = partner.id
+      if (activeChat.value?.id === chat.id) activeChat.value.partnerUserId = partner.id
+      return partner.id
+    } catch {
+      return null
+    }
   }
 
   async function openGroupChatById(chatId: number) {
@@ -166,12 +197,30 @@ export const useChatStore = defineStore('chat', () => {
     stomp.publish('/app/chat.readUpTo', { chatId, messageId })
 
     const chat = chats.value.find(c => c.id === chatId)
-    if (chat) chat.unreadCount = 0
+    if (chat) {
+      chat.unreadCount = 0
+      chat.lastReadMessageId = messageId
+    }
+    if (activeChat.value?.id === chatId) {
+      activeChat.value.lastReadMessageId = messageId
+      activeChat.value.unreadCount = 0
+    }
   }
 
   async function fetchMessageReadBy(messageId: number): Promise<MessageReadByUser[]> {
     const { data } = await api.get<MessageReadByUser[]>(`/chats/messages/${messageId}/read-by`)
     return data
+  }
+
+  async function sendMessageWithAttachments(chatId: number, content: string, files: File[], replyToId: number | null) {
+    const fd = new FormData()
+    fd.append('content', content)
+    if (replyToId !== null) fd.append('replyToId', String(replyToId))
+    files.forEach((file) => fd.append('files', file))
+
+    await api.post<ChatMessage>(`/chats/${chatId}/messages`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
   }
 
   function setReplyingTo(msg: ChatMessage | null) {
@@ -279,7 +328,7 @@ export const useChatStore = defineStore('chat', () => {
       const existing = chats.value[chatIdx]!
       const updated: ChatItem = {
         ...existing,
-        lastMessage: msg.content,
+        lastMessage: msg.previewText || msg.content,
         lastMessageAt: msg.sentAt,
         unreadCount: (!isOwnMessage && (!activeChat.value || activeChat.value.id !== msg.chatId))
           ? existing.unreadCount + 1
@@ -307,7 +356,7 @@ export const useChatStore = defineStore('chat', () => {
         const { messageId } = event.payload
         messages.value = messages.value.map(m =>
           m.id === messageId
-            ? { ...m, deleted: true, content: 'Повідомлення видалено', reactions: [] }
+            ? { ...m, deleted: true, content: 'Повідомлення видалено', previewText: 'Повідомлення видалено', attachments: [], reactions: [] }
             : m
         )
         break
@@ -529,6 +578,8 @@ export const useChatStore = defineStore('chat', () => {
     toggleReaction,
     markReadUpTo,
     fetchMessageReadBy,
+    resolvePartnerUserId,
+    sendMessageWithAttachments,
     setReplyingTo,
     setEditingMessage,
     archiveChat,

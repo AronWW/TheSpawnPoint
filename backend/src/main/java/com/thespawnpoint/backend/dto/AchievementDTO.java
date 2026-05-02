@@ -24,4 +24,5 @@ AchievementDTO {
     private Integer targetProgress;
     private Integer progressPercent;
     private boolean showProgress;
+    private Integer featuredPosition;
 }

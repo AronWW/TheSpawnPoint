@@ -328,21 +328,34 @@ onMounted(async () => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
 }
 .section-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--font-display), sans-serif;
-  font-size: 1.8rem;
+  gap: 16px;
+  font-family: var(--font-display);
+  font-size: 32px;
   letter-spacing: 3px;
   color: var(--white);
 }
+.section-title::before {
+  content: '';
+  width: 8px;
+  height: 28px;
+  background: var(--yellow);
+  flex-shrink: 0;
+}
 .section-count {
-  font-size: 0.85rem;
-  color: var(--gray);
-  letter-spacing: 1px;
-  font-family: var(--font-body), sans-serif;
+  font-size: 13px;
+  color: var(--yellow);
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 2px;
+  padding: 4px 12px;
+  border: 1px solid var(--yellow-dim);
+  background: var(--yellow-glow);
 }
 .back-btn {
   display: flex;
@@ -704,6 +717,13 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .hc-top { flex-direction: column; }
   .play-again-btn { width: 100%; justify-content: center; }
-  .section-title { font-size: 1.4rem; }
+  .section-title {
+    font-size: 24px;
+    letter-spacing: 2px;
+  }
+  .section-count {
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
 }
 </style>

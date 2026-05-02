@@ -33,7 +33,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             applyRateLimit(request, response, filterChain, ip, "REGISTER");
         } else if (path.startsWith("/api/auth/forgot-password")) {
             applyRateLimit(request, response, filterChain, ip, "FORGOT_PASSWORD");
-        } else if ((path.equals("/api/profile/avatar") || path.contains("/avatar")) && "POST".equalsIgnoreCase(request.getMethod())) {
+        } else if ((path.equals("/api/profile/avatar")
+                || path.contains("/avatar")
+                || (path.startsWith("/api/chats/") && path.endsWith("/messages")))
+                && "POST".equalsIgnoreCase(request.getMethod())) {
             applyRateLimit(request, response, filterChain, ip, "UPLOAD");
         } else {
             filterChain.doFilter(request, response);

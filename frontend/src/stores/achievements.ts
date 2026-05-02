@@ -1,13 +1,15 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import api from '../api/axios'
-import type { Achievement, AchievementPreview, AchievementUnlockEvent } from '../types'
+import type { Achievement, AchievementCollection, AchievementPreview, AchievementUnlockEvent } from '../types'
 
 export const useAchievementStore = defineStore('achievements', () => {
   const myAchievements = ref<Achievement[]>([])
   const profilePreview = ref<AchievementPreview | null>(null)
+  const profileCollection = ref<AchievementCollection | null>(null)
   const loading = ref(false)
   const previewLoading = ref(false)
+  const collectionLoading = ref(false)
   const hasLoadedMyAchievements = ref(false)
 
   const queue = ref<AchievementUnlockEvent[]>([])
@@ -35,8 +37,36 @@ export const useAchievementStore = defineStore('achievements', () => {
     }
   }
 
+  async function fetchCollectionForUser(userId: number) {
+    collectionLoading.value = true
+    try {
+      const { data } = await api.get<AchievementCollection>(`/achievements/users/${userId}/collection`)
+      profileCollection.value = data
+      return data
+    } finally {
+      collectionLoading.value = false
+    }
+  }
+
+  async function saveFeaturedAchievements(codes: string[]) {
+    const { data } = await api.put<AchievementPreview>('/achievements/me/featured', { codes })
+    profilePreview.value = data
+
+    const selected = new Map(codes.map((code, index) => [code, index]))
+    myAchievements.value = myAchievements.value.map((item) => ({
+      ...item,
+      featuredPosition: selected.get(item.code) ?? null,
+    }))
+
+    return data
+  }
+
   function clearProfilePreview() {
     profilePreview.value = null
+  }
+
+  function clearProfileCollection() {
+    profileCollection.value = null
   }
 
   const unlockedAchievementCodes = computed(() =>
@@ -111,6 +141,7 @@ export const useAchievementStore = defineStore('achievements', () => {
   function resetState() {
     myAchievements.value = []
     profilePreview.value = null
+    profileCollection.value = null
     hasLoadedMyAchievements.value = false
     queue.value = []
     activePopup.value = null
@@ -123,13 +154,18 @@ export const useAchievementStore = defineStore('achievements', () => {
   return {
     myAchievements,
     profilePreview,
+    profileCollection,
     loading,
     previewLoading,
+    collectionLoading,
     hasLoadedMyAchievements,
     activePopup,
     fetchMyAchievements,
     fetchPreviewForUser,
+    fetchCollectionForUser,
+    saveFeaturedAchievements,
     clearProfilePreview,
+    clearProfileCollection,
     hasAchievement,
     claimSecret,
     enqueueUnlock,

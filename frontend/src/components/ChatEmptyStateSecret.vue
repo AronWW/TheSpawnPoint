@@ -4,20 +4,22 @@ import { useAchievementStore } from '../stores/achievements'
 import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
 
 const ROOM_OF_REQUIREMENT_CODE = 'ROOM_OF_REQUIREMENT'
-const RICKROLL_URL = 'https://youtu.be/eBGIQ7ZuuiU?si=75MTowZvkXQfVzLv'
-const RICKROLL_PENDING_KEY = 'tsp_rickroll_pending'
+const NOT_WHAT_YOU_EXPECTED_CODE = 'NOT_WHAT_YOU_EXPECTED'
+const RICKROLL_EMBED_URL = 'https://www.youtube.com/embed/eBGIQ7ZuuiU?autoplay=1&rel=0'
 const SUMMON_TRIGGER_CLICKS = 9
 const SUMMON_DURATION_MS = 5200
 const OPENING_DURATION_MS = 5400
 
 const emit = defineEmits<{
   (e: 'scene-lock'): void
+  (e: 'scene-unlock'): void
 }>()
 
 const achievementStore = useAchievementStore()
 
 const clickCount = ref(0)
 const stage = ref<'idle' | 'summoning' | 'formed' | 'opening'>('idle')
+const showRickrollPlayer = ref(false)
 const claimInFlight = ref<Set<string>>(new Set())
 const timers: number[] = []
 
@@ -111,13 +113,26 @@ function handleDoorClick() {
 
   stage.value = 'opening'
 
-  try {
-    localStorage.setItem(RICKROLL_PENDING_KEY, Date.now().toString())
-  } catch {  }
-
   schedule(() => {
-    window.location.href = RICKROLL_URL
+    void openRickrollPlayer()
   }, OPENING_DURATION_MS)
+}
+
+async function openRickrollPlayer() {
+  showRickrollPlayer.value = true
+  await claimSecretOnce(NOT_WHAT_YOU_EXPECTED_CODE)
+}
+
+function resetScene() {
+  clearTimers()
+  clickCount.value = 0
+  stage.value = 'idle'
+}
+
+function closeRickrollPlayer() {
+  showRickrollPlayer.value = false
+  resetScene()
+  emit('scene-unlock')
 }
 
 onBeforeUnmount(() => {
@@ -265,6 +280,28 @@ onBeforeUnmount(() => {
           <div class="eclipse-center-light"></div>
         </div>
       </Transition>
+
+      <Transition name="player-fade">
+        <div v-if="showRickrollPlayer" class="rickroll-player" @click.self="closeRickrollPlayer">
+          <div class="rickroll-player__panel">
+            <button
+              class="rickroll-player__close"
+              type="button"
+              aria-label="Закрити відео"
+              @click="closeRickrollPlayer"
+            >
+              ×
+            </button>
+            <iframe
+              class="rickroll-player__iframe"
+              :src="RICKROLL_EMBED_URL"
+              title="Secret video"
+              allow="autoplay; encrypted-media; picture-in-picture; web-share"
+              allowfullscreen
+            ></iframe>
+          </div>
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -294,7 +331,8 @@ onBeforeUnmount(() => {
 
 .secret-atmosphere,
 .door-stage,
-.screen-eclipse {
+.screen-eclipse,
+.rickroll-player {
   position: absolute;
   inset: 0;
 }
@@ -816,7 +854,9 @@ onBeforeUnmount(() => {
 .door-fade-enter-active,
 .door-fade-leave-active,
 .screen-fade-enter-active,
-.screen-fade-leave-active {
+.screen-fade-leave-active,
+.player-fade-enter-active,
+.player-fade-leave-active {
   transition: opacity 0.5s ease;
 }
 
@@ -826,8 +866,55 @@ onBeforeUnmount(() => {
 .door-fade-enter-from,
 .door-fade-leave-to,
 .screen-fade-enter-from,
-.screen-fade-leave-to {
+.screen-fade-leave-to,
+.player-fade-enter-from,
+.player-fade-leave-to {
   opacity: 0;
+}
+
+.rickroll-player {
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.rickroll-player__panel {
+  position: relative;
+  width: min(960px, 100%);
+  aspect-ratio: 16 / 9;
+  background: #050506;
+  border: 2px solid rgba(245, 197, 24, 0.32);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.7), 0 0 42px rgba(245, 197, 24, 0.1);
+}
+
+.rickroll-player__iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.rickroll-player__close {
+  position: absolute;
+  right: -14px;
+  top: -14px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  background: var(--dark);
+  color: var(--gray-light);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.rickroll-player__close:hover {
+  border-color: var(--red);
+  color: var(--red);
 }
 
 /* ════════════════════ KEYFRAMES ════════════════════ */

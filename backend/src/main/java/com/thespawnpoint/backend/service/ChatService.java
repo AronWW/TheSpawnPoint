@@ -16,10 +16,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -29,6 +31,7 @@ public class ChatService {
     private final ChatRepository chatRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final MessageRepository messageRepository;
+    private final MessageAttachmentRepository messageAttachmentRepository;
     private final MessageReactionRepository messageReactionRepository;
     private final PinnedMessageRepository pinnedMessageRepository;
     private final UserRepository userRepository;
@@ -39,9 +42,14 @@ public class ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationContext applicationContext;
     private final CloudinaryImageService cloudinaryImageService;
+    private final CloudinaryMediaService cloudinaryMediaService;
     private final BlockService blockService;
     private final AchievementService achievementService;
     private final RateLimitingService rateLimitingService;
+
+    private static final int MAX_ATTACHMENTS_PER_MESSAGE = 5;
+    private static final long MAX_TOTAL_ATTACHMENT_SIZE = 100L * 1024 * 1024;
+    private static final int MAX_MESSAGE_CONTENT_LENGTH = 5000;
 
     private ChatService self() {
         return applicationContext.getBean(ChatService.class);
@@ -126,6 +134,218 @@ public class ChatService {
         messagingTemplate.convertAndSendToUser(sender.getEmail(), "/queue/messages", dto);
 
         achievementService.syncMessageMilestones(sender);
+    }
+
+    @Transactional
+    public MessageDTO sendChatMessage(User sender, Long chatId, String content, List<MultipartFile> files, Long replyToId) {
+        List<MultipartFile> attachments = files == null
+                ? List.of()
+                : files.stream().filter(file -> file != null && !file.isEmpty()).toList();
+        String normalizedContent = content == null ? "" : content.trim();
+
+        if (normalizedContent.length() > MAX_MESSAGE_CONTENT_LENGTH) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Message is too long");
+        }
+
+        if (normalizedContent.isBlank() && attachments.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Message must contain text or files");
+        }
+
+        if (attachments.size() > MAX_ATTACHMENTS_PER_MESSAGE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "You can attach up to 5 files");
+        }
+
+        long totalSize = attachments.stream().mapToLong(MultipartFile::getSize).sum();
+        if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Total attachment size exceeds 100 MB");
+        }
+
+        if (!normalizedContent.isBlank() && rateLimitingService.isSpamDuplicate(sender.getId(), normalizedContent)) {
+            messagingTemplate.convertAndSendToUser(
+                    sender.getEmail(),
+                    "/queue/errors",
+                    Map.of(
+                            "error", "SPAM_DETECTED",
+                            "message", "Не спамте, будь ласка."
+                    )
+            );
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Spam detected");
+        }
+
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chat not found"));
+
+        ChatParticipant senderParticipant = chatParticipantRepository.findByChatIdAndUserId(chatId, sender.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat"));
+
+        if (senderParticipant.getDeletedAt() != null) {
+            senderParticipant.setDeletedAt(null);
+            chatParticipantRepository.save(senderParticipant);
+        }
+
+        if (Boolean.TRUE.equals(chat.getIsGroup())) {
+            validateActiveGroupParticipant(sender, chatId);
+        } else {
+            validateDmMediaMessage(sender, chat);
+        }
+
+        List<CloudinaryMediaService.ClassifiedFile> classifiedFiles = attachments.stream()
+                .map(cloudinaryMediaService::classify)
+                .toList();
+
+        Message replyTo = resolveReplyTo(replyToId, chat);
+
+        Message saved = messageRepository.save(Message.builder()
+                .chat(chat)
+                .sender(sender)
+                .content(normalizedContent)
+                .replyTo(replyTo)
+                .build());
+
+        List<CloudinaryMediaService.UploadResult> uploadedForCleanup = Collections.synchronizedList(new ArrayList<>());
+        try {
+            List<UploadedAttachment> uploaded = uploadAttachments(
+                    attachments,
+                    classifiedFiles,
+                    chatId,
+                    saved.getId(),
+                    uploadedForCleanup
+            );
+            for (UploadedAttachment uploadedAttachment : uploaded) {
+                MultipartFile file = uploadedAttachment.file();
+                CloudinaryMediaService.ClassifiedFile classified = uploadedAttachment.classifiedFile();
+                CloudinaryMediaService.UploadResult upload = uploadedAttachment.uploadResult();
+                MessageAttachment attachment = MessageAttachment.builder()
+                        .message(saved)
+                        .position(uploadedAttachment.position())
+                        .mediaType(classified.mediaType())
+                        .url(upload.secureUrl())
+                        .publicId(upload.publicId())
+                        .resourceType(upload.resourceType())
+                        .originalFilename(file.getOriginalFilename())
+                        .contentType(classified.contentType())
+                        .sizeBytes(file.getSize())
+                        .width(upload.width())
+                        .height(upload.height())
+                        .durationSeconds(upload.durationSeconds())
+                        .build();
+                messageAttachmentRepository.save(attachment);
+            }
+        } catch (RuntimeException e) {
+            cleanupUploadedMedia(uploadedForCleanup);
+            throw e;
+        }
+
+        MessageDTO dto = toDTO(saved);
+        broadcastMessage(chat, dto);
+
+        achievementService.syncMessageMilestones(sender);
+        return dto;
+    }
+
+    private void validateActiveGroupParticipant(User sender, Long chatId) {
+        if (!chatParticipantRepository.existsByChatIdAndUserId(chatId, sender.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
+    }
+
+    private void validateDmMediaMessage(User sender, Chat chat) {
+        List<ChatParticipant> participants = chatParticipantRepository.findByChatId(chat.getId());
+        ChatParticipant recipientParticipant = participants.stream()
+                .filter(cp -> !cp.getUser().getId().equals(sender.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid DM chat"));
+
+        User recipient = recipientParticipant.getUser();
+        if (blockService.isBlockedBetween(sender.getId(), recipient.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Cannot send message to this user");
+        }
+
+        for (ChatParticipant participant : participants) {
+            if (participant.getDeletedAt() != null) {
+                participant.setDeletedAt(null);
+                chatParticipantRepository.save(participant);
+            }
+        }
+    }
+
+    private List<UploadedAttachment> uploadAttachments(
+            List<MultipartFile> attachments,
+            List<CloudinaryMediaService.ClassifiedFile> classifiedFiles,
+            Long chatId,
+            Long messageId,
+            List<CloudinaryMediaService.UploadResult> uploadedForCleanup
+    ) {
+        if (attachments.isEmpty()) {
+            return List.of();
+        }
+
+        if (attachments.size() == 1) {
+            return List.of(uploadAttachmentAt(attachments, classifiedFiles, chatId, messageId, 0, uploadedForCleanup));
+        }
+
+        return IntStream.range(0, attachments.size())
+                .parallel()
+                .mapToObj(position -> uploadAttachmentAt(
+                        attachments,
+                        classifiedFiles,
+                        chatId,
+                        messageId,
+                        position,
+                        uploadedForCleanup
+                ))
+                .sorted(Comparator.comparingInt(UploadedAttachment::position))
+                .toList();
+    }
+
+    private UploadedAttachment uploadAttachmentAt(
+            List<MultipartFile> attachments,
+            List<CloudinaryMediaService.ClassifiedFile> classifiedFiles,
+            Long chatId,
+            Long messageId,
+            int position,
+            List<CloudinaryMediaService.UploadResult> uploadedForCleanup
+    ) {
+        MultipartFile file = attachments.get(position);
+        CloudinaryMediaService.ClassifiedFile classified = classifiedFiles.get(position);
+        CloudinaryMediaService.UploadResult upload = cloudinaryMediaService.uploadChatAttachment(
+                file,
+                chatId,
+                messageId,
+                position,
+                classified
+        );
+        uploadedForCleanup.add(upload);
+
+        return new UploadedAttachment(position, file, classified, upload);
+    }
+
+    private record UploadedAttachment(
+            int position,
+            MultipartFile file,
+            CloudinaryMediaService.ClassifiedFile classifiedFile,
+            CloudinaryMediaService.UploadResult uploadResult
+    ) {
+    }
+
+    private void cleanupUploadedMedia(List<CloudinaryMediaService.UploadResult> uploaded) {
+        for (CloudinaryMediaService.UploadResult upload : uploaded) {
+            try {
+                cloudinaryMediaService.deleteMedia(upload.publicId(), upload.resourceType());
+            } catch (RuntimeException cleanupError) {
+                log.warn("Failed to cleanup uploaded media {}: {}", upload.publicId(), cleanupError.getMessage());
+            }
+        }
+    }
+
+    private void broadcastMessage(Chat chat, MessageDTO dto) {
+        List<ChatParticipant> participants = chatParticipantRepository.findByChatId(chat.getId());
+        for (ChatParticipant cp : participants) {
+            if (cp.getDeletedAt() == null) {
+                messagingTemplate.convertAndSendToUser(
+                        cp.getUser().getEmail(), "/queue/messages", dto);
+            }
+        }
     }
 
 
@@ -949,7 +1169,7 @@ public class ChatService {
                 .stream().findFirst();
         if (lastMsgOpt.isPresent()) {
             Message lm = lastMsgOpt.get();
-            lastMessage = lm.getContent();
+            lastMessage = buildMessagePreview(lm);
             lastMessageAt = lm.getSentAt();
         }
 
@@ -961,17 +1181,20 @@ public class ChatService {
         boolean archived = currentCp != null && currentCp.isArchived();
         boolean pinned = currentCp != null && currentCp.isPinned();
         Instant pinnedAt = currentCp != null ? currentCp.getPinnedAt() : null;
+        Long lastReadMessageId = currentCp != null && currentCp.getLastReadMessage() != null
+                ? currentCp.getLastReadMessage().getId()
+                : null;
 
         if (Boolean.TRUE.equals(chat.getIsGroup())) {
-            return buildGroupChatDTO(chat, currentUser, lastMessage, lastMessageAt, unread, archived, pinned, pinnedAt);
+            return buildGroupChatDTO(chat, currentUser, lastMessage, lastMessageAt, unread, archived, pinned, pinnedAt, lastReadMessageId);
         } else {
-            return buildDmChatDTO(chat, currentUser, lastMessage, lastMessageAt, unread, archived, pinned, pinnedAt);
+            return buildDmChatDTO(chat, currentUser, lastMessage, lastMessageAt, unread, archived, pinned, pinnedAt, lastReadMessageId);
         }
     }
 
     private ChatDTO buildDmChatDTO(Chat chat, User currentUser,
                                     String lastMessage, Instant lastMessageAt, int unread,
-                                    boolean archived, boolean pinned, Instant pinnedAt) {
+                                    boolean archived, boolean pinned, Instant pinnedAt, Long lastReadMessageId) {
         User partner = chatParticipantRepository.findByChatId(chat.getId()).stream()
                 .map(ChatParticipant::getUser)
                 .filter(u -> !u.getId().equals(currentUser.getId()))
@@ -1003,6 +1226,7 @@ public class ChatService {
                 .id(chat.getId())
                 .group(false)
                 .chatType("DM")
+                .partnerUserId(partner.getId())
                 .partnerEmail(partner.getEmail())
                 .partnerDisplayName(partner.getDisplayName())
                 .partnerAvatarUrl(avatarUrl)
@@ -1011,6 +1235,7 @@ public class ChatService {
                 .lastMessage(lastMessage)
                 .lastMessageAt(lastMessageAt)
                 .unreadCount(unread)
+                .lastReadMessageId(lastReadMessageId)
                 .archived(archived)
                 .pinned(pinned)
                 .pinnedAt(pinnedAt)
@@ -1019,7 +1244,7 @@ public class ChatService {
 
     private ChatDTO buildGroupChatDTO(Chat chat, User currentUser,
                                        String lastMessage, Instant lastMessageAt, int unread,
-                                       boolean archived, boolean pinned, Instant pinnedAt) {
+                                       boolean archived, boolean pinned, Instant pinnedAt, Long lastReadMessageId) {
         List<ChatParticipantDTO> participants = chatParticipantRepository.findByChatId(chat.getId()).stream()
                 .map(cp -> {
                     String avatarUrl = profileRepository.findByUserId(cp.getUser().getId())
@@ -1053,6 +1278,7 @@ public class ChatService {
                 .lastMessage(lastMessage)
                 .lastMessageAt(lastMessageAt)
                 .unreadCount(unread)
+                .lastReadMessageId(lastReadMessageId)
                 .archived(archived)
                 .pinned(pinned)
                 .pinnedAt(pinnedAt)
@@ -1116,7 +1342,7 @@ public class ChatService {
     private PinnedMessageDTO toPinnedDTO(PinnedMessage pin) {
         Message msg = pin.getMessage();
         String senderName = msg.getSender() != null ? msg.getSender().getDisplayName() : "System";
-        String content = msg.isDeleted() ? "Повідомлення видалено" : msg.getContent();
+        String content = msg.isDeleted() ? "Повідомлення видалено" : buildMessagePreview(msg);
         if (content.length() > 100) content = content.substring(0, 100) + "…";
 
         return PinnedMessageDTO.builder()
@@ -1153,15 +1379,22 @@ public class ChatService {
             if (reply.isDeleted()) {
                 replyToContent = "Повідомлення видалено";
             } else {
-                replyToContent = reply.getContent().length() > 100
-                        ? reply.getContent().substring(0, 100) + "…"
-                        : reply.getContent();
+                String preview = buildMessagePreview(reply);
+                replyToContent = preview.length() > 100
+                        ? preview.substring(0, 100) + "…"
+                        : preview;
             }
         }
 
         List<ReactionDTO> reactions = buildReactionsForMessage(m.getId());
+        List<MessageAttachmentDTO> attachments = m.isDeleted()
+                ? List.of()
+                : messageAttachmentRepository.findByMessageIdOrderByPositionAsc(m.getId()).stream()
+                .map(this::toAttachmentDTO)
+                .toList();
 
         String content = m.isDeleted() ? "Повідомлення видалено" : m.getContent();
+        String previewText = m.isDeleted() ? "Повідомлення видалено" : buildMessagePreview(m);
 
         return MessageDTO.builder()
                 .id(m.getId())
@@ -1180,6 +1413,54 @@ public class ChatService {
                 .replyToContent(replyToContent)
                 .replyToSenderName(replyToSenderName)
                 .reactions(reactions)
+                .attachments(attachments)
+                .previewText(previewText)
                 .build();
+    }
+
+    private MessageAttachmentDTO toAttachmentDTO(MessageAttachment attachment) {
+        return MessageAttachmentDTO.builder()
+                .id(attachment.getId())
+                .position(attachment.getPosition())
+                .mediaType(attachment.getMediaType().name())
+                .url(attachment.getUrl())
+                .resourceType(attachment.getResourceType())
+                .originalFilename(attachment.getOriginalFilename())
+                .contentType(attachment.getContentType())
+                .sizeBytes(attachment.getSizeBytes())
+                .width(attachment.getWidth())
+                .height(attachment.getHeight())
+                .durationSeconds(attachment.getDurationSeconds())
+                .build();
+    }
+
+    private String buildMessagePreview(Message message) {
+        if (message.isDeleted()) {
+            return "Повідомлення видалено";
+        }
+
+        String content = message.getContent();
+        if (content != null && !content.isBlank()) {
+            return content;
+        }
+
+        List<MessageAttachment> attachments = messageAttachmentRepository.findByMessageIdOrderByPositionAsc(message.getId());
+        if (attachments.isEmpty()) {
+            return "";
+        }
+
+        if (attachments.size() > 1) {
+            return attachments.size() + " файлів";
+        }
+
+        MessageAttachmentType type = attachments.get(0).getMediaType();
+        return switch (type) {
+            case IMAGE -> "Фото";
+            case GIF -> "GIF";
+            case VIDEO -> "Відео";
+            case AUDIO -> "Аудіо";
+            case TEXT_FILE, FILE -> "Файл";
+            case PDF -> "PDF";
+        };
     }
 }

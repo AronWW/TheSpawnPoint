@@ -29,4 +29,6 @@ public class MessageDTO {
     private String replyToSenderName;
 
     private List<ReactionDTO> reactions;
+    private List<MessageAttachmentDTO> attachments;
+    private String previewText;
 }

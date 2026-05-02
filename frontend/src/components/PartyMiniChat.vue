@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useStompClient } from '../composables/useStompClient'
 import { PUBLIC_BASE_URL } from '../config'
-import type { ChatMessage } from '../types'
+import type { ChatMessage, MessageAttachment } from '../types'
 
 const props = defineProps<{
   chatId: number
@@ -49,6 +49,66 @@ function formatTime(iso: string) {
 
 function isOwnMessage(message: ChatMessage) {
   return auth.user?.email === message.senderEmail
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
+}
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || !Number.isFinite(seconds)) return ''
+  const total = Math.round(seconds)
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+}
+
+function miniFileKind(attachment: MessageAttachment): string {
+  const name = attachment.originalFilename?.toLowerCase() || ''
+  const type = attachment.contentType?.toLowerCase() || ''
+  if (attachment.mediaType === 'PDF' || name.endsWith('.pdf') || type === 'application/pdf') return 'PDF'
+  if (attachment.mediaType === 'TEXT_FILE') {
+    if (name.endsWith('.json') || type === 'application/json') return 'JSON'
+    if (name.endsWith('.csv') || type === 'text/csv') return 'CSV'
+    if (name.endsWith('.md') || type === 'text/markdown') return 'MD'
+    if (name.endsWith('.xml') || type === 'application/xml' || type === 'text/xml') return 'XML'
+    return 'TXT'
+  }
+  return 'FILE'
+}
+
+function miniMediaDisplayStyle(attachment: MessageAttachment, compact = false): Record<string, string> {
+  const sourceWidth = attachment.width && attachment.width > 0 ? attachment.width : 260
+  const sourceHeight = attachment.height && attachment.height > 0 ? attachment.height : 195
+  const ratio = Math.min(Math.max(sourceWidth / sourceHeight, 0.35), 3.5)
+  const maxWidth = compact ? 150 : 280
+  const maxHeight = compact ? 135 : 220
+
+  let displayWidth = Math.min(sourceWidth, maxWidth)
+  let displayHeight = displayWidth / ratio
+
+  if (displayHeight > maxHeight) {
+    displayHeight = maxHeight
+    displayWidth = displayHeight * ratio
+  }
+
+  return {
+    width: `${Math.round(displayWidth)}px`,
+    aspectRatio: `${sourceWidth} / ${sourceHeight}`,
+  }
+}
+
+function miniAttachmentGroupClass(count: number): Record<string, boolean> {
+  return {
+    multi: count > 1,
+    [`count-${Math.min(count, 5)}`]: true,
+  }
 }
 
 function openFullChat() {
@@ -224,7 +284,52 @@ onMounted(() => {
                   <span class="mini-chat-time">{{ formatTime(message.sentAt) }}</span>
                 </div>
 
-                <div class="mini-chat-content" :class="{ 'is-deleted': message.deleted }">
+                <div v-if="!message.deleted && message.attachments?.length" class="mini-chat-attachments" :class="miniAttachmentGroupClass(message.attachments.length)">
+                  <div v-for="attachment in message.attachments" :key="attachment.id" class="mini-chat-attachment">
+                    <img
+                        v-if="attachment.mediaType === 'IMAGE' || attachment.mediaType === 'GIF'"
+                        :src="attachment.url"
+                        :alt="attachment.originalFilename || attachment.mediaType"
+                        class="mini-chat-media-img"
+                        :style="miniMediaDisplayStyle(attachment, message.attachments.length > 1)"
+                    />
+                    <video
+                        v-else-if="attachment.mediaType === 'VIDEO'"
+                        :src="attachment.url"
+                        controls
+                        preload="metadata"
+                        class="mini-chat-media-video"
+                        :style="miniMediaDisplayStyle(attachment, message.attachments.length > 1)"
+                    ></video>
+                    <div v-else-if="attachment.mediaType === 'AUDIO'" class="mini-chat-file-card">
+                      <span class="mini-chat-file-kind">AUDIO</span>
+                      <div class="mini-chat-file-info">
+                        <span class="mini-chat-file-name">{{ attachment.originalFilename || 'Файл' }}</span>
+                        <span class="mini-chat-file-meta">
+                          {{ formatBytes(attachment.sizeBytes) }}
+                          <template v-if="attachment.durationSeconds"> • {{ formatDuration(attachment.durationSeconds) }}</template>
+                        </span>
+                        <audio :src="attachment.url" controls preload="metadata"></audio>
+                      </div>
+                    </div>
+                    <a
+                        v-else
+                        :href="attachment.url"
+                        target="_blank"
+                        rel="noopener"
+                        :download="attachment.mediaType === 'PDF' ? undefined : attachment.originalFilename || undefined"
+                        class="mini-chat-file-card"
+                    >
+                      <span class="mini-chat-file-kind">{{ miniFileKind(attachment) }}</span>
+                      <div class="mini-chat-file-info">
+                        <span class="mini-chat-file-name">{{ attachment.originalFilename || 'File' }}</span>
+                        <span class="mini-chat-file-meta">{{ formatBytes(attachment.sizeBytes) }}</span>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+
+                <div v-if="message.deleted || message.content" class="mini-chat-content" :class="{ 'is-deleted': message.deleted }">
                   {{ message.deleted ? 'Повідомлення видалено' : message.content }}
                 </div>
               </div>
@@ -420,7 +525,9 @@ onMounted(() => {
 .mini-chat-bubble {
   display: flex;
   gap: 10px;
+  width: fit-content;
   max-width: min(100%, 560px);
+  box-sizing: border-box;
 }
 
 .mini-chat-message.own .mini-chat-bubble {
@@ -446,6 +553,7 @@ onMounted(() => {
 
 .mini-chat-content-wrap {
   min-width: 0;
+  max-width: 100%;
 }
 
 .mini-chat-message-top {
@@ -479,6 +587,88 @@ onMounted(() => {
 .mini-chat-content.is-deleted {
   color: var(--gray);
   font-style: italic;
+}
+
+.mini-chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.mini-chat-attachments.multi {
+  max-width: min(320px, 100%);
+}
+
+.mini-chat-media-img,
+.mini-chat-media-video {
+  max-width: min(100%, calc(100vw - 92px));
+  object-fit: contain;
+  display: block;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.mini-chat-media-video {
+  object-fit: contain;
+  background: #000;
+}
+
+.mini-chat-file-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(260px, calc(100vw - 92px));
+  min-width: 0;
+  padding: 9px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.mini-chat-file-kind {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.mini-chat-file-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mini-chat-file-name {
+  color: var(--white);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-chat-file-meta {
+  color: var(--gray);
+  font-size: 11px;
+}
+
+.mini-chat-file-info audio {
+  width: 100%;
+  height: 30px;
+  margin-top: 4px;
 }
 
 .mini-chat-compose {

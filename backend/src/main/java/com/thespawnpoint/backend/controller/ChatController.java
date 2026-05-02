@@ -223,6 +223,17 @@ public class ChatController extends WebSocketExceptionHandler {
         return ResponseEntity.ok(chatService.uploadGroupAvatar(currentUser, chatId, result.secureUrl(), result.publicId()));
     }
 
+    @PostMapping(value = "/api/chats/{chatId}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MessageDTO> sendChatMessage(
+            @PathVariable Long chatId,
+            @RequestParam(value = "content", required = false, defaultValue = "") String content,
+            @RequestParam(value = "replyToId", required = false) Long replyToId,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal User currentUser) {
+        MessageDTO message = chatService.sendChatMessage(currentUser, chatId, content, files, replyToId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(message);
+    }
+
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload @Valid SendMessageDTO dto, Principal principal) {
         User sender = getPrincipalUser(principal);

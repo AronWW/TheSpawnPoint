@@ -31,6 +31,14 @@ public class AchievementController {
         return ResponseEntity.ok(achievementService.getAchievementsForUser(userId, requester));
     }
 
+    @GetMapping("/users/{userId}/collection")
+    public ResponseEntity<AchievementPreviewDTO> getUserAchievementCollection(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal User requester
+    ) {
+        return ResponseEntity.ok(achievementService.getAchievementCollectionForUser(userId, requester));
+    }
+
     @GetMapping("/users/{userId}/preview")
     public ResponseEntity<AchievementPreviewDTO> getUserAchievementPreview(
             @PathVariable Long userId,
@@ -45,5 +53,13 @@ public class AchievementController {
             @Valid @RequestBody ClaimSecretAchievementDTO dto
     ) {
         return ResponseEntity.ok(achievementService.claimSecret(user, dto.getCode()));
+    }
+
+    @PutMapping("/me/featured")
+    public ResponseEntity<AchievementPreviewDTO> updateFeaturedAchievements(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody UpdateFeaturedAchievementsDTO dto
+    ) {
+        return ResponseEntity.ok(achievementService.updateFeaturedAchievements(user, dto.getCodes()));
     }
 }
