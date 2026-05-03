@@ -17,6 +17,8 @@ import PlayerRatingBadge from '../components/PlayerRatingBadge.vue'
 import AchievementPreviewSection from '../components/AchievementPreviewSection.vue'
 import AchievementCollectionModal from '../components/AchievementCollectionModal.vue'
 import FeaturedAchievementPickerModal from '../components/FeaturedAchievementPickerModal.vue'
+import RoadPoneglyphMarker from '../components/RoadPoneglyphMarker.vue'
+import { useLaughTaleQuestStore } from '../stores/laughTaleQuest'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +27,9 @@ const friendStore = useFriendStore()
 const chatStore = useChatStore()
 const achievementStore = useAchievementStore()
 const blockStore = useBlockStore()
+const laughTaleQuest = useLaughTaleQuestStore()
+
+const ROAD_ONE_CLICKS = 5
 
 const BANNER_PRESETS: Record<string, string> = {
   'banner-1': 'linear-gradient(135deg, #1a0a2e 0%, #3d1a78 50%, #1a0a2e 100%)',
@@ -48,6 +53,8 @@ const profileFriends = ref<Friend[]>([])
 const showGamesCount = ref(6)
 const blockingUser = ref(false)
 const savingFeaturedAchievements = ref(false)
+const captainFlagClicks = ref(0)
+const showCaptainPoneglyph = ref(false)
 
 const isBlockedByMe = computed(() =>
     profile.value ? blockStore.isBlockedByMe(profile.value.userId) : false
@@ -235,6 +242,9 @@ async function copyToClipboard(val: string, key: string) {
 const isOwnProfile = computed(() =>
     Boolean(auth.user && profile.value && auth.user.id === profile.value.userId)
 )
+const canSearchForFirstPoneglyph = computed(() =>
+  isOwnProfile.value && laughTaleQuest.canDiscover('ROAD_1')
+)
 
 const canSeeFriends = computed(() => {
   if (isOwnProfile.value) return true
@@ -393,6 +403,24 @@ function loadMoreComments() {
   fetchComments()
 }
 
+function resetCaptainFlagSearch() {
+  captainFlagClicks.value = 0
+  showCaptainPoneglyph.value = false
+}
+
+function handleCaptainFlagClick() {
+  if (!canSearchForFirstPoneglyph.value || showCaptainPoneglyph.value) return
+
+  captainFlagClicks.value = Math.min(captainFlagClicks.value + 1, ROAD_ONE_CLICKS)
+  if (captainFlagClicks.value >= ROAD_ONE_CLICKS) {
+    showCaptainPoneglyph.value = true
+  }
+}
+
+function handleRoadOneDiscovered() {
+  resetCaptainFlagSearch()
+}
+
 async function fetchProfile(userId: string | string[]) {
   const id = Array.isArray(userId) ? userId[0] : userId
   const numericId = Number(id)
@@ -401,6 +429,7 @@ async function fetchProfile(userId: string | string[]) {
   showGamesCount.value = 6
   showAchievementCollection.value = false
   showFeaturedPicker.value = false
+  resetCaptainFlagSearch()
   achievementStore.clearProfilePreview()
   achievementStore.clearProfileCollection()
   try {
@@ -534,6 +563,10 @@ onMounted(async () => {
 watch(() => route.params.userId, (newId) => {
   if (newId) fetchProfile(newId)
 })
+
+watch(canSearchForFirstPoneglyph, (canSearch) => {
+  if (!canSearch) resetCaptainFlagSearch()
+})
 </script>
 
 <template>
@@ -554,12 +587,44 @@ watch(() => route.params.userId, (newId) => {
 
     <div v-else-if="profile" class="va-page">
 
-      <div class="cinematic-banner" :class="{ 'has-banner': profile.bannerUrl }" :style="bannerStyle">
+      <div
+        class="cinematic-banner"
+        :class="{
+          'has-banner': profile.bannerUrl,
+          'laugh-tale-flag-active': canSearchForFirstPoneglyph,
+          'laugh-tale-flag-awake': captainFlagClicks > 0 && !showCaptainPoneglyph,
+          'laugh-tale-flag-open': showCaptainPoneglyph,
+        }"
+        :style="bannerStyle"
+        @click.self="handleCaptainFlagClick"
+      >
         <router-link v-if="isOwnProfile" :to="{ path: '/customization', query: { section: 'banner' } }" class="banner-edit-btn">✎ ЗМІНИТИ БАНЕР</router-link>
+        <div
+          v-if="canSearchForFirstPoneglyph && captainFlagClicks > 0 && !showCaptainPoneglyph"
+          class="laugh-tale-beat-ring"
+          aria-hidden="true"
+        >
+          <span
+            v-for="beat in ROAD_ONE_CLICKS"
+            :key="beat"
+            :class="{ 'is-lit': captainFlagClicks >= beat }"
+          ></span>
+        </div>
+        <div v-if="showCaptainPoneglyph" class="profile-road-poneglyph profile-road-poneglyph--banner">
+          <RoadPoneglyphMarker
+            clue-code="ROAD_1"
+            label="Перший роуд понегліф"
+            @discovered="handleRoadOneDiscovered"
+          />
+        </div>
       </div>
 
       <div class="va-hero">
-        <div class="va-ava-wrap">
+        <div
+          class="va-ava-wrap"
+          :class="{ 'laugh-tale-flag-active': canSearchForFirstPoneglyph }"
+          @click="handleCaptainFlagClick"
+        >
           <img :src="resolveAvatar(profile.avatarUrl)" :alt="profile.displayName" class="va-ava-img" />
           <div class="online-dot" :class="canSeeStatus ? statusClass : 'dot-offline'"></div>
         </div>
@@ -831,7 +896,7 @@ watch(() => route.params.userId, (newId) => {
             <div v-if="commentsLoading" class="comments-loading">Завантаження...</div>
 
             <button
-              v-if="commentsHasMore && !commentsLoading"
+              v-if="comments.length > 0 && commentsHasMore && !commentsLoading"
               class="comments-load-more"
               @click="loadMoreComments"
             >ПОКАЗАТИ ЩЕ</button>
@@ -985,6 +1050,106 @@ watch(() => route.params.userId, (newId) => {
   background: linear-gradient(90deg, transparent, var(--yellow-dim), transparent);
   opacity: 0.6;
 }
+.cinematic-banner.laugh-tale-flag-active {
+  cursor: pointer;
+}
+.cinematic-banner.laugh-tale-flag-active::before {
+  background:
+    linear-gradient(135deg, rgba(245,197,24,0.04) 0%, transparent 48%),
+    radial-gradient(ellipse at 50% 100%, rgba(184,50,50,0.12) 0%, transparent 58%);
+}
+.cinematic-banner.laugh-tale-flag-awake::after {
+  background:
+    linear-gradient(90deg, transparent, rgba(184,50,50,0.4), transparent),
+    linear-gradient(90deg, transparent, var(--yellow-dim), transparent);
+  opacity: 0.8;
+}
+.laugh-tale-beat-ring {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.laugh-tale-beat-ring span {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(245,197,24,0.38);
+  background: rgba(10,10,11,0.8);
+  transform: rotate(45deg);
+  opacity: 0.38;
+  transition: opacity 0.18s, background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.laugh-tale-beat-ring span.is-lit {
+  border-color: rgba(255,180,180,0.72);
+  background: #9d2424;
+  box-shadow: 0 0 14px rgba(184,50,50,0.52), inset 0 0 6px rgba(255,255,255,0.14);
+  opacity: 1;
+  animation: laugh-tale-beat-hit 0.42s ease-out;
+}
+.profile-road-poneglyph {
+  position: absolute;
+  z-index: 5;
+  pointer-events: auto;
+}
+.profile-road-poneglyph--banner {
+  right: 24px;
+  bottom: 22px;
+  animation: profile-road-poneglyph-reveal 0.78s cubic-bezier(0.18, 0.88, 0.24, 1.18);
+}
+.profile-road-poneglyph--banner::before {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: -8px;
+  width: 78px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,205,205,0.56), transparent);
+  transform: rotate(-3deg);
+  pointer-events: none;
+  animation: profile-road-poneglyph-crack 0.7s ease-out;
+}
+@keyframes laugh-tale-beat-hit {
+  0% {
+    transform: rotate(45deg) scale(0.72);
+  }
+  65% {
+    transform: rotate(45deg) scale(1.28);
+  }
+  100% {
+    transform: rotate(45deg) scale(1);
+  }
+}
+@keyframes profile-road-poneglyph-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.78) rotate(-5deg);
+    filter: blur(5px);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.04) rotate(1deg);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+    filter: blur(0);
+  }
+}
+@keyframes profile-road-poneglyph-crack {
+  0% {
+    opacity: 0;
+    transform: scaleX(0) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1) rotate(-3deg);
+  }
+}
 .banner-edit-btn {
   position: absolute;
   top: 12px;
@@ -1070,6 +1235,17 @@ watch(() => route.params.userId, (newId) => {
   border: 5px solid var(--panel);
   outline: 2px solid var(--yellow-dim);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.5), 0 8px 36px rgba(0,0,0,0.9), 0 0 28px rgba(245,197,24,0.1);
+}
+.va-ava-wrap.laugh-tale-flag-active {
+  cursor: pointer;
+}
+.va-ava-wrap.laugh-tale-flag-active .va-ava-img {
+  transition: outline-color 0.16s, box-shadow 0.16s, transform 0.16s;
+}
+.va-ava-wrap.laugh-tale-flag-active:hover .va-ava-img {
+  outline-color: rgba(184,50,50,0.72);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5), 0 8px 36px rgba(0,0,0,0.9), 0 0 28px rgba(184,50,50,0.18);
+  transform: translateY(-1px);
 }
 .va-ava-wrap .online-dot {
   position: absolute;
@@ -2095,6 +2271,15 @@ watch(() => route.params.userId, (newId) => {
     height: 130px;
   }
 
+  .profile-road-poneglyph--banner {
+    right: 14px;
+    bottom: 16px;
+  }
+
+  .laugh-tale-beat-ring {
+    bottom: 14px;
+  }
+
   .va-hero {
     flex-direction: column;
     align-items: center;
@@ -2242,6 +2427,21 @@ watch(() => route.params.userId, (newId) => {
 @media (max-width: 480px) {
   .cinematic-banner {
     height: 90px;
+  }
+
+  .profile-road-poneglyph--banner {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .laugh-tale-beat-ring {
+    bottom: 8px;
+    gap: 6px;
+  }
+
+  .laugh-tale-beat-ring span {
+    width: 6px;
+    height: 6px;
   }
 
   .va-ava-wrap {

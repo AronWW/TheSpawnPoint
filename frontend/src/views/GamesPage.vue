@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
@@ -7,10 +7,13 @@ import { genreColor } from '../utils/helpers'
 import { publicApi } from '../api/axios'
 import type { Game, Page } from '../types'
 import SuggestGameModal from '../components/SuggestGameModal.vue'
+import RoadPoneglyphMarker from '../components/RoadPoneglyphMarker.vue'
+import { useLaughTaleQuestStore } from '../stores/laughTaleQuest'
 
 const router = useRouter()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const laughTaleQuest = useLaughTaleQuestStore()
 
 const search = ref('')
 const selectedGenre = ref('')
@@ -26,6 +29,25 @@ const pageSize = 20
 const genres = ref<string[]>([])
 
 const animatingHearts = ref<Set<number>>(new Set())
+
+const ROAD_THREE_SEARCH_TERMS = ['jaya', 'джая', 'джайя']
+
+function normalizeRoadTerm(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/ґ/g, 'г')
+    .replace(/[’'`]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+const canRevealRoadThreePoneglyph = computed(() => {
+  const value = normalizeRoadTerm(search.value)
+  return auth.isLoggedIn
+    && laughTaleQuest.canDiscover('ROAD_3')
+    && ROAD_THREE_SEARCH_TERMS.some((term) => value.includes(normalizeRoadTerm(term)))
+})
 
 async function fetchPage(p = 0) {
   loading.value = true
@@ -114,6 +136,10 @@ onMounted(async () => {
           <option value="">Всі жанри</option>
           <option v-for="genre in genres" :key="genre" :value="genre">{{ genre }}</option>
         </select>
+      </div>
+
+      <div v-if="canRevealRoadThreePoneglyph" class="games-road-poneglyph">
+        <RoadPoneglyphMarker clue-code="ROAD_3" label="Третій роуд понегліф" />
       </div>
 
       <div v-if="loading" class="empty-state">
@@ -261,6 +287,45 @@ onMounted(async () => {
   gap: 12px;
   margin-bottom: 28px;
   flex-wrap: nowrap;
+}
+
+.games-road-poneglyph {
+  display: flex;
+  justify-content: center;
+  margin: -12px 0 26px;
+  animation: games-road-poneglyph-rise 0.62s cubic-bezier(0.18, 0.86, 0.28, 1.12);
+}
+
+.games-road-poneglyph::before,
+.games-road-poneglyph::after {
+  content: '';
+  align-self: center;
+  width: min(180px, 22vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184,50,50,0.52));
+}
+
+.games-road-poneglyph::after {
+  background: linear-gradient(90deg, rgba(184,50,50,0.52), transparent);
+}
+
+.games-road-poneglyph::before {
+  margin-right: 12px;
+}
+
+.games-road-poneglyph::after {
+  margin-left: 12px;
+}
+
+@keyframes games-road-poneglyph-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .filter-search-wrap {
@@ -601,6 +666,15 @@ onMounted(async () => {
   .games-filters {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .games-road-poneglyph {
+    margin: -6px 0 22px;
+  }
+
+  .games-road-poneglyph::before,
+  .games-road-poneglyph::after {
+    display: none;
   }
 
   .filter-search-wrap,

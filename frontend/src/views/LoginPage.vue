@@ -12,6 +12,12 @@ const rememberMe = ref(false)
 const error = ref('')
 const loading = ref(false)
 
+function isEmailNotConfirmedError(e: any) {
+  const status = e.response?.status
+  const msg = e.response?.data?.message || e.response?.data?.error
+  return status === 403 && msg === 'Email not confirmed'
+}
+
 async function handleLogin() {
   error.value = ''
   if (!email.value || !password.value) {
@@ -19,10 +25,26 @@ async function handleLogin() {
     return
   }
   loading.value = true
+  const loginEmail = email.value.trim()
   try {
-    await auth.login(email.value, password.value, rememberMe.value)
+    await auth.login(loginEmail, password.value, rememberMe.value)
     router.push('/')
   } catch (e: any) {
+    if (isEmailNotConfirmedError(e)) {
+      try {
+        await auth.resendVerification(loginEmail)
+      } catch (resendError: any) {
+        if (resendError.response?.status !== 429) {
+          const resendMsg = resendError.response?.data?.message || resendError.response?.data?.error
+          error.value = resendMsg || 'Помилка при надсиланні коду підтвердження'
+          return
+        }
+      }
+
+      router.push({ name: 'verify-email', query: { email: loginEmail } })
+      return
+    }
+
     const msg = e.response?.data?.message || e.response?.data?.error
     if (msg) {
       error.value = msg

@@ -10,6 +10,8 @@ import GroupChatSettingsModal from './GroupChatSettingsModal.vue'
 import ChatEmptyStateBase from './ChatEmptyStateBase.vue'
 import ChatEmptyStateSecret from './ChatEmptyStateSecret.vue'
 import { useAchievementStore } from '../stores/achievements'
+import RoadPoneglyphMarker from './RoadPoneglyphMarker.vue'
+import { useLaughTaleQuestStore } from '../stores/laughTaleQuest'
 import type { ChatMessage, PinnedMessageInfo, MessageReadByUser, MessageAttachment } from '../types'
 
 const router = useRouter()
@@ -17,6 +19,7 @@ const chatStore = useChatStore()
 const auth = useAuthStore()
 const stomp = useStompClient()
 const achievementStore = useAchievementStore()
+const laughTaleQuest = useLaughTaleQuestStore()
 
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 const DEFAULT_AVATAR_URL = `${PUBLIC_BASE_URL}/avatars/default/avatar-1.png`
@@ -25,6 +28,16 @@ const showGroupSettings = ref(false)
 
 
 const NOT_WHAT_YOU_EXPECTED_CODE = 'NOT_WHAT_YOU_EXPECTED'
+const WHITEBEARD_PHRASES = [
+  'one piece is real',
+  'the one piece is real',
+  'ван піс існує',
+  'ван піс існуе',
+  'ван пис існує',
+  'ван пис існуе',
+  'ван піс реальний',
+  'ван пис реальний',
+]
 
 const secretPlaceholderLocked = ref(false)
 
@@ -47,6 +60,21 @@ function onAvatarError(event: Event) {
 }
 
 const messageInput = ref('')
+function normalizeRoadTerm(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[’'`]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+const canRevealRoadFourPoneglyph = computed(() => {
+  const text = normalizeRoadTerm(messageInput.value)
+  return auth.isLoggedIn
+    && laughTaleQuest.canDiscover('ROAD_4')
+    && WHITEBEARD_PHRASES.some((phrase) => text.includes(normalizeRoadTerm(phrase)))
+})
 const messagesContainer = ref<HTMLElement | null>(null)
 const initialChatScrollDone = ref(false)
 const typingTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -1579,6 +1607,10 @@ onBeforeUnmount(() => {
       <div v-if="uploadError" class="chat-upload-error">{{ uploadError }}</div>
     </div>
 
+    <div v-if="canRevealRoadFourPoneglyph" class="chat-road-poneglyph" @click.stop>
+      <RoadPoneglyphMarker clue-code="ROAD_4" label="Четвертий роуд понегліф" />
+    </div>
+
     <div class="chat-input-bar">
       <input
         ref="fileInput"
@@ -1777,6 +1809,37 @@ onBeforeUnmount(() => {
 
 .chat-drop-overlay.blocked .chat-drop-title {
   color: var(--red);
+}
+
+.chat-road-poneglyph {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(184,50,50,0.25);
+  background:
+    linear-gradient(90deg, transparent, rgba(184,50,50,0.08)),
+    var(--panel);
+  animation: chat-road-poneglyph-arrive 0.58s cubic-bezier(0.18, 0.86, 0.28, 1.12);
+}
+
+.chat-road-poneglyph::before {
+  content: '';
+  width: min(220px, 28vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184,50,50,0.55));
+}
+
+@keyframes chat-road-poneglyph-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chat-file-input {

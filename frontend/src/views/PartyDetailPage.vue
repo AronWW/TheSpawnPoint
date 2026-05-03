@@ -280,14 +280,18 @@ async function handleComplete() {
     party.value = await partyStore.completeParty(party.value.id)
     await voiceStore.syncPartyState(party.value)
 
-    const canRate = await ratingStore.canRateParty(party.value.id)
-    if (canRate && otherMembers.value.length > 0) {
-      showRatingModal.value = true
-    }
+    await openRatingModalIfAllowed(party.value.id)
   } catch (e: unknown) {
     actionError.value = e instanceof Error ? e.message : 'Помилка'
   } finally {
     actionLoading.value = false
+  }
+}
+
+async function openRatingModalIfAllowed(partyId: number) {
+  const canRate = await ratingStore.canRateParty(partyId)
+  if (party.value?.id === partyId && canRate && otherMembers.value.length > 0) {
+    showRatingModal.value = true
   }
 }
 
@@ -373,14 +377,12 @@ watch(
     { deep: true },
 )
 
-// TODO: DEV ONLY — показувати модалку оцінки при статусі COMPLETED для тестування
 watch(
     () => party.value?.status,
     (newStatus, oldStatus) => {
       if (newStatus === 'COMPLETED' && oldStatus && oldStatus !== 'COMPLETED') {
-        if (otherMembers.value.length > 0) {
-          showRatingModal.value = true
-        }
+        const partyId = party.value?.id
+        if (partyId) void openRatingModalIfAllowed(partyId)
       }
     },
 )

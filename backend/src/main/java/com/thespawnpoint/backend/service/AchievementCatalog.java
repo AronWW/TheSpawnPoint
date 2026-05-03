@@ -36,6 +36,7 @@ public class AchievementCatalog {
     public static final String SECRET_DOOM_FOUND = "SECRET_DOOM_FOUND";
     public static final String ROOM_OF_REQUIREMENT = "ROOM_OF_REQUIREMENT";
     public static final String NOT_WHAT_YOU_EXPECTED = "NOT_WHAT_YOU_EXPECTED";
+    public static final String LAUGH_TALE = "LAUGH_TALE";
     public static final String SECRET_DOOM_COMPLETED = "SECRET_DOOM_COMPLETED";
     public static final String ONE_RING = "ONE_RING";
 
@@ -411,6 +412,19 @@ public class AchievementCatalog {
                 "Іноді краще не перевіряти, що саме ховається по той бік магічних дверей.",
                 true,
                 1016,
+                ProgressMetric.NONE,
+                0
+        ));
+        register(new AchievementDefinition(
+                LAUGH_TALE,
+                "Лафтель",
+                "Чотири червоні камені зійшлися в одну точку. Острів сміху нарешті знайдено.",
+                AchievementType.SECRET,
+                "laugh-tale",
+                null,
+                "Чотири червоні камені не назвуть острів напряму. Вони лише залишать точки на карті.",
+                false,
+                1018,
                 ProgressMetric.NONE,
                 0
         ));

@@ -4,6 +4,8 @@ import type { Achievement } from '../types'
 import { timeAgo } from '../utils/helpers'
 import AchievementIcon from './AchievementIcon.vue'
 import { useAchievementStore } from '../stores/achievements'
+import LaughTaleQuestModal from './LaughTaleQuestModal.vue'
+import { LAUGH_TALE_ACHIEVEMENT_CODE, useLaughTaleQuestStore } from '../stores/laughTaleQuest'
 
 const ANSWER_TO_LIFE_CODE = 'ANSWER_TO_LIFE'
 const ANSWER_TO_LIFE_VALUE = '42'
@@ -18,8 +20,10 @@ const props = withDefaults(defineProps<{
 })
 
 const achievementStore = useAchievementStore()
+const laughTaleQuest = useLaughTaleQuestStore()
 
 const showLifeInput = ref(false)
+const showLaughTaleLogbook = ref(false)
 const lifeAnswer = ref('')
 const lifeError = ref('')
 const submittingLifeAnswer = ref(false)
@@ -28,10 +32,17 @@ const isUnlocked = computed(() => props.achievement.unlocked)
 const isSecret = computed(() => props.achievement.type === 'SECRET')
 const hasProgress = computed(() => props.achievement.showProgress && !isSecret.value)
 const isLifeAnswerAchievement = computed(() => props.achievement.code === ANSWER_TO_LIFE_CODE)
+const isLaughTaleAchievement = computed(() => props.achievement.code === LAUGH_TALE_ACHIEVEMENT_CODE)
 const canOpenLifeAnswer = computed(() => (
     props.allowSecretInteraction
     && !props.compact
     && isLifeAnswerAchievement.value
+    && !isUnlocked.value
+))
+const canOpenLaughTaleLogbook = computed(() => (
+    props.allowSecretInteraction
+    && !props.compact
+    && isLaughTaleAchievement.value
     && !isUnlocked.value
 ))
 
@@ -51,6 +62,10 @@ const displayTitle = computed(() => {
 const bottomText = computed(() => {
   if (isUnlocked.value && props.achievement.unlockedAt) {
     return `Відкрито ${timeAgo(props.achievement.unlockedAt)}`
+  }
+
+  if (isLaughTaleAchievement.value) {
+    return `Логбук Лафтелю: ${laughTaleQuest.progressCount}/${laughTaleQuest.totalCount} роуд понегліфів`
   }
 
   if (isSecret.value) {
@@ -81,17 +96,23 @@ watch(() => props.achievement.unlocked, (unlocked) => {
     lifeAnswer.value = ''
     lifeError.value = ''
     submittingLifeAnswer.value = false
+    showLaughTaleLogbook.value = false
   }
 })
 
 function handleCardClick() {
+  if (canOpenLaughTaleLogbook.value) {
+    showLaughTaleLogbook.value = true
+    return
+  }
+
   if (!canOpenLifeAnswer.value) return
   showLifeInput.value = !showLifeInput.value
   lifeError.value = ''
 }
 
 function handleCardKeydown(event: KeyboardEvent) {
-  if (!canOpenLifeAnswer.value) return
+  if (!canOpenLifeAnswer.value && !canOpenLaughTaleLogbook.value) return
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     handleCardClick()
@@ -127,11 +148,11 @@ async function submitLifeAnswer() {
       compact ? 'compact' : 'full',
       achievement.unlocked ? 'is-unlocked' : 'is-locked',
       isSecret ? 'is-secret' : 'is-standard',
-      canOpenLifeAnswer ? 'is-interactive' : '',
+      (canOpenLifeAnswer || canOpenLaughTaleLogbook) ? 'is-interactive' : '',
       canOpenLifeAnswer && showLifeInput ? 'is-expanded' : '',
     ]"
-      :role="canOpenLifeAnswer ? 'button' : undefined"
-      :tabindex="canOpenLifeAnswer ? 0 : undefined"
+      :role="(canOpenLifeAnswer || canOpenLaughTaleLogbook) ? 'button' : undefined"
+      :tabindex="(canOpenLifeAnswer || canOpenLaughTaleLogbook) ? 0 : undefined"
       @click="handleCardClick"
       @keydown="handleCardKeydown"
   >
@@ -197,6 +218,11 @@ async function submitLifeAnswer() {
 
     <div class="achievement-card__shine"></div>
   </article>
+
+  <LaughTaleQuestModal
+    v-if="showLaughTaleLogbook"
+    @close="showLaughTaleLogbook = false"
+  />
 </template>
 
 <style scoped>

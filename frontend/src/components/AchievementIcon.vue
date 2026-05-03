@@ -57,6 +57,8 @@ const iconKind = computed(() => {
       return 'room-secret'
     case 'NOT_WHAT_YOU_EXPECTED':
       return 'rickroll-secret'
+    case 'LAUGH_TALE':
+      return 'laugh-tale'
     case 'ONE_RING':
       return 'one-ring'
     default:
@@ -174,6 +176,34 @@ const badgeFontSize = computed(() => {
       <ellipse cx="14.8" cy="16.65" rx="2.55" ry="1.9" stroke="currentColor" stroke-width="1.55"/>
       <path d="M18.1 8.55c1.08.24 1.82.84 2.35 1.82" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.72"/>
       <path d="M18.15 11.15c.68.14 1.18.48 1.56 1.06" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.52"/>
+    </svg>
+
+    <svg v-else-if="iconKind === 'laugh-tale'" viewBox="0 0 32 32" fill="none">
+      <g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <g opacity="0.45">
+          <path d="M6.2 5.4 25.8 24.6" />
+          <path d="M25.8 5.4 6.2 24.6" />
+          <circle cx="5.1" cy="4.6" r="1.65" />
+          <circle cx="26.9" cy="4.6" r="1.65" />
+          <circle cx="5.1" cy="25.4" r="1.65" />
+          <circle cx="26.9" cy="25.4" r="1.65" />
+        </g>
+
+        <path d="M9.1 13.5c.18 6.45 3.08 10.3 6.9 10.3s6.72-3.85 6.9-10.3" />
+
+        <path d="M5.25 12.1h21.5c1.42 0 2.25.38 2.25 1.05s-.83 1.05-2.25 1.05H5.25C3.83 14.2 3 13.82 3 13.15s.83-1.05 2.25-1.05z" />
+        <path d="M9.15 12.1c1.36-4.25 3.65-6.15 6.85-6.15s5.49 1.9 6.85 6.15" />
+        <path d="M10.5 10.55h11" opacity="0.7" />
+        <path d="m12.6 8.25-.8 1.3M14.3 7.85l-.9 1.5M17.7 7.85l.9 1.5M19.4 8.25l.8 1.3" stroke-width="1.35" opacity="0.8" />
+
+        <path d="M11.55 21.75c1.25.9 2.73 1.35 4.45 1.35s3.2-.45 4.45-1.35v3.25c0 2.12-1.72 3.55-4.45 3.55s-4.45-1.43-4.45-3.55v-3.25z" />
+        <path d="M12.3 24.1h7.4" />
+        <path d="M14 22.65v5.1M16 23.05v5.35M18 22.65v5.1" stroke-width="1.2" />
+      </g>
+
+      <circle cx="12.75" cy="17.35" r="2.15" fill="currentColor" />
+      <circle cx="19.25" cy="17.35" r="2.15" fill="currentColor" />
+      <ellipse cx="16" cy="20.4" rx="0.9" ry="0.55" fill="currentColor" />
     </svg>
 
     <svg v-else-if="iconKind === 'party-completed'" viewBox="0 0 24 24" fill="none">

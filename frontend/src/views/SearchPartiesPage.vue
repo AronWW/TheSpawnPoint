@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePartyStore } from '../stores/parties'
 import { useGameStore } from '../stores/games'
 import { useAuthStore } from '../stores/auth'
 import PartyCard from '../components/PartyCard.vue'
 import CreatePartyModal from '../components/CreatePartyModal.vue'
+import RoadPoneglyphMarker from '../components/RoadPoneglyphMarker.vue'
+import { useLaughTaleQuestStore } from '../stores/laughTaleQuest'
 import type { Party } from '../types'
 
 const router = useRouter()
@@ -13,10 +15,36 @@ const route = useRoute()
 const partyStore = usePartyStore()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const laughTaleQuest = useLaughTaleQuestStore()
 
 const modalOpen = ref(false)
 const filtersOpen = ref(false)
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+const ROAD_TWO_SEARCH_TERMS = ['lodestar', 'lode star', 'лодстар', 'Лодстар']
+
+function normalizeRoadTerm(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/ґ/g, 'г')
+    .replace(/[’'`]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+const canRevealRoadTwoPoneglyph = computed(() => {
+  const search = normalizeRoadTerm(partyStore.search)
+  const foundLoguetown = ROAD_TWO_SEARCH_TERMS.some((term) =>
+    search.includes(normalizeRoadTerm(term))
+  )
+
+  return auth.isLoggedIn
+    && laughTaleQuest.canDiscover('ROAD_2')
+    && partyStore.filterRegion === 'OCEANIA'
+    && partyStore.filterPlayStyle === 'CASUAL'
+    && foundLoguetown
+})
 
 function selectParty(party: Party) {
   router.push(`/party/${party.id}`)
@@ -346,6 +374,10 @@ watch(
         </div>
       </div>
 
+      <div v-if="canRevealRoadTwoPoneglyph" class="search-road-poneglyph">
+        <RoadPoneglyphMarker clue-code="ROAD_2" label="Другий роуд понегліф" />
+      </div>
+
       <div v-if="partyStore.searchLoading" class="empty-state">
         <div class="empty-state-icon">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -468,6 +500,33 @@ watch(
   margin-bottom: 28px;
 }
 
+.search-road-poneglyph {
+  display: flex;
+  justify-content: flex-end;
+  margin: -14px 0 26px;
+  animation: search-road-poneglyph-slide 0.62s cubic-bezier(0.18, 0.86, 0.28, 1.12);
+}
+
+.search-road-poneglyph::before {
+  content: '';
+  align-self: center;
+  width: min(260px, 35vw);
+  height: 1px;
+  margin-right: 12px;
+  background: linear-gradient(90deg, transparent, rgba(184,50,50,0.5));
+}
+
+@keyframes search-road-poneglyph-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .mobile-filters-bar {
   display: none;
 }
@@ -587,6 +646,15 @@ watch(
     flex-direction: column;
     gap: 0;
     margin-bottom: 20px;
+  }
+
+  .search-road-poneglyph {
+    justify-content: center;
+    margin: -4px 0 22px;
+  }
+
+  .search-road-poneglyph::before {
+    display: none;
   }
 
   .mobile-top-row {
