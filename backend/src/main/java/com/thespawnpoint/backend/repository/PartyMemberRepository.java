@@ -22,6 +22,19 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     int countByPartyRequestId(Long partyRequestId);
 
+    @Query(value = """
+            SELECT pm.party_request_id AS partyId, CAST(COUNT(*) AS INTEGER) AS memberCount
+            FROM party_members pm
+            WHERE pm.party_request_id IN (:partyIds)
+            GROUP BY pm.party_request_id
+            """, nativeQuery = true)
+    List<PartyMemberCountProjection> countMembersByPartyIds(@Param("partyIds") List<Long> partyIds);
+
+    interface PartyMemberCountProjection {
+        Long getPartyId();
+        Integer getMemberCount();
+    }
+
     @Query("""
             SELECT pm FROM PartyMember pm
             WHERE pm.partyRequest.id = :partyRequestId

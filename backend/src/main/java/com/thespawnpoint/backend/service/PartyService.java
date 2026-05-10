@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -359,12 +360,7 @@ public class PartyService {
                 gameId, skillLevel, playStyle, platformParam
         );
 
-        return parties.stream()
-                .map(p -> {
-                    int count = partyMemberRepository.countByPartyRequestId(p.getId());
-                    return toListDTO(p, count);
-                })
-                .toList();
+        return toListDTOs(parties);
     }
 
     public PartyRequestDTO getPartyById(Long partyId) {
@@ -423,30 +419,17 @@ public class PartyService {
         String regionParam = (region != null && !region.isBlank()) ? region : null;
         String qParam = (q != null && !q.isBlank()) ? q.trim() : null;
 
-        Page<PartyRequest> page = partyRequestRepository.findOpenWithFiltersPaged(
-                gameId, skillLevel, playStyle, platformParam, languageParam, regionParam, qParam, pageable
+        Page<PartyRequest> page = partyRequestRepository.findOpenWithRecommendedOrder(
+                gameId, skillLevel, playStyle, platformParam, languageParam, regionParam, qParam,
+                currentUser != null ? currentUser.getId() : null,
+                pageable
         );
 
-        List<Long> blockedIds = (currentUser != null)
-                ? blockService.getAllBlockedBetweenIds(currentUser.getId())
-                : List.of();
-
-        if (blockedIds.isEmpty()) {
-            return page.map(p -> {
-                int count = partyMemberRepository.countByPartyRequestId(p.getId());
-                return toListDTO(p, count);
-            });
-        }
-
-        List<PartyRequestDTO> filtered = page.getContent().stream()
-                .filter(p -> !blockedIds.contains(p.getCreator().getId()))
-                .map(p -> {
-                    int count = partyMemberRepository.countByPartyRequestId(p.getId());
-                    return toListDTO(p, count);
-                })
-                .toList();
-
-        return new org.springframework.data.domain.PageImpl<>(filtered, pageable, page.getTotalElements());
+        return new org.springframework.data.domain.PageImpl<>(
+                toListDTOs(page.getContent()),
+                pageable,
+                page.getTotalElements()
+        );
     }
 
     public List<PartyRequestDTO> getMyParties(User user) {
@@ -662,12 +645,43 @@ public class PartyService {
                 .build();
     }
 
+    private List<PartyRequestDTO> toListDTOs(List<PartyRequest> parties) {
+        if (parties == null || parties.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> partyIds = parties.stream()
+                .map(PartyRequest::getId)
+                .toList();
+        Map<Long, Integer> memberCounts = partyMemberRepository.countMembersByPartyIds(partyIds).stream()
+                .collect(Collectors.toMap(
+                        PartyMemberRepository.PartyMemberCountProjection::getPartyId,
+                        PartyMemberRepository.PartyMemberCountProjection::getMemberCount
+                ));
+
+        List<Long> creatorIds = parties.stream()
+                .map(p -> p.getCreator().getId())
+                .distinct()
+                .toList();
+        Map<Long, Double> creatorRatings = ratingService.getVisibleRatingsMap(creatorIds);
+
+        return parties.stream()
+                .map(p -> toListDTO(
+                        p,
+                        memberCounts.getOrDefault(p.getId(), 0),
+                        creatorRatings.get(p.getCreator().getId())
+                ))
+                .toList();
+    }
+
     private PartyRequestDTO toListDTO(PartyRequest party, int currentMembers) {
+        return toListDTO(party, currentMembers, ratingService.getVisibleRating(party.getCreator().getId()));
+    }
+
+    private PartyRequestDTO toListDTO(PartyRequest party, int currentMembers, Double creatorRating) {
         String creatorAvatarUrl = profileRepository.findByUserId(party.getCreator().getId())
                 .map(p -> p.getAvatarUrl())
                 .orElse(null);
-
-        Double creatorRating = ratingService.getVisibleRating(party.getCreator().getId());
 
         return PartyRequestDTO.builder()
                 .id(party.getId())

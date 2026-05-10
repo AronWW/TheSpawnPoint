@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import authApi, { publicApi } from '../api/axios'
-import type { Party, CreatePartyRequest, SortOption, Page, PartyInvite, PlayAgainData } from '../types'
+import type { Party, CreatePartyRequest, Page, PartyInvite, PlayAgainData } from '../types'
 
 interface RecentTeammateType {
   userId: number
@@ -25,7 +25,6 @@ export const usePartyStore = defineStore('parties', () => {
   const filterPlayStyle = ref('')
   const filterLanguage = ref('')
   const filterRegion = ref('')
-  const sortBy = ref<SortOption>('newest')
 
   const searchParties = ref<Party[]>([])
   const searchLoading = ref(false)
@@ -68,14 +67,6 @@ export const usePartyStore = defineStore('parties', () => {
               (p.description ?? '').toLowerCase().includes(q) ||
               (p.title ?? '').toLowerCase().includes(q)
       )
-    }
-
-    if (sortBy.value === 'slots') {
-      result = [...result].sort(
-          (a, b) => (b.maxMembers - b.currentMembers) - (a.maxMembers - a.currentMembers)
-      )
-    } else if (sortBy.value === 'game') {
-      result = [...result].sort((a, b) => a.gameName.localeCompare(b.gameName))
     }
 
     return result
@@ -172,7 +163,6 @@ export const usePartyStore = defineStore('parties', () => {
     filterPlayStyle.value = ''
     filterLanguage.value = ''
     filterRegion.value = ''
-    sortBy.value = 'newest'
   }
 
   async function fetchSearchParties(page = 0) {
@@ -365,7 +355,6 @@ export const usePartyStore = defineStore('parties', () => {
     filterPlayStyle,
     filterLanguage,
     filterRegion,
-    sortBy,
     filteredParties,
     fetchParties,
     createParty,

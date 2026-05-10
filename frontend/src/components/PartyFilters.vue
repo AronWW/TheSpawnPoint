@@ -17,7 +17,7 @@ watch(
   ],
   () => {
     partyStore.fetchParties(0)
-  }
+  },
 )
 </script>
 
@@ -54,30 +54,5 @@ watch(
       <option value="NINTENDO">Nintendo</option>
       <option value="MOBILE">Mobile</option>
     </select>
-
-    <div class="sort-btns">
-      <button
-        class="sort-btn"
-        :class="{ active: partyStore.sortBy === 'newest' }"
-        @click="partyStore.sortBy = 'newest'"
-      >
-        Нові
-      </button>
-      <button
-        class="sort-btn"
-        :class="{ active: partyStore.sortBy === 'slots' }"
-        @click="partyStore.sortBy = 'slots'"
-      >
-        Є місця
-      </button>
-      <button
-        class="sort-btn"
-        :class="{ active: partyStore.sortBy === 'game' }"
-        @click="partyStore.sortBy = 'game'"
-      >
-        Гра А-Я
-      </button>
-    </div>
   </div>
 </template>
-

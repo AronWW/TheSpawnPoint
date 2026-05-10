@@ -120,8 +120,6 @@ export interface PartyFilters {
   search: string
 }
 
-export type SortOption = 'newest' | 'slots' | 'game'
-
 export interface Friend {
   userId: number
   email: string
