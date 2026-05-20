@@ -16,7 +16,7 @@ export const usePartyStore = defineStore('parties', () => {
   const page = ref(0)
   const totalPages = ref(0)
   const totalElements = ref(0)
-  const size = ref(8)
+  const size = ref(9)
 
   const search = ref('')
   const filterGameId = ref<number | null>(null)
@@ -31,12 +31,12 @@ export const usePartyStore = defineStore('parties', () => {
   const searchPage = ref(0)
   const searchTotalPages = ref(0)
   const searchTotalElements = ref(0)
-  const searchSize = ref(8)
+  const searchSize = ref(9)
 
-  async function fetchParties(p = 0) {
+  async function fetchParties(p = 0, pageSize = size.value) {
     loading.value = true
     try {
-      const params: Record<string, string | number> = { page: p, size: size.value }
+      const params: Record<string, string | number> = { page: p, size: pageSize }
       if (filterGameId.value) params.gameId = filterGameId.value
       if (filterPlatform.value) params.platform = filterPlatform.value
       if (filterSkillLevel.value) params.skillLevel = filterSkillLevel.value

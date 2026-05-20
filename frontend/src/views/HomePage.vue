@@ -29,7 +29,7 @@ function openModal() {
 
 onMounted(async () => {
   await Promise.all([
-    partyStore.fetchParties(0),
+    partyStore.fetchParties(0, 8),
     gameStore.fetchGames(),
     auth.fetchOnlineCount(),
   ])

@@ -84,7 +84,7 @@ public class PartyController {
             @RequestParam(required = false) String language,
             @RequestParam(required = false) String region,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "8") int size,
+            @RequestParam(defaultValue = "9") int size,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
                 gameId, platform, skillLevel, playStyle, language, region, null,
@@ -106,7 +106,7 @@ public class PartyController {
             @RequestParam(required = false) String region,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "8") int size,
+            @RequestParam(defaultValue = "9") int size,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(partyService.getOpenPartiesPaged(
                 gameId, platform, skillLevel, playStyle, language, region, q,
